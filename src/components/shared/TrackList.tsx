@@ -35,6 +35,7 @@ export function TrackContextMenu({
 }: TrackContextMenuProps) {
   const { play, addToQueue, currentTrack, isPlaying, togglePlayPause } = usePlayerStore();
   const { toggleFavourite, isFavourite, playlists, addToPlaylist, addRecentlyPlayed } = useLibraryStore();
+  const { playerTheme } = useUIStore();
   const isFav = isFavourite(track.id);
   const isThisTrack = currentTrack?.id === track.id;
 
@@ -102,8 +103,35 @@ export function TrackContextMenu({
             Go to Album
           </ContextMenuItem>
         )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => {
+            console.log('Downloading track:', track.title);
+            const link = document.createElement('a');
+            link.href = track.streamURL || '#';
+            link.download = `${track.title} - ${track.artist}.mp3`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+          className="text-foreground focus:bg-accent focus:text-foreground"
+        >
+          Download Track
+        </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  );
+}
+
+function QualityBadge({ quality }: { quality?: string }) {
+  if (!quality || quality === 'Normal') return null;
+  return (
+    <span className={cn(
+      "text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5",
+      quality === 'Master' || quality === 'MQA' ? "bg-cyan-500 text-black" : "border border-muted-foreground/50 text-muted-foreground"
+    )}>
+      {quality}
+    </span>
   );
 }
 
@@ -124,6 +152,7 @@ export default function TrackList({
 }: TrackListProps) {
   const { play, currentTrack, isPlaying, togglePlayPause } = usePlayerStore();
   const { addRecentlyPlayed, isFavourite, toggleFavourite } = useLibraryStore();
+  const { playerTheme } = useUIStore();
 
   const handlePlay = (track: Track, index: number) => {
     if (onPlayTrack) {
@@ -175,10 +204,21 @@ export default function TrackList({
               {/* Index / Play button / Equalizer */}
               <div className="flex items-center justify-center">
                 {isCurrentlyPlaying ? (
-                  <div className="flex items-end gap-0.5 h-4 text-spotify-green">
-                    <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-1" style={{ height: 4 }} />
-                    <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-2" style={{ height: 8 }} />
-                    <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-3" style={{ height: 6 }} />
+                  <div className={cn(
+                    "flex items-end gap-0.5 h-4",
+                    playerTheme === 'spotify' && "text-spotify-green",
+                    playerTheme === 'tidal' && "text-cyan-400",
+                    playerTheme === 'apple' && "text-apple-red"
+                  )}>
+                    <div className={cn("w-0.5 rounded-full equalizer-bar-1", 
+                      playerTheme === 'spotify' ? "bg-spotify-green" : 
+                      playerTheme === 'tidal' ? "bg-cyan-400" : "bg-apple-red")} style={{ height: 4 }} />
+                    <div className={cn("w-0.5 rounded-full equalizer-bar-2", 
+                      playerTheme === 'spotify' ? "bg-spotify-green" : 
+                      playerTheme === 'tidal' ? "bg-cyan-400" : "bg-apple-red")} style={{ height: 8 }} />
+                    <div className={cn("w-0.5 rounded-full equalizer-bar-3", 
+                      playerTheme === 'spotify' ? "bg-spotify-green" : 
+                      playerTheme === 'tidal' ? "bg-cyan-400" : "bg-apple-red")} style={{ height: 6 }} />
                   </div>
                 ) : (
                   <>
@@ -215,12 +255,18 @@ export default function TrackList({
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className={cn(
-                    'text-sm font-medium truncate',
-                    isThisTrack ? 'text-spotify-green' : 'text-foreground'
-                  )}>
-                    {track.title}
-                  </p>
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <p className={cn(
+                      'text-sm font-medium truncate',
+                      isThisTrack && playerTheme === 'spotify' && 'text-spotify-green',
+                      isThisTrack && playerTheme === 'tidal' && 'text-cyan-400',
+                      isThisTrack && playerTheme === 'apple' && 'text-apple-red',
+                      !isThisTrack && 'text-foreground'
+                    )}>
+                      {track.title}
+                    </p>
+                    <QualityBadge quality={track.quality} />
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {track.artist}
                   </p>
@@ -239,7 +285,10 @@ export default function TrackList({
                 <button
                   className={cn(
                     'opacity-0 group-hover:opacity-100 transition-opacity',
-                    fav ? 'text-spotify-green' : 'text-muted-foreground hover:text-foreground'
+                    fav && playerTheme === 'spotify' && 'text-spotify-green',
+                    fav && playerTheme === 'tidal' && 'text-cyan-400',
+                    fav && playerTheme === 'apple' && 'text-apple-red',
+                    !fav && 'text-muted-foreground hover:text-foreground'
                   )}
                   onClick={(e) => {
                     e.stopPropagation();

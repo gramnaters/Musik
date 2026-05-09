@@ -151,7 +151,7 @@ function SortableTrackItem({
 }
 
 export default function RightPanel() {
-  const { rightPanel, setRightPanel } = useUIStore();
+  const { rightPanel, setRightPanel, playerTheme } = useUIStore();
   const { queue, currentTrack, isPlaying, reorderQueue } = usePlayerStore();
 
   const sensors = useSensors(
@@ -181,7 +181,10 @@ export default function RightPanel() {
           animate={{ width: 300, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="hidden lg:flex flex-col flex-shrink-0 h-full bg-card border-l border-border/30 overflow-hidden"
+          className={cn(
+            "hidden lg:flex flex-col flex-shrink-0 h-full overflow-hidden transition-all duration-500",
+            playerTheme === 'tidal' ? "tidal-glass-sidebar border-none" : "bg-card border-l border-border/30"
+          )}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">

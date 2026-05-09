@@ -21,7 +21,7 @@ export default function NowPlaying() {
     seekTo, setVolume, toggleMute, toggleShuffle, cycleRepeat,
     showNowPlaying, setShowNowPlaying,
   } = usePlayerStore();
-  const { setRightPanel } = useUIStore();
+  const { setRightPanel, playerTheme } = useUIStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
@@ -39,16 +39,37 @@ export default function NowPlaying() {
           className="fixed inset-0 z-[100] flex flex-col"
         >
           {/* Background gradient */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#503750] via-spotify-black to-spotify-black" />
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage: currentTrack.albumCover ? `url(${currentTrack.albumCover})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(60px) saturate(2)',
-            }}
-          />
+          {playerTheme === 'spotify' && (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-b from-[#503750] via-spotify-black to-spotify-black" />
+              <div
+                className="absolute inset-0 opacity-40"
+                style={{
+                  backgroundImage: currentTrack.albumCover ? `url(${currentTrack.albumCover})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(60px) saturate(2)',
+                }}
+              />
+            </>
+          )}
+          {playerTheme === 'tidal' && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-3xl" />
+          )}
+          {playerTheme === 'apple' && (
+            <div className="absolute inset-0 bg-[#1c1c1e]">
+              <div
+                className="absolute inset-0 opacity-50"
+                style={{
+                  backgroundImage: currentTrack.albumCover ? `url(${currentTrack.albumCover})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(80px) saturate(1.8)',
+                }}
+              />
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-3xl" />
+            </div>
+          )}
 
           {/* Content */}
           <div className="relative z-10 flex flex-col h-full">
@@ -117,6 +138,16 @@ export default function NowPlaying() {
                   </button>
                 </div>
                 <p className="text-base text-white/70 mt-1 truncate">{currentTrack.artist}</p>
+                {currentTrack.quality && currentTrack.quality !== 'Normal' && (
+                  <div className="flex justify-center mt-2">
+                    <span className={cn(
+                      "text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider",
+                      currentTrack.quality === 'Master' || currentTrack.quality === 'MQA' ? "bg-cyan-400 text-black" : "border border-white/30 text-white"
+                    )}>
+                      {currentTrack.quality}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -124,14 +155,16 @@ export default function NowPlaying() {
             <div className="p-6 md:p-8 pb-12 md:pb-16 space-y-4">
               {/* Progress */}
               <div className="w-full max-w-[min(90vw,600px)] mx-auto">
-                <Slider
-                  value={[currentTime]}
-                  min={0}
-                  max={duration || 100}
-                  step={0.1}
-                  onValueChange={(value) => seekTo(value[0])}
-                  className="w-full cursor-pointer"
-                />
+                <div className={cn('w-full cursor-pointer', playerTheme === 'spotify' ? 'spotify-progress' : 'enhanced-seekbar')}>
+                  <Slider
+                    value={[currentTime]}
+                    min={0}
+                    max={duration || 100}
+                    step={0.1}
+                    onValueChange={(value) => seekTo(value[0])}
+                    className="w-full"
+                  />
+                </div>
                 <div className="flex justify-between mt-1">
                   <span className="text-xs text-white/50 tabular-nums">
                     {formatDuration(currentTime)}
@@ -169,12 +202,17 @@ export default function NowPlaying() {
                   whileHover={{ scale: 1.06 }}
                   whileTap={{ scale: 0.94 }}
                   onClick={togglePlayPause}
-                  className="w-14 h-14 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                  className={cn(
+                    "w-14 h-14 rounded-full flex items-center justify-center transition-all",
+                    playerTheme === 'spotify' && "bg-white text-black",
+                    playerTheme === 'tidal' && "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,255,255,0.3)]",
+                    playerTheme === 'apple' && "bg-white text-black"
+                  )}
                 >
                   {isPlaying ? (
-                    <Pause size={28} fill="#000" className="text-black" />
+                    <Pause size={28} fill="currentColor" />
                   ) : (
-                    <Play size={28} fill="#000" className="text-black ml-1" />
+                    <Play size={28} fill="currentColor" className="ml-1" />
                   )}
                 </motion.button>
 

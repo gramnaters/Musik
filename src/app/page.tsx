@@ -13,14 +13,18 @@ import HomeView from '@/components/views/HomeView';
 import SearchView from '@/components/views/SearchView';
 import LibraryView from '@/components/views/LibraryView';
 import AddonsView from '@/components/views/AddonsView';
+import SettingsView from '@/components/views/SettingsView';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function MainContent() {
-  const { activeView, selectedPlaylistId } = useUIStore();
+  const { activeView, selectedPlaylistId, playerTheme } = useUIStore();
 
   return (
-    <div className="flex-1 h-full overflow-hidden bg-background">
+    <div className={cn(
+      "flex-1 h-full overflow-hidden transition-colors",
+      playerTheme === 'tidal' ? "bg-transparent" : "bg-background"
+    )}>
       <AnimatePresence mode="wait">
         <motion.div
           key={`${activeView}-${selectedPlaylistId || ''}`}
@@ -34,6 +38,7 @@ function MainContent() {
           {activeView === 'search' && <SearchView />}
           {(activeView === 'library' || activeView === 'playlist') && <LibraryView />}
           {activeView === 'addons' && <AddonsView />}
+          {activeView === 'settings' && <SettingsView />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -111,17 +116,55 @@ export default function AppPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const { playerTheme } = useUIStore();
+
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground">
+    <div className={cn(
+      "h-screen w-screen flex flex-col overflow-hidden text-foreground relative transition-colors duration-500",
+      playerTheme === 'tidal' ? "bg-black" : "bg-background"
+    )}>
+      {/* Global Liquify Background */}
+      {playerTheme === 'tidal' && (
+        <div className="liquify-bg-container fixed inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="liquify-blob b1" style={{ 
+            width: '520px', height: '520px', 
+            background: 'radial-gradient(circle, #3b82f6, #6366f1)',
+            top: '-120px', left: '-60px',
+            animationDuration: '18s'
+          }} />
+          <div className="liquify-blob b2" style={{ 
+            width: '400px', height: '400px', 
+            background: 'radial-gradient(circle, #ec4899, #8b5cf6)',
+            top: '60px', right: '-100px',
+            animationDuration: '22s', animationDelay: '-8s'
+          }} />
+          <div className="liquify-blob b3" style={{ 
+            width: '340px', height: '340px', 
+            background: 'radial-gradient(circle, #06b6d4, #3b82f6)',
+            bottom: '40px', left: '30%',
+            animationDuration: '26s', animationDelay: '-14s'
+          }} />
+          <div className="liquify-blob b4" style={{ 
+            width: '260px', height: '260px', 
+            background: 'radial-gradient(circle, #f59e0b, #ec4899)',
+            bottom: '-60px', right: '20%',
+            animationDuration: '30s', animationDelay: '-20s'
+          }} />
+          <div className="absolute inset-0 bg-black/15 backdrop-blur-[80px]" />
+        </div>
+      )}
+
       {/* Top section: sidebar + main + right panel */}
-      <div className="flex-1 flex flex-row overflow-hidden">
+      <div className="flex-1 flex flex-row overflow-hidden relative z-10">
         <Sidebar />
         <MainContent />
         <RightPanel />
       </div>
 
       {/* Bottom Player Bar */}
-      <PlayerBar />
+      <div className="relative z-20">
+        <PlayerBar />
+      </div>
 
       {/* Mobile Navigation */}
       <MobileNav />

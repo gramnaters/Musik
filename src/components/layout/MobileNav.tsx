@@ -13,7 +13,7 @@ const navItems = [
 ];
 
 export default function MobileNav() {
-  const { activeView, navigateTo, setSelectedPlaylistId } = useUIStore();
+  const { activeView, navigateTo, setSelectedPlaylistId, playerTheme } = useUIStore();
 
   return (
     <motion.div
@@ -40,8 +40,17 @@ export default function MobileNav() {
               isActive ? 'text-foreground' : 'text-muted-foreground'
             )}
           >
-            <item.icon size={22} className={cn(isActive && 'text-spotify-green')} />
-            <span className={cn('text-[10px] font-medium', isActive && 'text-spotify-green')}>
+            <item.icon size={22} className={cn(
+              isActive && playerTheme === 'spotify' && 'text-spotify-green',
+              isActive && playerTheme === 'tidal' && 'text-cyan-400',
+              isActive && playerTheme === 'apple' && 'text-apple-red'
+            )} />
+            <span className={cn(
+              'text-[10px] font-medium',
+              isActive && playerTheme === 'spotify' && 'text-spotify-green',
+              isActive && playerTheme === 'tidal' && 'text-cyan-400',
+              isActive && playerTheme === 'apple' && 'text-apple-red'
+            )}>
               {item.label}
             </span>
           </button>

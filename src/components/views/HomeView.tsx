@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
 import { motion } from 'framer-motion';
-import { useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Clock } from 'lucide-react';
 
 function getGreeting(): string {
@@ -21,14 +21,19 @@ function getGreeting(): string {
 function PlaylistCard({
   playlist,
   onClick,
+  playerTheme,
 }: {
   playlist: typeof demoPlaylists[0];
   onClick: () => void;
+  playerTheme: string;
 }) {
   return (
     <motion.div
       whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-      className="flex items-center bg-accent/50 hover:bg-accent rounded-md overflow-hidden cursor-pointer group"
+      className={cn(
+        "flex items-center rounded-md overflow-hidden cursor-pointer group transition-colors",
+        playerTheme === 'tidal' ? "bg-white/5 hover:bg-white/10" : "bg-accent/50 hover:bg-accent"
+      )}
       onClick={onClick}
     >
       <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
@@ -89,9 +94,15 @@ function CardItem({
 export default function HomeView() {
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
-  const { setSelectedPlaylistId, setActiveView } = useUIStore();
+  const { setSelectedPlaylistId, setActiveView, playerTheme } = useUIStore();
 
-  const greeting = useMemo(() => getGreeting(), []);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const greeting = useMemo(() => {
+    if (!mounted) return 'Welcome';
+    return getGreeting();
+  }, [mounted]);
 
   const handlePlayPlaylist = (playlist: typeof demoPlaylists[0]) => {
     if (playlist.tracks && playlist.tracks.length > 0) {
@@ -109,24 +120,67 @@ export default function HomeView() {
   return (
     <ScrollArea className="h-full custom-scrollbar">
       <div className="p-4 md:p-8 space-y-8 pb-32">
-        {/* Greeting */}
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-          {greeting}
-        </h1>
+        {/* Hero Section */}
+        {playerTheme === 'tidal' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="hero relative h-[220px] rounded-2xl overflow-hidden cursor-pointer group shadow-2xl shadow-black/50"
+            onClick={() => handlePlayPlaylist(demoPlaylists[0])}
+          >
+            <div className="hero-bg absolute inset-0 tidal-hero-gradient animate-pulse" />
+            <div className="relative z-10 p-7 h-full flex flex-col justify-end">
+              <div className="absolute top-6 left-7 bg-white/15 backdrop-blur-md border border-white/20 rounded-full px-3 py-1 text-[11px] font-semibold tracking-wider uppercase text-white/90">
+                🔥 Featured
+              </div>
+              <div className="absolute top-5 right-6 w-12 h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-lg transition-all group-hover:scale-110 group-hover:bg-white/25">
+                <PlayButton size="md" onClick={() => {}} />
+              </div>
+              <h2 className="text-3xl font-bold text-white tracking-tight mb-1">Midnight Cascade</h2>
+              <p className="text-sm text-white/60">Neon Pulse • Ultraviolet • 2024</p>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Quick Access Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
-          {quickAccess.map((playlist) => (
-            <PlaylistCard
-              key={playlist.id}
-              playlist={playlist}
-              onClick={() => {
-                handlePlayPlaylist(playlist);
-                handleOpenPlaylist(playlist.id);
-              }}
-            />
-          ))}
+        {/* Quick Picks / Quick Row */}
+        <div>
+          <h2 className="text-base font-semibold text-white/90 mb-3 tracking-tight">Quick Picks</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { icon: '⚡', name: 'Neon Pulse' },
+              { icon: '🌊', name: 'Ocean Drive' },
+              { icon: '🔥', name: 'Heat Waves' },
+              { icon: '💫', name: 'Blinding Lights' }
+            ].map((pick, i) => (
+              <motion.div
+                key={i}
+                whileHover={{ y: -2, backgroundColor: 'rgba(255,255,255,0.11)' }}
+                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer text-sm font-medium text-white/80 bg-white/5 border border-white/10 backdrop-blur-xl transition-all"
+                onClick={() => handlePlayPlaylist(demoPlaylists[i % demoPlaylists.length])}
+              >
+                <span className="text-xl">{pick.icon}</span>
+                {pick.name}
+              </motion.div>
+            ))}
+          </div>
         </div>
+
+        {/* Quick Access Grid (Legacy for non-tidal) */}
+        {playerTheme !== 'tidal' && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+            {quickAccess.map((playlist) => (
+              <PlaylistCard
+                key={playlist.id}
+                playlist={playlist}
+                onClick={() => {
+                  handlePlayPlaylist(playlist);
+                  handleOpenPlaylist(playlist.id);
+                }}
+                playerTheme={playerTheme}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Made For You */}
         <section>

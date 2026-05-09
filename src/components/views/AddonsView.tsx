@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAddonStore } from '@/stores/addonStore';
+import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ interface StoreAddon {
 const ECLIPSE_STORE_NAME = 'Eclipse Addon Store';
 
 export default function AddonsView() {
+  const { playerTheme } = useUIStore();
   const {
     addons,
     activeAddonId,
@@ -60,6 +62,9 @@ export default function AddonsView() {
     error,
     clearError,
   } = useAddonStore();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const [installUrl, setInstallUrl] = useState('');
   const [installing, setInstalling] = useState(false);
@@ -150,6 +155,8 @@ export default function AddonsView() {
     : storeAddons;
 
   const enabledAddons = addons.filter((a) => a.enabled);
+
+  if (!mounted) return null;
 
   return (
     <ScrollArea className="h-full custom-scrollbar">
@@ -366,11 +373,13 @@ export default function AddonsView() {
                     animate={{ opacity: 1, scale: 1 }}
                     className={cn(
                       'flex items-start gap-3 p-4 rounded-lg border transition-all',
-                      installed
-                        ? isActive
-                          ? 'bg-card border-spotify-green/50 ring-1 ring-spotify-green/20'
-                          : 'bg-card border-spotify-green/30'
-                        : 'bg-card border-border/30 hover:border-border/50'
+                      playerTheme === 'tidal'
+                        ? 'bg-white/5 backdrop-blur-md border-white/10'
+                        : installed
+                          ? isActive
+                            ? 'bg-card border-spotify-green/50 ring-1 ring-spotify-green/20'
+                            : 'bg-card border-spotify-green/30'
+                          : 'bg-card border-border/30 hover:border-border/50'
                     )}
                   >
                     {/* Icon */}

@@ -3,7 +3,7 @@
 import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { cn } from '@/lib/utils';
-import { Home, Search, Library, Plus, ChevronLeft, ChevronRight, Music, Puzzle } from 'lucide-react';
+import { Home, Search, Library, Plus, ChevronLeft, ChevronRight, Music, Puzzle, Settings as SettingsIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +18,11 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 
 export default function Sidebar() {
-  const { activeView, navigateTo, sidebarCollapsed, toggleSidebar, selectedPlaylistId, setSelectedPlaylistId } = useUIStore();
+  const { 
+    activeView, navigateTo, sidebarCollapsed, toggleSidebar, 
+    selectedPlaylistId, setSelectedPlaylistId,
+    playerTheme, setPlayerTheme 
+  } = useUIStore();
   const { playlists, createPlaylist } = useLibraryStore();
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -36,6 +40,7 @@ export default function Sidebar() {
     { icon: Search, label: 'Search', view: 'search' as const },
     { icon: Library, label: 'Your Library', view: 'library' as const },
     { icon: Puzzle, label: 'Addons', view: 'addons' as const },
+    { icon: SettingsIcon, label: 'Settings', view: 'settings' as const },
   ];
 
   return (
@@ -43,19 +48,20 @@ export default function Sidebar() {
       initial={false}
       animate={{ width: sidebarCollapsed ? 72 : 240 }}
       className={cn(
-        'hidden md:flex flex-col flex-shrink-0 h-full',
-        'bg-sidebar border-r border-sidebar-border',
-        'transition-colors'
+        'hidden md:flex flex-col flex-shrink-0 h-full transition-all duration-500',
+        playerTheme === 'tidal' ? 'tidal-glass-sidebar border-none' : 'bg-sidebar border-r border-sidebar-border',
       )}
     >
       {/* Top section */}
       <div className={cn('flex items-center p-4 gap-2', sidebarCollapsed && 'justify-center')}>
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-spotify-green flex items-center justify-center flex-shrink-0">
-              <Music size={18} className="text-white" />
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 12L12 22L22 12L12 2ZM12 6L18 12L12 18L6 12L12 6Z" fill="white" />
+              </svg>
             </div>
-            <span className="font-bold text-lg text-foreground truncate">Musik</span>
+            <span className="font-bold text-xl text-white tracking-tight">TIDAL</span>
           </div>
         )}
         <Button
@@ -83,16 +89,15 @@ export default function Sidebar() {
                 setSelectedPlaylistId(null);
               }}
               className={cn(
-                'w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-medium',
-                'transition-all duration-200',
+                'w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-[13.5px] font-medium relative transition-all duration-200',
                 isActive
-                  ? 'text-foreground bg-accent'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                sidebarCollapsed && 'justify-center px-2'
+                  ? playerTheme === 'tidal' ? 'tidal-nav-item-active' : 'text-foreground bg-accent'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5',
+                sidebarCollapsed && 'justify-center px-2',
               )}
               title={sidebarCollapsed ? item.label : undefined}
             >
-              <item.icon size={24} className="flex-shrink-0" />
+              <item.icon size={isActive && playerTheme === 'tidal' ? 22 : 20} className={cn("flex-shrink-0 transition-transform", isActive && "scale-110")} />
               {!sidebarCollapsed && <span>{item.label}</span>}
             </button>
           );
@@ -182,9 +187,37 @@ export default function Sidebar() {
         </ScrollArea>
       </div>
 
+      {/* Theme Toggle (Bottom) */}
+      <div className="mt-auto px-2 py-4 border-t border-sidebar-border">
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            sidebarCollapsed ? "px-2 justify-center" : "px-4"
+          )}
+          onClick={() => {
+            const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
+            const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
+            setPlayerTheme(next);
+          }}
+        >
+          <div className={cn(
+            "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all",
+            playerTheme === 'spotify' && "bg-spotify-green shadow-[0_0_8px_rgba(29,185,84,0.4)]",
+            playerTheme === 'tidal' && "bg-cyan-400 shadow-[0_0_8px_rgba(0,255,255,0.4)]",
+            playerTheme === 'apple' && "bg-apple-red shadow-[0_0_8px_rgba(250,35,59,0.4)]"
+          )} />
+          {!sidebarCollapsed && (
+            <span className="text-[10px] uppercase tracking-[0.2em] font-black opacity-80">
+              {playerTheme}
+            </span>
+          )}
+        </Button>
+      </div>
+
       {/* Expand button when collapsed */}
       {sidebarCollapsed && (
-        <div className="p-2">
+        <div className="p-2 border-t border-sidebar-border/30">
           <Button
             variant="ghost"
             size="icon"

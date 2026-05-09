@@ -12,6 +12,7 @@ export interface Track {
   format?: string;
   addonId?: string;
   addonTrackId?: string;
+  quality?: 'HiFi' | 'Master' | 'High' | 'Normal' | 'MQA';
 }
 
 export interface Album {

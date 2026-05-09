@@ -27,6 +27,7 @@ export interface AddonTrack {
   albumId?: string;
   addonId?: string;
   addonName?: string;
+  quality?: 'HiFi' | 'Master' | 'High' | 'Normal' | 'MQA';
 }
 
 // Helper to normalize track fields from various addon response formats
@@ -42,6 +43,7 @@ export function normalizeAddonTrack(raw: Record<string, unknown>, addonId: strin
     isrc: raw.isrc ? String(raw.isrc) : undefined,
     artistId: raw.artistId ? String(raw.artistId) : raw.artist_id ? String(raw.artist_id) : undefined,
     albumId: raw.albumId ? String(raw.albumId) : undefined,
+    quality: (raw.quality ?? raw.audioQuality ?? raw.stream_quality) as any,
     addonId,
     addonName,
   };

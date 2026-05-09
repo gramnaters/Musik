@@ -41,6 +41,7 @@ function addonTrackToTrack(t: AddonTrack): Track {
     artistId: t.artistId,
     addonId: t.addonId,
     addonTrackId: t.id,
+    quality: t.quality,
   };
 }
 
@@ -50,7 +51,7 @@ export default function SearchView() {
   const { play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
   const { addons, activeAddonId, setActiveAddon, isSearching, search, searchResults, error: addonError, clearError } = useAddonStore();
-  const { navigateTo } = useUIStore();
+  const { navigateTo, playerTheme } = useUIStore();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [addonResults, setAddonResults] = useState<Track[]>([]);
 
@@ -132,7 +133,10 @@ export default function SearchView() {
                 placeholder="What do you want to listen to?"
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
-                className="pl-10 pr-10 h-12 bg-foreground/5 border-none rounded-full text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-foreground/20"
+                className={cn(
+                  "pl-10 pr-10 h-12 bg-foreground/5 border-none text-foreground placeholder:text-muted-foreground",
+                  playerTheme === 'spotify' ? "rounded-full focus-visible:ring-white/20" : "rounded-md border border-white/10 focus-visible:ring-cyan-500/50"
+                )}
                 autoFocus
               />
               {query && (

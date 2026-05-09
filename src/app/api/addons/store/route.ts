@@ -31,6 +31,20 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
+    
+    // Inject All in One addon
+    if (data.addons && Array.isArray(data.addons)) {
+      data.addons.unshift({
+        id: 'all-in-one',
+        name: 'All in One',
+        description: 'Eclipse, JioSaavn, YT Music, and more in one addon.',
+        version: '1.0.0',
+        author: 'BeatBoss',
+        icon: '🌍',
+        manifestUrl: 'https://all-in-one.cyrusna29.workers.dev/manifest.json'
+      });
+    }
+
     cachedRegistry = data;
     cacheTimestamp = Date.now();
     return NextResponse.json(data);

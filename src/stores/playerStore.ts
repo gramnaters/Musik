@@ -122,9 +122,9 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
 
                 if (baseURL) {
                   const streamApiUrl = `${baseURL}/stream/${track.addonTrackId}`;
-                  const proxyRes = await fetch(`/api/addons/proxy?url=${encodeURIComponent(streamApiUrl)}`);
-                  if (proxyRes.ok) {
-                    const streamData = await proxyRes.json();
+                  const proxyRes = await fetch(`/api/addons/proxy?url=${encodeURIComponent(streamApiUrl)}`).catch(() => null);
+                  if (proxyRes && proxyRes.ok) {
+                    const streamData = await proxyRes.json().catch(() => ({}));
                     if (streamData.url) {
                       finalStreamUrl = streamData.url;
                     }
@@ -136,6 +136,13 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
             }
 
             if (finalStreamUrl) {
+              const trackToPlay = {
+                ...track,
+                url: finalStreamUrl,
+                quality: (track as any).quality || 'Normal',
+              };
+              set({ currentTrack: trackToPlay, isPlaying: true });
+              
               audio.src = `/api/stream?url=${encodeURIComponent(finalStreamUrl)}`;
               audio.volume = state.isMuted ? 0 : state.volume;
               audio.play().catch(() => {});
@@ -153,18 +160,17 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           if (a && !a.paused) {
             set({ currentTime: a.currentTime });
           }
-        }, 250);
+        }, 100);
 
         // Handle track end
         audio.onended = () => {
           const s = get();
           if (s.repeatMode === 'one') {
-            a.currentTime = 0;
-            a.play().catch(() => {});
+            audio.currentTime = 0;
+            audio.play().catch(() => {});
           } else if (s.queueIndex < s.queue.length - 1) {
             s.nextTrack();
           } else if (s.repeatMode === 'all' && s.queue.length > 0) {
-            s.setQueue(s.originalQueue, 0);
             s.play(s.originalQueue[0], s.originalQueue, 0);
           } else {
             set({ isPlaying: false });
