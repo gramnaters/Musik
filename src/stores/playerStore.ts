@@ -43,7 +43,31 @@ interface PlayerActions {
   cleanup: () => void;
 }
 
-let timeInterval: ReturnType<typeof setInterval> | null = null;
+let timeRaf: number | null = null;
+
+function stopTimeSync() {
+  if (timeRaf != null) {
+    cancelAnimationFrame(timeRaf);
+    timeRaf = null;
+  }
+}
+
+function startTimeSync(
+  set: (partial: Partial<PlayerState & PlayerActions>) => void,
+  get: () => PlayerState & PlayerActions
+) {
+  stopTimeSync();
+  const tick = () => {
+    const a = get().audio;
+    if (a && !a.paused && get().isPlaying) {
+      set({ currentTime: a.currentTime });
+      timeRaf = requestAnimationFrame(tick);
+    } else {
+      timeRaf = null;
+    }
+  };
+  timeRaf = requestAnimationFrame(tick);
+}
 
 export const usePlayerStore = create<PlayerState & PlayerActions>()(
   persist(
@@ -67,11 +91,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         const state = get();
         const audio = state.audio || new Audio();
 
-        // Clear previous interval
-        if (timeInterval) {
-          clearInterval(timeInterval);
-          timeInterval = null;
-        }
+        stopTimeSync();
 
         let newQueue = queue || [track];
         let originalQueue = queue ? [...queue] : [track];
@@ -154,13 +174,15 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
 
         resolveAndPlay();
 
-        // Start time tracking
-        timeInterval = setInterval(() => {
+        audio.onplay = () => {
+          startTimeSync(set, get);
+        };
+
+        audio.onpause = () => {
+          stopTimeSync();
           const a = get().audio;
-          if (a && !a.paused) {
-            set({ currentTime: a.currentTime });
-          }
-        }, 100);
+          if (a) set({ currentTime: a.currentTime });
+        };
 
         // Handle track end
         audio.onended = () => {
@@ -173,11 +195,8 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           } else if (s.repeatMode === 'all' && s.queue.length > 0) {
             s.play(s.originalQueue[0], s.originalQueue, 0);
           } else {
+            stopTimeSync();
             set({ isPlaying: false });
-            if (timeInterval) {
-              clearInterval(timeInterval);
-              timeInterval = null;
-            }
           }
         };
 
@@ -202,7 +221,9 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       pause: () => {
         const { audio } = get();
         audio?.pause();
-        set({ isPlaying: false });
+        stopTimeSync();
+        if (audio) set({ isPlaying: false, currentTime: audio.currentTime });
+        else set({ isPlaying: false });
       },
 
       resume: () => {
@@ -210,6 +231,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         if (audio && currentTrack) {
           audio.play().catch(() => {});
           set({ isPlaying: true });
+          startTimeSync(set, get);
         }
       },
 
@@ -354,10 +376,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
 
       cleanup: () => {
         const { audio } = get();
-        if (timeInterval) {
-          clearInterval(timeInterval);
-          timeInterval = null;
-        }
+        stopTimeSync();
         audio?.pause();
         audio?.removeAttribute('src');
         set({ audio: null, isPlaying: false });

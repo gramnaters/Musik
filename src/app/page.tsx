@@ -154,19 +154,31 @@ export default function AppPage() {
         </div>
       )}
 
-      {/* Top section: sidebar + main + right panel */}
-      <div className="flex-1 flex flex-row overflow-hidden relative z-10">
+      {/* Top section: sidebar + main + right panel — extra bottom padding on mobile for fixed player + tab bar */}
+      <div
+        className={cn(
+          'flex-1 flex flex-row overflow-hidden relative z-10',
+          'max-md:pb-[calc(12rem+env(safe-area-inset-bottom,0px))] md:pb-0'
+        )}
+      >
         <Sidebar />
         <MainContent />
         <RightPanel />
       </div>
 
-      {/* Bottom Player Bar */}
-      <div className="relative z-20">
+      {/* Player sits above mobile tab bar; tab bar is pinned to the bottom (see MobileNav) */}
+      <div
+        className={cn(
+          'flex-shrink-0 w-full z-20',
+          'max-md:fixed max-md:left-0 max-md:right-0',
+          /* Pinned above bottom tab bar (nav row ~4.5rem + same safe-area inset) */
+          'max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))]',
+          'md:relative'
+        )}
+      >
         <PlayerBar />
       </div>
 
-      {/* Mobile Navigation */}
       <MobileNav />
 
       {/* Now Playing Overlay */}

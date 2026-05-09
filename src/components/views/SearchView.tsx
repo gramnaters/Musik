@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useAddonStore } from '@/stores/addonStore';
@@ -51,7 +51,7 @@ export default function SearchView() {
   const { play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
   const { addons, activeAddonId, setActiveAddon, isSearching, search, searchResults, error: addonError, clearError } = useAddonStore();
-  const { navigateTo, playerTheme } = useUIStore();
+  const { navigateTo, playerTheme, searchQuery, setSearchQuery } = useUIStore();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [addonResults, setAddonResults] = useState<Track[]>([]);
 
@@ -80,6 +80,7 @@ export default function SearchView() {
   const handleQueryChange = useCallback(
     (value: string) => {
       setQuery(value);
+      setSearchQuery(value);
       if (addonError) clearError();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (value.trim()) {
@@ -94,8 +95,16 @@ export default function SearchView() {
         setHasSearched(false);
       }
     },
-    [activeAddonId, doAddonSearch, addonError, clearError]
+    [activeAddonId, doAddonSearch, addonError, clearError, setSearchQuery]
   );
+
+  // Allow other views (Home “Browse All”, etc.) to drive the search box.
+  useEffect(() => {
+    if (typeof searchQuery !== 'string') return;
+    if (searchQuery === query) return;
+    handleQueryChange(searchQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const allResults = useMemo(() => {
     if (!hasSearched) return [];
@@ -142,7 +151,7 @@ export default function SearchView() {
               {query && (
                 <button
                   onClick={() => {
-                    setQuery('');
+                    handleQueryChange('');
                     setAddonResults([]);
                     setHasSearched(false);
                     if (addonError) clearError();
@@ -253,7 +262,7 @@ export default function SearchView() {
                 whileHover={{ scale: 1.03 }}
                 className="aspect-square rounded-lg p-4 cursor-pointer relative overflow-hidden"
                 style={{ backgroundColor: cat.color }}
-                onClick={() => setQuery(cat.name.toLowerCase())}
+                onClick={() => handleQueryChange(cat.name)}
               >
                 <h3 className="text-lg font-bold text-white relative z-10">{cat.name}</h3>
               </motion.div>

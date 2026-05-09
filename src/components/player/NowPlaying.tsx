@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
+import { getQualityBadge } from '@/lib/audio-quality';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,6 +26,7 @@ export default function NowPlaying() {
   const { isFavourite, toggleFavourite } = useLibraryStore();
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
+  const qualityBadge = getQualityBadge(currentTrack?.quality);
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -138,13 +140,13 @@ export default function NowPlaying() {
                   </button>
                 </div>
                 <p className="text-base text-white/70 mt-1 truncate">{currentTrack.artist}</p>
-                {currentTrack.quality && currentTrack.quality !== 'Normal' && (
+                {qualityBadge && (
                   <div className="flex justify-center mt-2">
                     <span className={cn(
                       "text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider",
-                      currentTrack.quality === 'Master' || currentTrack.quality === 'MQA' ? "bg-cyan-400 text-black" : "border border-white/30 text-white"
+                      qualityBadge.tone === 'highlight' ? "bg-cyan-400 text-black" : "border border-white/30 text-white"
                     )}>
-                      {currentTrack.quality}
+                      {qualityBadge.label}
                     </span>
                   </div>
                 )}

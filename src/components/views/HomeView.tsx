@@ -3,13 +3,13 @@
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
-import { demoPlaylists, browseCategories, formatDuration } from '@/lib/demo-data';
+import { demoPlaylists, browseCategories } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -91,10 +91,33 @@ function CardItem({
   );
 }
 
+function SectionHeader({
+  title,
+  onSeeAll,
+}: {
+  title: string;
+  onSeeAll?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <h2 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">{title}</h2>
+      {onSeeAll && (
+        <button
+          type="button"
+          onClick={onSeeAll}
+          className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          See all <ChevronRight size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function HomeView() {
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
-  const { setSelectedPlaylistId, setActiveView, playerTheme } = useUIStore();
+  const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -115,80 +138,99 @@ export default function HomeView() {
   };
 
   // Quick access: recently played + playlists (max 6)
-  const quickAccess = playlists.slice(0, 6);
+  const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
+  const quickTracks = useMemo(() => recentlyPlayed.slice(0, 4), [recentlyPlayed]);
+  const madeForYou = useMemo(() => playlists.slice(0, 10), [playlists]);
 
   return (
     <ScrollArea className="h-full custom-scrollbar">
       <div className="p-4 md:p-8 space-y-8 pb-32">
-        {/* Hero Section */}
-        {playerTheme === 'tidal' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="hero relative h-[220px] rounded-2xl overflow-hidden cursor-pointer group shadow-2xl shadow-black/50"
-            onClick={() => handlePlayPlaylist(demoPlaylists[0])}
-          >
-            <div className="hero-bg absolute inset-0 tidal-hero-gradient animate-pulse" />
-            <div className="relative z-10 p-7 h-full flex flex-col justify-end">
-              <div className="absolute top-6 left-7 bg-white/15 backdrop-blur-md border border-white/20 rounded-full px-3 py-1 text-[11px] font-semibold tracking-wider uppercase text-white/90">
-                🔥 Featured
-              </div>
-              <div className="absolute top-5 right-6 w-12 h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-lg transition-all group-hover:scale-110 group-hover:bg-white/25">
-                <PlayButton size="md" onClick={() => {}} />
-              </div>
-              <h2 className="text-3xl font-bold text-white tracking-tight mb-1">Midnight Cascade</h2>
-              <p className="text-sm text-white/60">Neon Pulse • Ultraviolet • 2024</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Quick Picks / Quick Row */}
-        <div>
-          <h2 className="text-base font-semibold text-white/90 mb-3 tracking-tight">Quick Picks</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { icon: '⚡', name: 'Neon Pulse' },
-              { icon: '🌊', name: 'Ocean Drive' },
-              { icon: '🔥', name: 'Heat Waves' },
-              { icon: '💫', name: 'Blinding Lights' }
-            ].map((pick, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ y: -2, backgroundColor: 'rgba(255,255,255,0.11)' }}
-                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer text-sm font-medium text-white/80 bg-white/5 border border-white/10 backdrop-blur-xl transition-all"
-                onClick={() => handlePlayPlaylist(demoPlaylists[i % demoPlaylists.length])}
-              >
-                <span className="text-xl">{pick.icon}</span>
-                {pick.name}
-              </motion.div>
-            ))}
-          </div>
+        {/* Header */}
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
+            {greeting}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Discover something new or jump back in.
+          </p>
         </div>
 
-        {/* Quick Access Grid (Legacy for non-tidal) */}
-        {playerTheme !== 'tidal' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
-            {quickAccess.map((playlist) => (
-              <PlaylistCard
-                key={playlist.id}
-                playlist={playlist}
+        {/* Spotify-style quick grid (playlists + recent) */}
+        <section className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
+          {quickAccess.map((playlist) => (
+            <PlaylistCard
+              key={playlist.id}
+              playlist={playlist}
+              onClick={() => {
+                handlePlayPlaylist(playlist);
+                handleOpenPlaylist(playlist.id);
+              }}
+              playerTheme={playerTheme}
+            />
+          ))}
+          {quickTracks.map((track) => (
+            <motion.button
+              key={track.id}
+              type="button"
+              whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+              className={cn(
+                "flex items-center rounded-md overflow-hidden cursor-pointer group transition-colors text-left",
+                playerTheme === 'tidal' ? "bg-white/5 hover:bg-white/10" : "bg-accent/50 hover:bg-accent"
+              )}
+              onClick={() => play(track)}
+            >
+              <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
+                {track.albumCover ? (
+                  <img src={track.albumCover} alt={track.title} className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full bg-accent" />
+                )}
+              </div>
+              <div className="flex-1 px-3 py-2 min-w-0">
+                <p className="text-sm font-bold text-foreground truncate">{track.title}</p>
+                <p className="text-xs text-muted-foreground truncate hidden sm:block">{track.artist}</p>
+              </div>
+              <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <PlayButton size="sm" onClick={() => play(track)} />
+              </div>
+            </motion.button>
+          ))}
+        </section>
+
+        {/* Discover */}
+        <section>
+          <SectionHeader
+            title="Discover"
+            onSeeAll={() => {
+              setSearchQuery('');
+              setActiveView('search');
+            }}
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+            {browseCategories.slice(0, 12).map((cat) => (
+              <motion.button
+                key={cat.id}
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                className="h-24 rounded-xl p-4 cursor-pointer relative overflow-hidden text-left"
+                style={{ backgroundColor: cat.color }}
                 onClick={() => {
-                  handlePlayPlaylist(playlist);
-                  handleOpenPlaylist(playlist.id);
+                  setSearchQuery(cat.name);
+                  setActiveView('search');
                 }}
-                playerTheme={playerTheme}
-              />
+              >
+                <div className="absolute inset-0 bg-black/10" />
+                <h3 className="text-base font-extrabold text-white relative z-10">{cat.name}</h3>
+              </motion.button>
             ))}
           </div>
-        )}
+        </section>
 
         {/* Made For You */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-foreground">Made For You</h2>
-          </div>
+          <SectionHeader title="Made For You" />
           <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
-            {playlists.slice(0, 6).map((playlist) => (
+            {madeForYou.map((playlist) => (
               <CardItem
                 key={playlist.id}
                 title={playlist.name}
@@ -206,11 +248,9 @@ export default function HomeView() {
         {/* Recently Played */}
         {recentlyPlayed.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl md:text-2xl font-bold text-foreground">Recently Played</h2>
-            </div>
+            <SectionHeader title="Recently played" />
             <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
-              {recentlyPlayed.slice(0, 8).map((track) => (
+              {recentlyPlayed.slice(0, 12).map((track) => (
                 <CardItem
                   key={track.id}
                   title={track.title}
@@ -223,24 +263,25 @@ export default function HomeView() {
           </section>
         )}
 
-        {/* Browse Categories */}
+        {/* Browse All */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-foreground">Browse All</h2>
-          </div>
+          <SectionHeader title="Browse all" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
             {browseCategories.map((cat) => (
-              <motion.div
+              <motion.button
                 key={cat.id}
-                whileHover={{ scale: 1.03 }}
-                className="aspect-square rounded-lg p-4 cursor-pointer relative overflow-hidden"
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                className="aspect-square rounded-xl p-4 cursor-pointer relative overflow-hidden text-left"
                 style={{ backgroundColor: cat.color }}
                 onClick={() => {
+                  setSearchQuery(cat.name);
                   setActiveView('search');
                 }}
               >
-                <h3 className="text-lg font-bold text-white relative z-10">{cat.name}</h3>
-              </motion.div>
+                <div className="absolute inset-0 bg-black/10" />
+                <h3 className="text-lg font-extrabold text-white relative z-10">{cat.name}</h3>
+              </motion.button>
             ))}
           </div>
         </section>

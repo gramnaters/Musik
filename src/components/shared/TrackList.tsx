@@ -7,6 +7,7 @@ import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
+import { getQualityBadge } from '@/lib/audio-quality';
 import { MoreHorizontal, Play, Pause, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -124,13 +125,14 @@ export function TrackContextMenu({
 }
 
 function QualityBadge({ quality }: { quality?: string }) {
-  if (!quality || quality === 'Normal') return null;
+  const badge = getQualityBadge(quality);
+  if (!badge) return null;
   return (
     <span className={cn(
       "text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5",
-      quality === 'Master' || quality === 'MQA' ? "bg-cyan-500 text-black" : "border border-muted-foreground/50 text-muted-foreground"
+      badge.tone === 'highlight' ? "bg-cyan-500 text-black" : "border border-muted-foreground/50 text-muted-foreground"
     )}>
-      {quality}
+      {badge.label}
     </span>
   );
 }

@@ -2,18 +2,19 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tidal Liquid Glass Player</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Outfit',sans-serif;min-height:100vh;background:#0d0d12;overflow:hidden;position:relative;}
+  body{font-family:'Outfit',sans-serif;min-height:100vh;background:#0d0d12;overflow-x:hidden;position:relative;}
   .blob{position:fixed;border-radius:50%;filter:blur(80px);opacity:0.55;animation:blobFloat linear infinite;pointer-events:none;z-index:0;}
   .b1{width:520px;height:520px;background:radial-gradient(circle,#3b82f6,#6366f1);top:-120px;left:-60px;animation-duration:18s;}
   .b2{width:400px;height:400px;background:radial-gradient(circle,#ec4899,#8b5cf6);top:60px;right:-100px;animation-duration:22s;animation-delay:-8s;}
   .b3{width:340px;height:340px;background:radial-gradient(circle,#06b6d4,#3b82f6);bottom:40px;left:30%;animation-duration:26s;animation-delay:-14s;}
   .b4{width:260px;height:260px;background:radial-gradient(circle,#f59e0b,#ec4899);bottom:-80px;right:10%;animation-duration:20s;animation-delay:-5s;}
   @keyframes blobFloat{0%,100%{transform:translateY(0) scale(1);}33%{transform:translateY(-40px) scale(1.05);}66%{transform:translateY(20px) scale(0.96);}}
-  .app{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr;grid-template-rows:1fr 100px;height:100vh;}
+  .app{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr;grid-template-rows:1fr auto;min-height:100vh;height:100dvh;}
   .sidebar{grid-row:1/3;padding:28px 16px;display:flex;flex-direction:column;gap:6px;border-right:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.2);backdrop-filter:blur(40px);overflow-y:auto;}
   .sidebar-logo{font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;margin-bottom:20px;padding:0 8px;display:flex;align-items:center;gap:8px;}
   .logo-wave{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;}
@@ -69,11 +70,13 @@
   .pb-progress{display:flex;align-items:center;gap:10px;width:100%;max-width:440px;}
   .time-label{font-size:11px;color:rgba(255,255,255,0.35);min-width:32px;font-variant-numeric:tabular-nums;}
   .time-label.right{text-align:right;}
-  .prog-track{flex:1;height:3px;background:rgba(255,255,255,0.12);border-radius:2px;cursor:pointer;position:relative;transition:height 0.15s;}
+  .prog-track{flex:1;height:3px;background:rgba(255,255,255,0.12);border-radius:2px;cursor:pointer;position:relative;transition:height 0.15s;touch-action:none;}
   .prog-track:hover{height:5px;}
-  .prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);position:relative;transition:width 0.3s linear;}
+  .prog-inner{position:absolute;inset:0;overflow:hidden;border-radius:inherit;}
+  .prog-fill{height:100%;width:100%;border-radius:2px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);position:absolute;left:0;top:0;transform-origin:left center;transform:scaleX(0);will-change:transform;}
   .prog-fill::after{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;background:#fff;opacity:0;transition:opacity 0.15s;box-shadow:0 0 6px rgba(139,92,246,0.6);}
-  .prog-track:hover .prog-fill::after{opacity:1;}
+  .prog-track:hover .prog-fill::after,.prog-track:focus-within .prog-fill::after{opacity:1;}
+  @media (hover:none){.prog-fill::after{opacity:1;}}
   .pb-right{display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end;}
   .vol-slider{width:80px;-webkit-appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,0.15);outline:none;cursor:pointer;}
   .vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 0 4px rgba(255,255,255,0.4);}
@@ -87,6 +90,41 @@
   .quick-pill:hover{background:rgba(255,255,255,0.11);color:#fff;transform:translateY(-2px);}
   .qp-icon{font-size:20px;}
   svg{display:block;}
+  .menu-btn{display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;cursor:pointer;flex-shrink:0;}
+  .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+  .sidebar-backdrop.show{opacity:1;pointer-events:auto;}
+  @media (max-width:767px){
+    body{overflow-y:auto;}
+    .menu-btn{display:flex;}
+    .sidebar-backdrop{display:block;}
+    .app{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:min(300px,88vw);z-index:100;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);grid-row:1;border-right:1px solid rgba(255,255,255,0.1);}
+    .sidebar.open{transform:translateX(0);box-shadow:8px 0 32px rgba(0,0,0,0.45);}
+    .main{padding:16px 14px 20px;min-height:0;}
+    .main-header{flex-wrap:wrap;gap:10px;}
+    .main-header-title-row{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 100%;}
+    .search-bar{width:100%;max-width:none;flex:1;min-width:0;}
+    .header-right{flex-shrink:0;}
+    .hero{height:min(52vw,200px);}
+    .hero-content{padding:20px;}
+    .hero-title{font-size:clamp(1.2rem,4.5vw,1.75rem);}
+    .hero-badge{top:16px;left:18px;}
+    .hero-play{top:14px;right:16px;width:44px;height:44px;}
+    .quick-row{flex-wrap:wrap;}
+    .quick-pill{flex:1 1 42%;min-width:132px;}
+    .track-card{width:132px;}
+    .track-art{height:132px;}
+    .card-play-hover{opacity:1;background:rgba(0,0,0,0.2);}
+    .player-bar{grid-column:1;display:grid;grid-template-columns:1fr auto;grid-template-areas:'tinfo ticons' 'tctrl tctrl';gap:10px;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));}
+    .pb-track{grid-area:tinfo;min-width:0;}
+    .pb-right{grid-area:ticons;min-width:0;justify-content:flex-end;}
+    .pb-center{grid-area:tctrl;width:100%;flex:unset;}
+    .pb-progress{max-width:none;}
+    .pb-buttons{gap:4px;}
+    .ctrl{width:32px;height:32px;}
+    .play-btn-main{width:40px;height:40px;}
+    .vol-slider{flex:1;max-width:100px;}
+  }
 </style>
 </head>
 <body>
@@ -95,11 +133,12 @@
 <div class="b2 blob"></div>
 <div class="b3 blob"></div>
 <div class="b4 blob"></div>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()" aria-hidden="true"></div>
 
 <div class="app">
 
   <!-- SIDEBAR -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebarNav">
     <div class="sidebar-logo">
       <div class="logo-wave">🌊</div>
       Tidal
@@ -139,7 +178,10 @@
   <!-- MAIN -->
   <main class="main">
     <div class="main-header">
-      <div style="font-size:20px;font-weight:600;color:#fff;letter-spacing:-0.3px;">Good evening 👋</div>
+      <div class="main-header-title-row">
+        <button type="button" class="menu-btn" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+        <div style="font-size:20px;font-weight:600;color:#fff;letter-spacing:-0.3px;min-width:0;">Good evening 👋</div>
+      </div>
       <div class="header-right">
         <div class="search-bar">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -270,8 +312,10 @@
       <!-- Progress bar -->
       <div class="pb-progress">
         <span class="time-label" id="curTime">0:00</span>
-        <div class="prog-track" id="progTrack" onclick="seekTo(event)">
-          <div class="prog-fill" id="progFill" style="width:0%"></div>
+        <div class="prog-track" id="progTrack" role="slider" aria-valuemin="0" tabindex="0" aria-label="Seek">
+          <div class="prog-inner">
+            <div class="prog-fill" id="progFill"></div>
+          </div>
         </div>
         <span class="time-label right" id="durTime">3:45</span>
       </div>
@@ -306,45 +350,92 @@ const tracks = [
   {title:'Blinding Lights',artist:'The Weeknd',dur:200,bg:'linear-gradient(135deg,#fa709a,#fee140)'},
 ];
 
-let current=0,playing=false,progress=0,liked={},shuffle=false,repeat=0,timer=null;
+let current=0,playing=false,progress=0,liked={},shuffle=false,repeat=0;
+let rafId=null,lastTs=0,scrubbing=false;
 
-function fmt(s){const m=Math.floor(s/60),sec=Math.floor(s%60).toString().padStart(2,'0');return m+':'+sec;}
+function toggleSidebar(){
+  document.getElementById('sidebarNav').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('show');
+}
+function closeSidebar(){
+  document.getElementById('sidebarNav').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+}
+
+function fmt(s){
+  const m=Math.floor(s/60);
+  const sec=Math.floor(s%60).toString().padStart(2,'0');
+  return m+':'+sec;
+}
+
+function setProgVisual(ratio){
+  const el=document.getElementById('progFill');
+  const x=Math.max(0,Math.min(1,ratio||0));
+  el.style.transform='scaleX('+x+')';
+}
 
 function updateUI(){
   const t=tracks[current];
+  const dur=t.dur;
   document.getElementById('pbTitle').textContent=t.title;
   document.getElementById('pbArtist').textContent=t.artist;
   document.getElementById('pbThumb').style.background=t.bg;
-  document.getElementById('durTime').textContent=fmt(t.dur);
+  document.getElementById('durTime').textContent=fmt(dur);
   document.getElementById('curTime').textContent=fmt(progress);
-  document.getElementById('progFill').style.width=(progress/t.dur*100)+'%';
-  // Play/pause icon
+  setProgVisual(dur?progress/dur:0);
   document.getElementById('playIconSvg').innerHTML=playing?PAUSE_SVG:PLAY_SVG;
-  // Heart
   document.getElementById('heartSvg').innerHTML=liked[current]?HEART_FULL:HEART_EMPTY;
   document.getElementById('likeBtn').style.color=liked[current]?'#ec4899':'rgba(255,255,255,0.35)';
+  const pt=document.getElementById('progTrack');
+  pt.setAttribute('aria-valuemax',String(dur));
+  pt.setAttribute('aria-valuenow',String(Math.floor(progress)));
 }
 
-function tick(){
-  if(!playing)return;
-  progress++;
-  if(progress>=tracks[current].dur){
-    if(repeat===2){progress=0;}
-    else{nextTrack();return;}
+function stopRaf(){
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  lastTs=0;
+}
+
+function frame(ts){
+  if(!playing||scrubbing){rafId=null;return;}
+  if(!lastTs)lastTs=ts;
+  const dt=(ts-lastTs)/1000;
+  lastTs=ts;
+  progress+=dt;
+  const dur=tracks[current].dur;
+  if(progress>=dur){
+    if(repeat===2){
+      progress=0;
+      lastTs=ts;
+    }else{
+      nextTrack();
+      return;
+    }
   }
   updateUI();
+  rafId=requestAnimationFrame(frame);
+}
+
+function startRaf(){
+  stopRaf();
+  rafId=requestAnimationFrame(frame);
 }
 
 function playTrack(idx){
-  current=idx;progress=0;playing=true;
-  clearInterval(timer);timer=setInterval(tick,1000);
+  stopRaf();
+  current=idx;
+  progress=0;
+  playing=true;
+  scrubbing=false;
   updateUI();
+  startRaf();
+  if(window.matchMedia('(max-width:767px)').matches)closeSidebar();
 }
 
 function togglePlay(){
   playing=!playing;
-  if(playing){clearInterval(timer);timer=setInterval(tick,1000);}
-  else{clearInterval(timer);}
+  if(playing){startRaf();}
+  else{stopRaf();}
   updateUI();
 }
 
@@ -353,15 +444,44 @@ function nextTrack(){
 }
 
 function prevTrack(){
-  if(progress>3){progress=0;updateUI();return;}
+  if(progress>3){progress=0;stopRaf();if(playing)startRaf();updateUI();return;}
   playTrack((current-1+tracks.length)%tracks.length);
 }
 
-function seekTo(e){
-  const r=e.currentTarget.getBoundingClientRect();
-  progress=Math.round(((e.clientX-r.left)/r.width)*tracks[current].dur);
+function seekFromClientX(clientX){
+  const el=document.getElementById('progTrack');
+  const r=el.getBoundingClientRect();
+  const ratio=Math.max(0,Math.min(1,(clientX-r.left)/r.width));
+  progress=ratio*tracks[current].dur;
   updateUI();
 }
+
+(function bindSeek(){
+  const el=document.getElementById('progTrack');
+  el.addEventListener('pointerdown',function(e){
+    el.setPointerCapture(e.pointerId);
+    scrubbing=true;
+    stopRaf();
+    seekFromClientX(e.clientX);
+  });
+  el.addEventListener('pointermove',function(e){
+    if(!scrubbing)return;
+    seekFromClientX(e.clientX);
+  });
+  function endScrub(e){
+    if(el.hasPointerCapture(e.pointerId))el.releasePointerCapture(e.pointerId);
+    scrubbing=false;
+    if(playing)startRaf();
+  }
+  el.addEventListener('pointerup',endScrub);
+  el.addEventListener('pointercancel',function(){scrubbing=false;if(playing)startRaf();});
+  el.addEventListener('keydown',function(e){
+    const dur=tracks[current].dur;
+    const step=Math.min(5,dur*0.02);
+    if(e.key==='ArrowRight'){e.preventDefault();progress=Math.min(progress+step,dur);updateUI();}
+    else if(e.key==='ArrowLeft'){e.preventDefault();progress=Math.max(progress-step,0);updateUI();}
+  });
+})();
 
 document.getElementById('likeBtn').onclick=function(){liked[current]=!liked[current];updateUI();};
 

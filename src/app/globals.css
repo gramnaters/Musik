@@ -595,14 +595,175 @@ img {
   pointer-events: none;
 }
 
-/* Tidal HTML Reference Exact Player Bar Styles */
+/* Tidal: translucent liquid-glass player bar */
 .tidal-player-bar {
-  background: rgba(5, 5, 10, 0.6) !important;
-  backdrop-filter: blur(40px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
-  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  background: linear-gradient(
+    168deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.05) 40%,
+    rgba(0, 0, 0, 0.18) 100%
+  ) !important;
+  backdrop-filter: blur(64px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(64px) saturate(220%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow:
+    0 -16px 56px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
   padding: 0 20px;
+}
+@media (max-width: 767px) {
+  .tidal-player-bar {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+@media (min-width: 768px) {
+  .tidal-player-bar {
+    border-radius: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    box-shadow:
+      0 -16px 56px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  }
+}
+
+/* Tidal player: mobile row layout + desktop three-column order */
+.tidal-player-grid {
+  display: grid;
+  gap: 0.625rem 0.5rem;
+  /* minmax(0, 1fr) lets the track column shrink so text truncates instead of overflowing */
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "track icons"
+    "player player";
+}
+@media (min-width: 768px) {
+  .tidal-player-grid {
+    grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.35fr) minmax(120px, 1fr);
+    grid-template-areas: "track player icons";
+    align-items: center;
+    gap: 1rem;
+  }
+}
+.tidal-player-grid .pb-track {
+  grid-area: track;
+  min-width: 0;
+  width: auto;
+  flex: 0 1 auto;
+}
+.tidal-player-grid .pb-center {
+  grid-area: player;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.tidal-player-grid .pb-right {
+  grid-area: icons;
+  min-width: 0;
+  width: auto;
+  flex: 0 0 auto;
+  justify-self: end;
+}
+
+@media (max-width: 767px) {
+  .pb-track,
+  .pb-right {
+    min-width: 0 !important;
+    width: auto !important;
+    flex: unset !important;
+  }
+  .pb-center {
+    width: 100% !important;
+  }
+
+  .tidal-pb-track {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    max-width: 100%;
+  }
+  .tidal-pb-thumb {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25) !important;
+  }
+  .tidal-pb-track .pb-title {
+    letter-spacing: -0.01em;
+  }
+  .tidal-pb-track .pb-artist {
+    margin-top: 0;
+  }
+  .tidal-pb-like {
+    padding: 4px !important;
+    margin-left: 0;
+  }
+  .tidal-pb-like svg {
+    width: 16px;
+    height: 16px;
+  }
+  .tidal-pb-icons-row .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (min-width: 768px) {
+  .tidal-pb-icons-row {
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding-left: 8px;
+  }
+  .tidal-pb-icons-row .icon-btn {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+}
+
+/* Tidal scrubber: white played range (web player style) */
+.tidal-progress-slider[data-slot="slider"] {
+  --tidal-fill: #ffffff;
+  padding-block: 10px;
+  margin-block: -10px;
+}
+.tidal-progress-slider [data-slot="slider-track"] {
+  height: 3px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  overflow: visible !important;
+}
+.tidal-progress-slider [data-slot="slider-range"] {
+  border-radius: 999px !important;
+  background: var(--tidal-fill) !important;
+}
+.tidal-progress-slider [data-slot="slider-thumb"] {
+  width: 10px !important;
+  height: 10px !important;
+  border: none !important;
+  background: #fff !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.28),
+    0 2px 12px rgba(255, 255, 255, 0.35) !important;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.tidal-progress-slider:hover [data-slot="slider-thumb"],
+.tidal-progress-slider:focus-visible [data-slot="slider-thumb"],
+.tidal-progress-slider:active [data-slot="slider-thumb"] {
+  opacity: 1;
+}
+@media (hover: none) and (pointer: coarse) {
+  .tidal-progress-slider [data-slot="slider-thumb"] {
+    opacity: 1;
+    width: 14px !important;
+    height: 14px !important;
+  }
 }
 
 .pb-track {

@@ -20,10 +20,16 @@ export default function MobileNav() {
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       className={cn(
-        'fixed bottom-[90px] left-0 right-0 z-40',
+        'fixed left-0 right-0 z-30',
         'md:hidden flex items-center justify-around',
-        'bg-card/95 backdrop-blur-md border-t border-border/30',
-        'h-14 px-4'
+        'px-2 sm:px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]',
+        'bottom-0',
+        playerTheme === 'tidal' &&
+          'bg-white/[0.07] backdrop-blur-2xl backdrop-saturate-200 border-t border-white/15 shadow-[0_-8px_32px_rgba(0,0,0,0.35)]',
+        playerTheme === 'spotify' &&
+          'bg-card/95 backdrop-blur-md border-t border-border/30',
+        playerTheme === 'apple' &&
+          'bg-card/95 backdrop-blur-md border-t border-border/30'
       )}
     >
       {navItems.map((item) => {
@@ -37,7 +43,8 @@ export default function MobileNav() {
             }}
             className={cn(
               'flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors',
-              isActive ? 'text-foreground' : 'text-muted-foreground'
+              isActive ? 'text-foreground' : 'text-muted-foreground',
+              playerTheme === 'tidal' && (isActive ? 'text-white' : 'text-white/45')
             )}
           >
             <item.icon size={22} className={cn(
