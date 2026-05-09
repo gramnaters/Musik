@@ -132,20 +132,25 @@ export default function NowPlaying() {
               </motion.div>
 
               <div className="w-full max-w-[min(80vw,400px)] text-left">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0 flex-1">
-                    {currentTrack.title}
-                  </h2>
-                  {qualityBadge && (
-                    <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
-                      {qualityBadge.label}
-                    </span>
-                  )}
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0 flex-1">
+                        {currentTrack.title}
+                      </h2>
+                      {qualityBadge && (
+                        <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
+                          {qualityBadge.label}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[15px] text-white/70 truncate mt-1.5">{currentTrack.artist}</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => toggleFavourite(currentTrack)}
                     className={cn(
-                      'shrink-0 rounded-full p-1.5 transition-colors',
+                      'shrink-0 self-center rounded-full p-1.5 transition-colors',
                       isFav ? 'text-pink-500' : 'text-white/50 hover:text-white'
                     )}
                     aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
@@ -153,7 +158,6 @@ export default function NowPlaying() {
                     <Heart size={22} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                   </button>
                 </div>
-                <p className="text-[15px] text-white/70 truncate mt-2">{currentTrack.artist}</p>
                 <div className="flex items-center gap-1.5 min-h-[22px] text-sm text-white/55 mt-1">
                   {currentTrack.album?.trim() ? (
                     <>
@@ -190,7 +194,7 @@ export default function NowPlaying() {
                     {formatDuration(currentTime)}
                   </span>
                   <span className="text-xs text-white/50 tabular-nums">
-                    {formatDuration(duration)}
+                    {duration > 0 ? `-${formatDuration(Math.max(0, duration - currentTime))}` : '0:00'}
                   </span>
                 </div>
               </div>
@@ -224,17 +228,22 @@ export default function NowPlaying() {
                   type="button"
                   onClick={togglePlayPause}
                   className={cn(
-                    'w-14 h-14 rounded-full shrink-0 p-0 transition-[opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
-                    playerTheme === 'spotify' && 'bg-white text-black hover:opacity-[0.93]',
-                    playerTheme === 'tidal' &&
-                      'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.12)] hover:opacity-[0.93]',
-                    playerTheme === 'apple' && 'bg-white text-black hover:opacity-[0.93]'
+                    'shrink-0 p-0 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                    (playerTheme === 'spotify' || playerTheme === 'tidal') &&
+                      'w-14 h-14 rounded-full bg-white text-black hover:opacity-[0.93]',
+                    playerTheme === 'tidal' && 'shadow-[0_0_20px_rgba(255,255,255,0.12)]',
+                    playerTheme === 'apple' &&
+                      'h-14 w-14 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 active:scale-[0.97]'
                   )}
                 >
                   {isPlaying ? (
-                    <Pause size={28} fill="currentColor" />
+                    playerTheme === 'apple' ? (
+                      <Pause size={32} fill="currentColor" strokeWidth={2} className="scale-95" />
+                    ) : (
+                      <Pause size={28} fill="currentColor" />
+                    )
                   ) : playerTheme === 'apple' ? (
-                    <AppleMusicPlayIcon size={28} className="translate-x-[1.5px]" />
+                    <AppleMusicPlayIcon size={34} className="translate-x-[2px]" />
                   ) : (
                     <Play size={28} fill="currentColor" className="ml-1" />
                   )}
