@@ -9,6 +9,7 @@ import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
 import PlayerBar from '@/components/player/PlayerBar';
 import NowPlaying from '@/components/player/NowPlaying';
+import { EqualizerOutlet } from '@/components/audio/EqualizerOutlet';
 import HomeView from '@/components/views/HomeView';
 import SearchView from '@/components/views/SearchView';
 import LibraryView from '@/components/views/LibraryView';
@@ -183,6 +184,8 @@ export default function AppPage() {
 
       {/* Now Playing Overlay */}
       <NowPlaying />
+
+      <EqualizerOutlet />
     </div>
   );
 }

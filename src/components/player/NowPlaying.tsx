@@ -3,6 +3,7 @@
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
+import { useAudioSettingsStore } from '@/stores/audioSettingsStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { getQualityBadge } from '@/lib/audio-quality';
@@ -11,8 +12,10 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
-  Volume2, Volume1, VolumeX, Heart, X, ListMusic, ChevronDown,
+  Volume2, Volume1, VolumeX, Heart, ListMusic, ChevronDown, Download, Disc3,
 } from 'lucide-react';
+import { downloadCurrentTrack } from '@/lib/download-track';
+import { seekbarWrapperClass } from '@/lib/seekbar-styles';
 
 export default function NowPlaying() {
   const {
@@ -23,12 +26,12 @@ export default function NowPlaying() {
     showNowPlaying, setShowNowPlaying,
   } = usePlayerStore();
   const { setRightPanel, playerTheme } = useUIStore();
+  const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
   const { isFavourite, toggleFavourite } = useLibraryStore();
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
   const qualityBadge = getQualityBadge(currentTrack?.quality);
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <AnimatePresence>
@@ -105,8 +108,9 @@ export default function NowPlaying() {
             <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8">
               <motion.div
                 key={currentTrack.id}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
                 className="w-full max-w-[min(80vw,400px)] aspect-square rounded-lg overflow-hidden shadow-2xl shadow-black/60"
               >
                 {currentTrack.albumCover ? (
@@ -126,30 +130,37 @@ export default function NowPlaying() {
                 )}
               </motion.div>
 
-              <div className="w-full max-w-[min(80vw,400px)] text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <h2 className="text-2xl font-bold text-white truncate">{currentTrack.title}</h2>
-                  <button
-                    onClick={() => toggleFavourite(currentTrack)}
-                    className={cn(
-                      'flex-shrink-0 transition-colors',
-                      isFav ? 'text-spotify-green' : 'text-white/50 hover:text-white'
-                    )}
-                  >
-                    <Heart size={20} fill={isFav ? 'currentColor' : 'none'} />
-                  </button>
-                </div>
-                <p className="text-base text-white/70 mt-1 truncate">{currentTrack.artist}</p>
-                {qualityBadge && (
-                  <div className="flex justify-center mt-2">
-                    <span className={cn(
-                      "text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider",
-                      qualityBadge.tone === 'highlight' ? "bg-cyan-400 text-black" : "border border-white/30 text-white"
-                    )}>
+              <div className="w-full max-w-[min(80vw,400px)] text-left">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0 flex-1">
+                    {currentTrack.title}
+                  </h2>
+                  {qualityBadge && (
+                    <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
                       {qualityBadge.label}
                     </span>
-                  </div>
-                )}
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleFavourite(currentTrack)}
+                    className={cn(
+                      'shrink-0 rounded-full p-1.5 transition-colors',
+                      isFav ? 'text-pink-500' : 'text-white/50 hover:text-white'
+                    )}
+                    aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                  >
+                    <Heart size={22} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+                <p className="text-[15px] text-white/70 truncate mt-2">{currentTrack.artist}</p>
+                <div className="flex items-center gap-1.5 min-h-[22px] text-sm text-white/55 mt-1">
+                  {currentTrack.album?.trim() ? (
+                    <>
+                      <Disc3 className="size-4 shrink-0 opacity-80" aria-hidden />
+                      <span className="truncate">{currentTrack.album}</span>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -157,7 +168,13 @@ export default function NowPlaying() {
             <div className="p-6 md:p-8 pb-12 md:pb-16 space-y-4">
               {/* Progress */}
               <div className="w-full max-w-[min(90vw,600px)] mx-auto">
-                <div className={cn('w-full cursor-pointer', playerTheme === 'spotify' ? 'spotify-progress' : 'enhanced-seekbar')}>
+                <div
+                  className={cn(
+                    'w-full cursor-pointer min-w-0',
+                    seekbarWrapperClass(seekbarStyle),
+                    playerTheme === 'spotify' ? 'spotify-progress' : 'enhanced-seekbar'
+                  )}
+                >
                   <Slider
                     value={[currentTime]}
                     min={0}
@@ -200,15 +217,17 @@ export default function NowPlaying() {
                   <SkipBack size={24} fill="currentColor" />
                 </Button>
 
-                <motion.button
-                  whileHover={{ scale: 1.06 }}
-                  whileTap={{ scale: 0.94 }}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
                   onClick={togglePlayPause}
                   className={cn(
-                    "w-14 h-14 rounded-full flex items-center justify-center transition-all",
-                    playerTheme === 'spotify' && "bg-white text-black",
-                    playerTheme === 'tidal' && "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,255,255,0.3)]",
-                    playerTheme === 'apple' && "bg-white text-black"
+                    'w-14 h-14 rounded-full shrink-0 p-0 transition-[opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                    playerTheme === 'spotify' && 'bg-white text-black hover:opacity-[0.93]',
+                    playerTheme === 'tidal' &&
+                      'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.12)] hover:opacity-[0.93]',
+                    playerTheme === 'apple' && 'bg-white text-black hover:opacity-[0.93]'
                   )}
                 >
                   {isPlaying ? (
@@ -216,7 +235,7 @@ export default function NowPlaying() {
                   ) : (
                     <Play size={28} fill="currentColor" className="ml-1" />
                   )}
-                </motion.button>
+                </Button>
 
                 <Button
                   variant="ghost"
@@ -240,18 +259,28 @@ export default function NowPlaying() {
                 </Button>
               </div>
 
-              {/* Volume */}
+              {/* Volume + download */}
               <div className="flex items-center justify-center gap-3 w-full max-w-[min(90vw,400px)] mx-auto">
-                <Volume2 size={16} className="text-white/50" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Download track"
+                  className="text-white/50 hover:bg-white/10 hover:text-white h-10 w-10 shrink-0"
+                  onClick={() => void downloadCurrentTrack(currentTrack)}
+                >
+                  <Download size={18} />
+                </Button>
+                <Volume2 size={16} className="text-white/50 shrink-0" />
                 <Slider
                   value={[isMuted ? 0 : volume * 100]}
                   min={0}
                   max={100}
                   step={1}
                   onValueChange={(value) => setVolume(value[0] / 100)}
-                  className="flex-1 cursor-pointer"
+                  className="flex-1 min-w-0 cursor-pointer"
                 />
-                <VolumeIcon size={16} className="text-white/50" onClick={toggleMute} />
+                <VolumeIcon size={16} className="text-white/50 shrink-0 cursor-pointer" onClick={toggleMute} />
               </div>
             </div>
           </div>

@@ -615,6 +615,20 @@ img {
   .tidal-player-bar {
     padding-left: 10px !important;
     padding-right: 10px !important;
+    /* Solid base behind the glass so controls and metadata read clearly on phones */
+    background-color: rgba(10, 10, 13, 0.98) !important;
+    background-image: linear-gradient(
+      168deg,
+      rgba(255, 255, 255, 0.09) 0%,
+      rgba(255, 255, 255, 0.03) 42%,
+      rgba(0, 0, 0, 0.28) 100%
+    ) !important;
+    backdrop-filter: blur(36px) saturate(165%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(165%) !important;
+    border-top-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow:
+      0 -12px 48px rgba(0, 0, 0, 0.72),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
   }
 }
 @media (min-width: 768px) {
@@ -681,7 +695,7 @@ img {
 
   .tidal-pb-track {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 8px;
     align-items: center;
     max-width: 100%;
@@ -713,6 +727,14 @@ img {
 }
 
 @media (min-width: 768px) {
+  /* Tidal desktop: artwork + stacked metadata + trailing actions (web player parity) */
+  .tidal-player-grid .tidal-pb-track {
+    gap: 12px;
+    align-items: center;
+  }
+  .tidal-pb-track .pb-artist {
+    line-height: 1.2;
+  }
   .tidal-pb-icons-row {
     justify-content: flex-end;
     align-items: center;
@@ -810,7 +832,7 @@ img {
 }
 .pb-like:hover {
   color: #ec4899;
-  transform: scale(1.2);
+  opacity: 0.95;
 }
 .pb-like.on {
   color: #ec4899;
@@ -870,14 +892,276 @@ img {
   justify-content: center;
   color: #000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.15s ease-in-out;
+  transition:
+    opacity 0.2s ease,
+    box-shadow 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 0.28s ease;
 }
 .play-btn-main:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  opacity: 0.97;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
 }
 .play-btn-main:active {
-  transform: scale(0.95);
+  opacity: 0.88;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+/* Seek bar visual modes — wrapper: .seekbar-style-{name} around the Slider root */
+
+/* Slim track */
+.seekbar-style-slim [data-slot="slider-track"] {
+  height: 3px !important;
+}
+.seekbar-style-slim [data-slot="slider-thumb"] {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+/* Wavy shimmer on filled range */
+.seekbar-style-wavy [data-slot="slider-range"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    #fff 22%,
+    rgba(147, 197, 253, 0.95) 50%,
+    #fff 78%,
+    rgba(255, 255, 255, 0.15) 100%
+  ) !important;
+  background-size: 240% 100%;
+  animation: seekbar-wave-shift 3.2s linear infinite;
+}
+@keyframes seekbar-wave-shift {
+  to {
+    background-position: 240% 50%;
+  }
+}
+
+/* Pulse glow thumb */
+.seekbar-style-glow [data-slot="slider-thumb"] {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    0 0 12px rgba(255, 255, 255, 0.5);
+  animation: seekbar-glow-pulse 2.2s ease-in-out infinite;
+}
+@keyframes seekbar-glow-pulse {
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.12),
+      0 0 26px rgba(255, 255, 255, 0.75);
+  }
+}
+
+/* Animated rainbow / gradient fill */
+.seekbar-style-gradient [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6, #22d3ee) !important;
+  background-size: 300% 100%;
+  animation: seekbar-gradient-flow 4s linear infinite;
+}
+@keyframes seekbar-gradient-flow {
+  to {
+    background-position: 300% 50%;
+  }
+}
+
+/* Dotted / tick track */
+.seekbar-style-dotted [data-slot="slider-track"] {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.14) 0 4px,
+    transparent 4px 8px
+  ) !important;
+  border-radius: 999px;
+}
+.seekbar-style-dotted [data-slot="slider-range"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 10px);
+}
+
+/* Bouncing thumb */
+.seekbar-style-bounce [data-slot="slider-thumb"] {
+  animation: seekbar-bounce-y 0.9s ease-in-out infinite;
+}
+@keyframes seekbar-bounce-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* EQ-style: pulsing fill + “meter” ticks on track */
+.seekbar-style-equalizer [data-slot="slider-track"] {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0 4px,
+    rgba(255, 255, 255, 0.14) 4px 5px,
+    rgba(255, 255, 255, 0.06) 5px 10px
+  ) !important;
+}
+.seekbar-style-equalizer [data-slot="slider-range"] {
+  animation: seekbar-eq-pulse 0.7s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+}
+@keyframes seekbar-eq-pulse {
+  to {
+    filter: brightness(1.2);
+  }
+}
+
+/* Heartbeat thumb scale */
+.seekbar-style-heartbeat [data-slot="slider-thumb"] {
+  animation: seekbar-heartbeat 1.05s ease-in-out infinite;
+}
+@keyframes seekbar-heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  20% {
+    transform: scale(1.08);
+  }
+  40% {
+    transform: scale(1);
+  }
+  60% {
+    transform: scale(1.1);
+  }
+}
+
+/* Liquid blob thumb */
+.seekbar-style-liquid [data-slot="slider-thumb"] {
+  border-radius: 45% 55% 52% 48% / 52% 48% 55% 45%;
+  animation: seekbar-liquid-morph 2.8s ease-in-out infinite;
+}
+@keyframes seekbar-liquid-morph {
+  0%,
+  100% {
+    border-radius: 45% 55% 52% 48% / 52% 48% 55% 45%;
+  }
+  50% {
+    border-radius: 55% 45% 48% 52% / 48% 52% 45% 55%;
+  }
+}
+
+/* Rainbow hue on range */
+.seekbar-style-rainbow [data-slot="slider-range"] {
+  background: #fff !important;
+  animation: seekbar-rainbow-hue 5s linear infinite;
+}
+@keyframes seekbar-rainbow-hue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* Neon glow */
+.seekbar-style-neon [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #22d3ee, #e879f9) !important;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.55), 0 0 22px rgba(232, 121, 249, 0.35);
+  animation: seekbar-neon-flicker 2.5s ease-in-out infinite;
+}
+.seekbar-style-neon [data-slot="slider-thumb"] {
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.8), 0 0 18px rgba(232, 121, 249, 0.5);
+}
+@keyframes seekbar-neon-flicker {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.15);
+  }
+}
+
+/* Vinyl spin on thumb */
+.seekbar-style-vinyl [data-slot="slider-thumb"] {
+  background: conic-gradient(from 0deg, #222 0 25%, #444 25% 50%, #111 50% 75%, #333 75% 100%) !important;
+  animation: seekbar-vinyl-spin 4s linear infinite;
+}
+@keyframes seekbar-vinyl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fire warm pulse */
+.seekbar-style-fire [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #f97316, #ef4444, #fbbf24) !important;
+  animation: seekbar-fire-pulse 1.8s ease-in-out infinite;
+}
+@keyframes seekbar-fire-pulse {
+  50% {
+    filter: brightness(1.2) saturate(1.2);
+  }
+}
+
+/* Pixel / chunky thumb */
+.seekbar-style-pixel [data-slot="slider-thumb"] {
+  border-radius: 2px !important;
+  width: 12px !important;
+  height: 12px !important;
+  animation: seekbar-pixel-snap 0.6s steps(2) infinite;
+}
+@keyframes seekbar-pixel-snap {
+  to {
+    transform: translateX(0.5px);
+  }
+}
+
+/* Breathing track */
+.seekbar-style-breathing [data-slot="slider-track"] {
+  animation: seekbar-breathe 2.8s ease-in-out infinite;
+}
+@keyframes seekbar-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Cassette two-tone */
+.seekbar-style-cassette [data-slot="slider-track"] {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12) 0 48%,
+    rgba(0, 0, 0, 0.35) 48% 52%,
+    rgba(255, 255, 255, 0.1) 52% 100%
+  ) !important;
+}
+.seekbar-style-cassette [data-slot="slider-range"] {
+  background: linear-gradient(
+    180deg,
+    #e2e8f0 0 45%,
+    #64748b 45% 55%,
+    #f1f5f9 55% 100%
+  ) !important;
+}
+
+/* Waveform bars */
+.seekbar-style-waveform [data-slot="slider-track"] {
+  height: 10px !important;
+  border-radius: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12) 0 2px,
+    rgba(255, 255, 255, 0.4) 2px 4px,
+    rgba(255, 255, 255, 0.18) 4px 6px,
+    rgba(255, 255, 255, 0.32) 6px 8px
+  ) !important;
+  animation: seekbar-waveform-pulse 1.1s ease-in-out infinite;
+}
+.seekbar-style-waveform [data-slot="slider-range"] {
+  mix-blend-mode: screen;
+}
+@keyframes seekbar-waveform-pulse {
+  50% {
+    filter: brightness(1.25);
+  }
 }
 
 .pb-progress {

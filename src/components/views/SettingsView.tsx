@@ -3,35 +3,76 @@
 import { useUIStore } from '@/stores/uiStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useAddonStore } from '@/stores/addonStore';
+import {
+  EQ_PRESET_LABELS,
+  SEEKBAR_STYLE_LABELS,
+  SEEKBAR_STYLES,
+  useAudioSettingsStore,
+} from '@/stores/audioSettingsStore';
+import type { EqPreset, SeekbarStyle } from '@/stores/audioSettingsStore';
+import { useHomeLayoutStore } from '@/stores/homeLayoutStore';
+import { getEqBandPreview } from '@/lib/equalizer-graph';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { 
-  Settings as SettingsIcon, 
-  Palette, 
-  Music, 
-  Download, 
-  Trash2, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Settings as SettingsIcon,
+  Palette,
+  Music,
+  Trash2,
   ShieldCheck,
   Smartphone,
   Laptop,
-  Monitor
+  Monitor,
+  LayoutGrid,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+
+const MUSIK_VERSION = '0.2.0';
+const MUSIK_BUILD = '2026.05.10';
+
+const PLAYER_STYLES: {
+  id: 'spotify' | 'tidal' | 'apple';
+  name: string;
+  desc: string;
+  icon: typeof Laptop;
+}[] = [
+  { id: 'spotify', name: 'Spotify', desc: 'Bold accents, upbeat controls.', icon: Laptop },
+  { id: 'tidal', name: 'Tidal', desc: 'Minimal dark canvas & glass.', icon: Monitor },
+  { id: 'apple', name: 'Apple Music', desc: 'Neutral chrome, tight layout.', icon: Smartphone },
+];
 
 export default function SettingsView() {
   const { playerTheme, setPlayerTheme } = useUIStore();
   const { volume, setVolume } = usePlayerStore();
-  const { addons, clearCache } = useAddonStore();
+  const { addons, clearAddonSearchCache } = useAddonStore();
+  const { eqEnabled, setEqEnabled, eqPreset, setEqPreset, seekbarStyle, setSeekbarStyle } =
+    useAudioSettingsStore();
+  const {
+    showQuickPicks,
+    setShowQuickPicks,
+    showDiscover,
+    setShowDiscover,
+    showTopTen,
+    setShowTopTen,
+    showRecentlyPlayed,
+    setShowRecentlyPlayed,
+    showRecommendedArtists,
+    setShowRecommendedArtists,
+    showBrowseAll,
+    setShowBrowseAll,
+  } = useHomeLayoutStore();
 
-  const themes: { id: 'spotify' | 'tidal' | 'apple', name: string, icon: any }[] = [
-    { id: 'spotify', name: 'Spotify Classic', icon: Laptop },
-    { id: 'tidal', name: 'Tidal Liquify', icon: Monitor },
-    { id: 'apple', name: 'Apple Music', icon: Smartphone }
-  ];
+  const bandPreview = getEqBandPreview(eqEnabled, eqPreset);
 
   return (
     <ScrollArea className="h-full custom-scrollbar relative">
@@ -41,64 +82,179 @@ export default function SettingsView() {
             <SettingsIcon className="w-8 h-8 text-spotify-green" />
             Settings
           </h1>
-          <p className="text-muted-foreground">Manage your player preferences and addons</p>
+          <p className="text-muted-foreground">Home layout, player, seek bar, EQ, cache</p>
         </header>
 
-        {/* UI Theme Section */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
-            <Palette className="w-5 h-5" />
-            <h2>Appearance</h2>
+            <LayoutGrid className="w-5 h-5" />
+            <h2>Home layout</h2>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {themes.map((theme) => (
-              <motion.button
-                key={theme.id}
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setPlayerTheme(theme.id)}
-                className={cn(
-                  "flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all text-center",
-                  playerTheme === theme.id 
-                    ? "border-spotify-green bg-spotify-green/5" 
-                    : "border-border/40 hover:border-border bg-card/40"
-                )}
-              >
-                <div className={cn(
-                  "w-12 h-12 rounded-full flex items-center justify-center",
-                  playerTheme === theme.id ? "bg-spotify-green text-white" : "bg-accent text-muted-foreground"
-                )}>
-                  <theme.icon size={24} />
+          <p className="text-sm text-muted-foreground -mt-2">
+            Turn homepage rows on or off (quick picks, genre discover, top 10, etc.).
+          </p>
+          <div className="p-6 rounded-2xl bg-card/40 border border-border/40 space-y-4 max-w-xl">
+            {[
+              { id: 'quick' as const, label: 'Quick picks', sub: 'Playlist + recent grid', get: showQuickPicks, set: setShowQuickPicks },
+              { id: 'disc' as const, label: 'Discover (radio genres)', sub: 'Genre tiles — first 12', get: showDiscover, set: setShowDiscover },
+              { id: 'top' as const, label: 'Top 10', sub: 'Made-for-you playlist strip', get: showTopTen, set: setShowTopTen },
+              { id: 'recent' as const, label: 'Recently played', sub: 'Horizontal history', get: showRecentlyPlayed, set: setShowRecentlyPlayed },
+              { id: 'art' as const, label: 'Recommended artists', sub: 'Artist shortcuts', get: showRecommendedArtists, set: setShowRecommendedArtists },
+              { id: 'browse' as const, label: 'Browse all', sub: 'Full genre grid', get: showBrowseAll, set: setShowBrowseAll },
+            ].map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0">
+                  <Label>{row.label}</Label>
+                  <p className="text-xs text-muted-foreground">{row.sub}</p>
                 </div>
-                <div>
-                  <p className="font-bold">{theme.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {theme.id === 'tidal' ? 'Premium Glassmorphism' : 'Standard Native Look'}
-                  </p>
-                </div>
-              </motion.button>
+                <Switch checked={row.get} onCheckedChange={row.set} />
+              </div>
             ))}
           </div>
         </section>
 
-        {/* Audio Section */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
+            <Palette className="w-5 h-5" />
+            <h2>Player style</h2>
+          </div>
+
+          <p className="text-sm text-muted-foreground -mt-2">
+            Mimics Spotify, Tidal, and Apple Music chrome for the docked player — pick one workspace look.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {PLAYER_STYLES.map((theme) => (
+              <button
+                key={theme.id}
+                type="button"
+                onClick={() => setPlayerTheme(theme.id)}
+                className={cn(
+                  'flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all text-center',
+                  playerTheme === theme.id
+                    ? 'border-spotify-green bg-spotify-green/5'
+                    : 'border-border/40 hover:border-border bg-card/40'
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300',
+                    playerTheme === theme.id ? 'bg-spotify-green text-white' : 'bg-accent text-muted-foreground'
+                  )}
+                >
+                  <theme.icon size={24} />
+                </div>
+                <div>
+                  <p className="font-bold">{theme.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{theme.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
+            <Music className="w-5 h-5" />
+            <h2>Seek bar style</h2>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-card/40 border border-border/40 space-y-4 max-w-xl">
+            <Label className="text-sm font-medium">Animation &amp; look</Label>
+            <Select
+              value={seekbarStyle}
+              onValueChange={(v: SeekbarStyle) => setSeekbarStyle(v)}
+            >
+              <SelectTrigger size="sm" className="w-full max-w-sm">
+                <SelectValue placeholder="Style" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[min(70vh,380px)]">
+                {SEEKBAR_STYLES.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {SEEKBAR_STYLE_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Live CSS on the docked player, Spotify-style bar, and fullscreen player sliders.
+            </p>
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
+            <Music className="w-5 h-5" />
+            <h2>Equalizer</h2>
+          </div>
+
+          <div className="p-8 rounded-2xl bg-card/40 border border-border/40 space-y-8">
+            <div className="flex flex-row items-center justify-between gap-4">
+              <div>
+                <Label className="text-base font-medium">EQ</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Web Audio 3-band shaping on the HTML player (resume playback if you hear silence after toggling).
+                </p>
+              </div>
+              <Switch checked={eqEnabled} onCheckedChange={setEqEnabled} />
+            </div>
+
+            <div className="space-y-3 max-w-xl">
+              <Label className="text-sm font-medium">Preset</Label>
+              <Select
+                disabled={!eqEnabled}
+                value={eqPreset}
+                onValueChange={(v: EqPreset) => setEqPreset(v)}
+              >
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue placeholder="Preset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(EQ_PRESET_LABELS) as EqPreset[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {EQ_PRESET_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-between items-end h-36 gap-1.5 sm:gap-3">
+              {bandPreview.map((h, i) => (
+                <div key={`${eqPreset}-${i}`} className="flex flex-col items-center gap-2 flex-1 h-full justify-end">
+                  <div className="h-full w-full max-w-[10px] mx-auto rounded-full bg-muted/25 relative overflow-hidden">
+                    <div
+                      className={cn(
+                        'absolute bottom-0 left-0 right-0 rounded-full transition-[height] duration-500 ease-out',
+                        eqEnabled
+                          ? 'bg-gradient-to-t from-spotify-green to-cyan-400'
+                          : 'bg-muted-foreground/25'
+                      )}
+                      style={{ height: `${Math.round(h * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
             <Music className="w-5 h-5" />
             <h2>Audio & Playback</h2>
           </div>
-          
+
           <div className="space-y-6 p-6 rounded-2xl bg-card/40 border border-border/40">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-medium">Default Volume</Label>
                 <span className="text-xs text-muted-foreground">{Math.round(volume * 100)}%</span>
               </div>
-              <Slider 
-                value={[volume * 100]} 
-                max={100} 
-                step={1} 
+              <Slider
+                value={[volume * 100]}
+                max={100}
+                step={1}
                 onValueChange={(val) => setVolume(val[0] / 100)}
                 className="w-full"
               />
@@ -122,52 +278,12 @@ export default function SettingsView() {
           </div>
         </section>
 
-        {/* Equalizer Section */}
-        <section className="space-y-6">
-          <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
-            <Music className="w-5 h-5" />
-            <h2>Audio Equalizer</h2>
-          </div>
-          
-          <div className="p-8 rounded-2xl bg-card/40 border border-border/40 space-y-8">
-            <div className="flex justify-between items-end h-40 gap-4">
-              {[60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000].map((freq, i) => {
-                const heights = ["45%", "65%", "55%", "75%", "50%", "40%", "60%", "70%", "50%", "45%"];
-                return (
-                  <div key={freq} className="flex flex-col items-center gap-4 flex-1 h-full">
-                    <div className="h-full w-2 bg-muted/20 rounded-full relative overflow-hidden group cursor-ns-resize">
-                      <motion.div 
-                        initial={{ height: "50%" }}
-                        animate={{ height: heights[i] }}
-                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                        className="absolute bottom-0 w-full bg-gradient-to-t from-spotify-green to-cyan-400 rounded-full"
-                      />
-                    </div>
-                    <span className="text-[9px] text-muted-foreground font-bold rotate-45 mt-4">
-                      {freq >= 1000 ? `${freq/1000}k` : freq}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="flex gap-2">
-              {['Flat', 'Bass Boost', 'Electronic', 'Classical', 'Jazz', 'Pop'].map((preset) => (
-                <Button key={preset} variant="outline" size="sm" className="text-[10px] h-7 px-3 rounded-full hover:border-spotify-green hover:text-spotify-green">
-                  {preset}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Addons Section */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-lg font-semibold border-b border-border/30 pb-2">
             <ShieldCheck className="w-5 h-5" />
             <h2>System & Cache</h2>
           </div>
-          
+
           <div className="space-y-6 p-6 rounded-2xl bg-card/40 border border-border/40">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -181,10 +297,10 @@ export default function SettingsView() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-destructive">Clear All Cache</Label>
-                <p className="text-xs text-muted-foreground">Removes all downloaded track metadata and images</p>
+                <Label className="text-destructive">Clear addon search cache</Label>
+                <p className="text-xs text-muted-foreground">Clears in-memory addon results (search, errors). Installed addons stay.</p>
               </div>
-              <Button variant="destructive" size="sm" onClick={clearCache}>
+              <Button variant="destructive" size="sm" onClick={clearAddonSearchCache}>
                 <Trash2 size={14} className="mr-2" />
                 Clear
               </Button>
@@ -192,10 +308,8 @@ export default function SettingsView() {
           </div>
         </section>
 
-        {/* Footer */}
         <footer className="text-center pt-8 border-t border-border/20 opacity-40">
-          <p className="text-sm">BeatBoss v0.2.0 • Build 2026.05.09</p>
-          <p className="text-xs mt-1">Made with ❤️ for HiFi Music Lovers</p>
+          <p className="text-sm">musik v{MUSIK_VERSION} • Build {MUSIK_BUILD}</p>
         </footer>
       </div>
     </ScrollArea>

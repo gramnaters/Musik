@@ -28,6 +28,7 @@ interface AddonActions {
   getArtistDetail: (artistId: string) => Promise<{ artist: any; tracks: AddonTrack[] } | null>;
   getPlaylistTracks: (playlistId: string) => Promise<AddonTrack[]>;
   clearError: () => void;
+  clearAddonSearchCache: () => void;
 }
 
 export const useAddonStore = create<AddonState & AddonActions>()(
@@ -328,6 +329,13 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       },
 
       clearError: () => set({ error: null }),
+
+      clearAddonSearchCache: () =>
+        set({
+          searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
+          isSearching: false,
+          error: null,
+        }),
     }),
     {
       name: 'musik-addons',
