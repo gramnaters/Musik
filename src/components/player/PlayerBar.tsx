@@ -339,17 +339,22 @@ export default function PlayerBar() {
                       onClick={togglePlayPause}
                       disabled={!currentTrack}
                       className={cn(
-                        'h-11 w-11 rounded-full shrink-0 p-0 transition-[opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
-                        playerTheme === 'spotify' && 'bg-spotify-green hover:bg-spotify-green-hover hover:opacity-95',
-                        playerTheme === 'apple' && 'bg-white hover:bg-white/92 hover:opacity-95',
-                        'disabled:opacity-50 disabled:cursor-not-allowed',
-                        'shadow-lg shadow-black/20'
+                        'h-11 w-11 shrink-0 p-0 rounded-full transition-[opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                        playerTheme === 'spotify' &&
+                          'bg-spotify-green hover:bg-spotify-green-hover hover:opacity-95 shadow-lg shadow-black/20',
+                        playerTheme === 'apple' &&
+                          'bg-transparent hover:bg-white/10 text-white shadow-none border-0',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
                       )}
                     >
                       {isPlaying ? (
-                        <Pause size={20} fill={playerTheme === 'spotify' ? 'white' : 'black'} className={playerTheme === 'spotify' ? 'text-white' : 'text-black'} />
+                        <Pause
+                          size={22}
+                          fill={playerTheme === 'spotify' ? 'white' : 'currentColor'}
+                          className={playerTheme === 'spotify' ? 'text-white' : 'text-white'}
+                        />
                       ) : playerTheme === 'apple' ? (
-                        <AppleMusicPlayIcon size={20} className="text-black translate-x-[1px]" />
+                        <AppleMusicPlayIcon size={22} className="text-white translate-x-[1px]" />
                       ) : (
                         <Play size={20} fill="white" className="text-white ml-1" />
                       )}
