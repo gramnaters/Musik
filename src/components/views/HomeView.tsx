@@ -3,7 +3,7 @@
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
-import { demoPlaylists, browseCategories } from '@/lib/demo-data';
+import { demoPlaylists, browseCategories, demoTracks } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
@@ -141,6 +141,23 @@ export default function HomeView() {
   const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
   const quickTracks = useMemo(() => recentlyPlayed.slice(0, 4), [recentlyPlayed]);
   const madeForYou = useMemo(() => playlists.slice(0, 10), [playlists]);
+  const recommendedArtists = useMemo(() => {
+    const source = recentlyPlayed.length > 0 ? recentlyPlayed : demoTracks;
+    const map = new Map<string, { name: string; image?: string; count: number }>();
+    source.forEach((t) => {
+      const key = t.artistId || t.artist;
+      const prev = map.get(key);
+      map.set(key, {
+        name: t.artist,
+        image: prev?.image || t.albumCover,
+        count: (prev?.count || 0) + 1,
+      });
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 12)
+      .map(([id, v]) => ({ id, ...v }));
+  }, [recentlyPlayed]);
 
   return (
     <ScrollArea className="h-full custom-scrollbar">
@@ -262,6 +279,40 @@ export default function HomeView() {
             </div>
           </section>
         )}
+
+        {/* Recommended artists */}
+        <section>
+          <SectionHeader title="Recommended artists" />
+          <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
+            {recommendedArtists.map((a) => (
+              <motion.button
+                key={a.id}
+                type="button"
+                whileHover={{ y: -3 }}
+                className={cn(
+                  'flex-shrink-0 w-[min(40vw,160px)] p-3 rounded-xl text-left',
+                  playerTheme === 'tidal' ? 'bg-white/5 hover:bg-white/10' : 'bg-accent/30 hover:bg-accent/50'
+                )}
+                onClick={() => {
+                  setSearchQuery(a.name);
+                  setActiveView('search');
+                }}
+              >
+                <div className="w-full aspect-square rounded-full overflow-hidden bg-accent shadow-lg shadow-black/40 mb-3">
+                  {a.image ? (
+                    <img src={a.image} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-2xl font-black text-muted-foreground">{a.name.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm font-bold text-foreground truncate">{a.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Artist</div>
+              </motion.button>
+            ))}
+          </div>
+        </section>
 
         {/* Browse All */}
         <section>
