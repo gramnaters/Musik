@@ -788,6 +788,17 @@ img {
   }
 }
 
+/* Tidal track block: prevent title margin + line collisions */
+.tidal-pb-meta .pb-title,
+.tidal-pb-title.pb-title {
+  margin-bottom: 0 !important;
+}
+.tidal-pb-meta .pb-artist,
+.tidal-pb-artist.pb-artist {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 .pb-track {
   display: flex;
   align-items: center;
@@ -1162,6 +1173,239 @@ img {
   50% {
     filter: brightness(1.25);
   }
+}
+
+/* Decorative seek: override theme sliders (hidden thumbs + Spotify :hover recolor + Enhanced shimmer) */
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .enhanced-seekbar [data-slot="slider-range"]::after {
+  display: none !important;
+}
+
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .tidal-progress-slider [data-slot="slider-thumb"],
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .spotify-progress [data-slot="slider-thumb"],
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .spotify-progress:hover [data-slot="slider-thumb"],
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .enhanced-seekbar [data-slot="slider-thumb"],
+[class*="seekbar-style-"]:not(.seekbar-style-classic) .enhanced-seekbar:hover [data-slot="slider-thumb"] {
+  opacity: 1 !important;
+}
+
+/* Higher-specificity range so animations beat .spotify-progress:hover and .tidal fill */
+.seekbar-style-wavy.spotify-progress [data-slot="slider-range"],
+.seekbar-style-wavy.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-wavy.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-wavy.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-wavy .tidal-progress-slider [data-slot="slider-range"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    #fff 22%,
+    rgba(147, 197, 253, 0.95) 50%,
+    #fff 78%,
+    rgba(255, 255, 255, 0.15) 100%
+  ) !important;
+  background-size: 240% 100%;
+  animation: seekbar-wave-shift 3.2s linear infinite;
+}
+
+.seekbar-style-gradient.spotify-progress [data-slot="slider-range"],
+.seekbar-style-gradient.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-gradient.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-gradient.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-gradient .tidal-progress-slider [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6, #22d3ee) !important;
+  background-size: 300% 100%;
+  animation: seekbar-gradient-flow 4s linear infinite;
+}
+
+.seekbar-style-rainbow.spotify-progress [data-slot="slider-range"],
+.seekbar-style-rainbow.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-rainbow.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-rainbow.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-rainbow .tidal-progress-slider [data-slot="slider-range"] {
+  background: #fff !important;
+  animation: seekbar-rainbow-hue 5s linear infinite;
+}
+
+.seekbar-style-neon.spotify-progress [data-slot="slider-range"],
+.seekbar-style-neon.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-neon.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-neon.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-neon .tidal-progress-slider [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #22d3ee, #e879f9) !important;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.55), 0 0 22px rgba(232, 121, 249, 0.35);
+  animation: seekbar-neon-flicker 2.5s ease-in-out infinite;
+}
+
+.seekbar-style-fire.spotify-progress [data-slot="slider-range"],
+.seekbar-style-fire.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-fire.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-fire.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-fire .tidal-progress-slider [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #f97316, #ef4444, #fbbf24) !important;
+  animation: seekbar-fire-pulse 1.8s ease-in-out infinite;
+}
+
+.seekbar-style-equalizer.spotify-progress [data-slot="slider-range"],
+.seekbar-style-equalizer.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-equalizer.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-equalizer.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-equalizer .tidal-progress-slider [data-slot="slider-range"] {
+  animation: seekbar-eq-pulse 0.7s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+}
+
+.seekbar-style-dotted.spotify-progress [data-slot="slider-range"],
+.seekbar-style-dotted.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-dotted.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-dotted.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-dotted .tidal-progress-slider [data-slot="slider-range"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 10px);
+}
+
+.seekbar-style-cassette.spotify-progress [data-slot="slider-range"],
+.seekbar-style-cassette.spotify-progress:hover [data-slot="slider-range"],
+.seekbar-style-cassette.enhanced-seekbar [data-slot="slider-range"],
+.seekbar-style-cassette.enhanced-seekbar:hover [data-slot="slider-range"],
+.seekbar-style-cassette .tidal-progress-slider [data-slot="slider-range"] {
+  background: linear-gradient(
+    180deg,
+    #e2e8f0 0 45%,
+    #64748b 45% 55%,
+    #f1f5f9 55% 100%
+  ) !important;
+}
+
+.seekbar-style-glow.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-glow.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-glow.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-glow.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-glow .tidal-progress-slider [data-slot="slider-thumb"] {
+  animation: seekbar-glow-pulse 2.2s ease-in-out infinite;
+}
+
+.seekbar-style-bounce.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-bounce.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-bounce.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-bounce.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-bounce .tidal-progress-slider [data-slot="slider-thumb"] {
+  animation: seekbar-bounce-y 0.9s ease-in-out infinite;
+}
+
+.seekbar-style-heartbeat.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-heartbeat.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-heartbeat.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-heartbeat.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-heartbeat .tidal-progress-slider [data-slot="slider-thumb"] {
+  animation: seekbar-heartbeat 1.05s ease-in-out infinite;
+}
+
+.seekbar-style-liquid.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-liquid.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-liquid.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-liquid.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-liquid .tidal-progress-slider [data-slot="slider-thumb"] {
+  border-radius: 45% 55% 52% 48% / 52% 48% 55% 45%;
+  animation: seekbar-liquid-morph 2.8s ease-in-out infinite;
+}
+
+.seekbar-style-vinyl.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-vinyl.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-vinyl.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-vinyl.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-vinyl .tidal-progress-slider [data-slot="slider-thumb"] {
+  background: conic-gradient(from 0deg, #222 0 25%, #444 25% 50%, #111 50% 75%, #333 75% 100%) !important;
+  animation: seekbar-vinyl-spin 4s linear infinite;
+}
+
+.seekbar-style-pixel.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-pixel.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-pixel.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-pixel.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-pixel .tidal-progress-slider [data-slot="slider-thumb"] {
+  border-radius: 2px !important;
+  width: 12px !important;
+  height: 12px !important;
+  animation: seekbar-pixel-snap 0.6s steps(2) infinite;
+}
+
+.seekbar-style-neon.spotify-progress [data-slot="slider-thumb"],
+.seekbar-style-neon.spotify-progress:hover [data-slot="slider-thumb"],
+.seekbar-style-neon.enhanced-seekbar [data-slot="slider-thumb"],
+.seekbar-style-neon.enhanced-seekbar:hover [data-slot="slider-thumb"],
+.seekbar-style-neon .tidal-progress-slider [data-slot="slider-thumb"] {
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.8), 0 0 18px rgba(232, 121, 249, 0.5);
+}
+
+.seekbar-style-slim.spotify-progress [data-slot="slider-track"],
+.seekbar-style-slim.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-slim.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-slim.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-slim .tidal-progress-slider [data-slot="slider-track"] {
+  height: 3px !important;
+}
+
+.seekbar-style-breathing.spotify-progress [data-slot="slider-track"],
+.seekbar-style-breathing.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-breathing.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-breathing.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-breathing .tidal-progress-slider [data-slot="slider-track"] {
+  animation: seekbar-breathe 2.8s ease-in-out infinite;
+}
+
+.seekbar-style-dotted.spotify-progress [data-slot="slider-track"],
+.seekbar-style-dotted.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-dotted.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-dotted.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-dotted .tidal-progress-slider [data-slot="slider-track"] {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.14) 0 4px,
+    transparent 4px 8px
+  ) !important;
+  border-radius: 999px;
+}
+
+.seekbar-style-equalizer.spotify-progress [data-slot="slider-track"],
+.seekbar-style-equalizer.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-equalizer.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-equalizer.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-equalizer .tidal-progress-slider [data-slot="slider-track"] {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0 4px,
+    rgba(255, 255, 255, 0.14) 4px 5px,
+    rgba(255, 255, 255, 0.06) 5px 10px
+  ) !important;
+}
+
+.seekbar-style-cassette.spotify-progress [data-slot="slider-track"],
+.seekbar-style-cassette.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-cassette.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-cassette.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-cassette .tidal-progress-slider [data-slot="slider-track"] {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12) 0 48%,
+    rgba(0, 0, 0, 0.35) 48% 52%,
+    rgba(255, 255, 255, 0.1) 52% 100%
+  ) !important;
+}
+
+.seekbar-style-waveform.spotify-progress [data-slot="slider-track"],
+.seekbar-style-waveform.spotify-progress:hover [data-slot="slider-track"],
+.seekbar-style-waveform.enhanced-seekbar [data-slot="slider-track"],
+.seekbar-style-waveform.enhanced-seekbar:hover [data-slot="slider-track"],
+.seekbar-style-waveform .tidal-progress-slider [data-slot="slider-track"] {
+  height: 10px !important;
+  border-radius: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12) 0 2px,
+    rgba(255, 255, 255, 0.4) 2px 4px,
+    rgba(255, 255, 255, 0.18) 4px 6px,
+    rgba(255, 255, 255, 0.32) 6px 8px
+  ) !important;
+  animation: seekbar-waveform-pulse 1.1s ease-in-out infinite;
 }
 
 .pb-progress {
