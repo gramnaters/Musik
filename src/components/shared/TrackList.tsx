@@ -9,6 +9,7 @@ import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { getQualityBadge } from '@/lib/audio-quality';
 import { MoreHorizontal, Play, Pause, Heart } from 'lucide-react';
+import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
@@ -233,6 +234,8 @@ export default function TrackList({
                     >
                       {isThisTrack ? (
                         <Pause size={14} fill="currentColor" />
+                      ) : playerTheme === 'apple' ? (
+                        <AppleMusicPlayIcon size={14} className="translate-x-px" />
                       ) : (
                         <Play size={14} fill="currentColor" />
                       )}

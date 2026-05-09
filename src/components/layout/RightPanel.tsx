@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { X, GripVertical, Play, Music } from 'lucide-react';
+import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DndContext,
@@ -43,6 +44,7 @@ function SortableTrackItem({
 }) {
   const { removeFromQueue, play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
+  const { playerTheme } = useUIStore();
   const isThisTrack = track.id === currentTrackId;
   const isCurrentlyPlaying = isThisTrack && isPlaying;
 
@@ -131,7 +133,11 @@ function SortableTrackItem({
             addRecentlyPlayed(track);
           }}
         >
-          <Play size={12} fill="currentColor" />
+          {playerTheme === 'apple' ? (
+            <AppleMusicPlayIcon size={12} className="translate-x-px" />
+          ) : (
+            <Play size={12} fill="currentColor" />
+          )}
         </Button>
       )}
 

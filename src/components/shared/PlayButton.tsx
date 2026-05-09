@@ -4,6 +4,8 @@ import { Play, Pause } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
+import { useUIStore } from '@/stores/uiStore';
+import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 
 interface PlayButtonProps {
   size?: 'sm' | 'md' | 'lg';
@@ -33,6 +35,7 @@ export default function PlayButton({
   showPauseState = true,
 }: PlayButtonProps) {
   const { currentTrack, isPlaying, togglePlayPause } = usePlayerStore();
+  const { playerTheme } = useUIStore();
   const isThisTrack = currentTrack?.id === trackId;
   const showPause = showPauseState && isThisTrack && isPlaying;
 
@@ -58,6 +61,8 @@ export default function PlayButton({
     >
       {showPause ? (
         <Pause size={iconSizes[size]} fill="white" />
+      ) : playerTheme === 'apple' ? (
+        <AppleMusicPlayIcon size={iconSizes[size]} className="text-white translate-x-px" />
       ) : (
         <Play size={iconSizes[size]} fill="white" className="ml-0.5" />
       )}

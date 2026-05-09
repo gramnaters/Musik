@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { downloadCurrentTrack } from '@/lib/download-track';
 import { seekbarWrapperClass } from '@/lib/seekbar-styles';
+import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 
 export default function NowPlaying() {
   const {
@@ -232,6 +233,8 @@ export default function NowPlaying() {
                 >
                   {isPlaying ? (
                     <Pause size={28} fill="currentColor" />
+                  ) : playerTheme === 'apple' ? (
+                    <AppleMusicPlayIcon size={28} className="translate-x-[1.5px]" />
                   ) : (
                     <Play size={28} fill="currentColor" className="ml-1" />
                   )}
