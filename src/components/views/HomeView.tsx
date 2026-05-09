@@ -3,6 +3,7 @@
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useHomeLayoutStore } from '@/stores/homeLayoutStore';
 import { demoPlaylists, browseCategories, demoTracks } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -118,6 +119,14 @@ export default function HomeView() {
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
   const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
+  const {
+    showQuickPicks,
+    showDiscover,
+    showTopTen,
+    showRecentlyPlayed,
+    showRecommendedArtists,
+    showBrowseAll,
+  } = useHomeLayoutStore();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -173,6 +182,7 @@ export default function HomeView() {
         </div>
 
         {/* Spotify-style quick grid (playlists + recent) */}
+        {showQuickPicks && (
         <section className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
           {quickAccess.map((playlist) => (
             <PlaylistCard
@@ -213,8 +223,10 @@ export default function HomeView() {
             </motion.button>
           ))}
         </section>
+        )}
 
-        {/* Discover */}
+        {/* Discover / radio genres */}
+        {showDiscover && (
         <section>
           <SectionHeader
             title="Discover"
@@ -242,10 +254,12 @@ export default function HomeView() {
             ))}
           </div>
         </section>
+        )}
 
-        {/* Made For You */}
+        {/* Top 10 / Made for you */}
+        {showTopTen && madeForYou.length > 0 && (
         <section>
-          <SectionHeader title="Made For You" />
+          <SectionHeader title="Top 10" />
           <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
             {madeForYou.map((playlist) => (
               <CardItem
@@ -261,9 +275,10 @@ export default function HomeView() {
             ))}
           </div>
         </section>
+        )}
 
         {/* Recently Played */}
-        {recentlyPlayed.length > 0 && (
+        {showRecentlyPlayed && recentlyPlayed.length > 0 && (
           <section>
             <SectionHeader title="Recently played" />
             <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
@@ -281,6 +296,7 @@ export default function HomeView() {
         )}
 
         {/* Recommended artists */}
+        {showRecommendedArtists && (
         <section>
           <SectionHeader title="Recommended artists" />
           <div className="flex gap-4 overflow-x-auto custom-scrollbar-x pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
@@ -313,8 +329,10 @@ export default function HomeView() {
             ))}
           </div>
         </section>
+        )}
 
-        {/* Browse All */}
+        {/* Browse all */}
+        {showBrowseAll && (
         <section>
           <SectionHeader title="Browse all" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
@@ -336,6 +354,7 @@ export default function HomeView() {
             ))}
           </div>
         </section>
+        )}
       </div>
     </ScrollArea>
   );

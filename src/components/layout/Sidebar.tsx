@@ -21,7 +21,7 @@ export default function Sidebar() {
   const { 
     activeView, navigateTo, sidebarCollapsed, toggleSidebar, 
     selectedPlaylistId, setSelectedPlaylistId,
-    playerTheme, setPlayerTheme 
+    playerTheme,
   } = useUIStore();
   const { playlists, createPlaylist } = useLibraryStore();
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -61,7 +61,14 @@ export default function Sidebar() {
                 <path d="M12 2L2 12L12 22L22 12L12 2ZM12 6L18 12L12 18L6 12L12 6Z" fill="white" />
               </svg>
             </div>
-            <span className="font-bold text-xl text-white tracking-tight">TIDAL</span>
+            <span
+              className={cn(
+                'font-bold text-xl tracking-tight',
+                playerTheme === 'tidal' ? 'text-white' : 'text-foreground'
+              )}
+            >
+              musik
+            </span>
           </div>
         )}
         <Button
@@ -185,34 +192,6 @@ export default function Sidebar() {
             );
           })}
         </ScrollArea>
-      </div>
-
-      {/* Theme Toggle (Bottom) */}
-      <div className="mt-auto px-2 py-4 border-t border-sidebar-border">
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent/50",
-            sidebarCollapsed ? "px-2 justify-center" : "px-4"
-          )}
-          onClick={() => {
-            const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
-            const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
-            setPlayerTheme(next);
-          }}
-        >
-          <div className={cn(
-            "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all",
-            playerTheme === 'spotify' && "bg-spotify-green shadow-[0_0_8px_rgba(29,185,84,0.4)]",
-            playerTheme === 'tidal' && "bg-cyan-400 shadow-[0_0_8px_rgba(0,255,255,0.4)]",
-            playerTheme === 'apple' && "bg-apple-red shadow-[0_0_8px_rgba(250,35,59,0.4)]"
-          )} />
-          {!sidebarCollapsed && (
-            <span className="text-[10px] uppercase tracking-[0.2em] font-black opacity-80">
-              {playerTheme}
-            </span>
-          )}
-        </Button>
       </div>
 
       {/* Expand button when collapsed */}

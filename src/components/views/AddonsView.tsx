@@ -591,10 +591,7 @@ export default function AddonsView() {
                       {/* Toggle */}
                       <Switch
                         checked={addon.enabled}
-                        onCheckedChange={(e) => {
-                          e.stopPropagation();
-                          toggleAddon(addon.manifest.id);
-                        }}
+                        onCheckedChange={() => toggleAddon(addon.manifest.id)}
                       />
 
                       {/* Delete */}

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         name: 'All in One',
         description: 'Eclipse, JioSaavn, YT Music, and more in one addon.',
         version: '1.0.0',
-        author: 'BeatBoss',
+        author: 'musik',
         icon: '🌍',
         manifestUrl: 'https://all-in-one.cyrusna29.workers.dev/manifest.json'
       });

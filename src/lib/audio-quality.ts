@@ -1,8 +1,5 @@
-export type QualityBadgeTone = 'neutral' | 'highlight';
-
 export type QualityBadge = {
   label: string;
-  tone: QualityBadgeTone;
 };
 
 /**
@@ -25,7 +22,7 @@ export function getQualityBadge(raw?: string | null): QualityBadge | null {
 
   // Atmos / immersive
   if (norm.includes('atmos') || norm.includes('360') || norm.includes('spatial')) {
-    return { label: 'ATMOS', tone: 'highlight' };
+    return { label: 'ATMOS' };
   }
 
   // Master / MQA / Hi-Res
@@ -37,7 +34,7 @@ export function getQualityBadge(raw?: string | null): QualityBadge | null {
     norm.includes('24bit') ||
     norm.includes('24') && norm.includes('bit')
   ) {
-    return { label: 'HI‑RES', tone: 'highlight' };
+    return { label: 'MASTER' };
   }
 
   // Lossless / HiFi (CD quality)
@@ -48,12 +45,12 @@ export function getQualityBadge(raw?: string | null): QualityBadge | null {
     norm.includes('alac') ||
     norm.includes('cd')
   ) {
-    return { label: 'LOSSLESS', tone: 'neutral' };
+    return { label: 'HIFI' };
   }
 
   // High / AAC / MP3 320
   if (norm === 'high' || norm.includes('320') || norm.includes('aac') || norm.includes('mp3')) {
-    return { label: 'HIGH', tone: 'neutral' };
+    return { label: 'HIGH' };
   }
 
   // Unknown value: don't lie; hide it.

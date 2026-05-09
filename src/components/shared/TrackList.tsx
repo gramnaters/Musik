@@ -128,10 +128,7 @@ function QualityBadge({ quality }: { quality?: string }) {
   const badge = getQualityBadge(quality);
   if (!badge) return null;
   return (
-    <span className={cn(
-      "text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5",
-      badge.tone === 'highlight' ? "bg-cyan-500 text-black" : "border border-muted-foreground/50 text-muted-foreground"
-    )}>
+    <span className="text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 bg-black/80 text-white border border-white/15">
       {badge.label}
     </span>
   );
