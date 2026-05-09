@@ -13,6 +13,7 @@ export interface Track {
   addonId?: string;
   addonTrackId?: string;
   quality?: 'HiFi' | 'Master' | 'High' | 'Normal' | 'MQA';
+  genres?: string[]; // local/demo metadata
 }
 
 export interface Album {

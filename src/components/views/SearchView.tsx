@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useAddonStore } from '@/stores/addonStore';
-import { browseCategories, formatDuration } from '@/lib/demo-data';
+import { browseCategories, demoTracks } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -106,11 +106,27 @@ export default function SearchView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
+  const localResults = useMemo(() => {
+    if (!hasSearched) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const cat = browseCategories.find((c) => c.name.toLowerCase() === q);
+    if (cat) {
+      return demoTracks.filter((t) => (t.genres || []).some((g) => g.toLowerCase() === q));
+    }
+
+    return demoTracks.filter((t) => {
+      const hay = `${t.title} ${t.artist} ${t.album || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [hasSearched, query]);
+
   const allResults = useMemo(() => {
     if (!hasSearched) return [];
-    if (!activeAddonId) return addonResults;
-    return addonResults;
-  }, [addonResults, hasSearched, activeAddonId]);
+    if (activeAddonId && addonResults.length > 0) return addonResults;
+    return localResults;
+  }, [addonResults, hasSearched, activeAddonId, localResults]);
 
   const showAddonsSearching = isSearching && hasSearched;
   const showNoResults = hasSearched && !isSearching && allResults.length === 0 && query.trim();
@@ -296,11 +312,17 @@ export default function SearchView() {
                 </TabsList>
 
                 <TabsContent value="tracks" className="mt-4">
-                  {/* Addon source indicator */}
-                  {activeAddonId && hasSearched && !isSearching && addonResults.length > 0 && (
+                  {/* Source indicator */}
+                  {hasSearched && !isSearching && activeAddonId && addonResults.length > 0 && (
                     <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
                       <Wifi size={12} className="text-spotify-green" />
                       <span>{addonResults.length} results from {activeAddon?.manifest.name || 'addon'}</span>
+                    </div>
+                  )}
+                  {hasSearched && !isSearching && (!activeAddonId || addonResults.length === 0) && localResults.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-spotify-green" />
+                      <span>{localResults.length} results from local catalog</span>
                     </div>
                   )}
 

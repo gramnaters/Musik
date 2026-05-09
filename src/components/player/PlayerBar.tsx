@@ -63,7 +63,7 @@ export default function PlayerBar() {
                   />
                   <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5 overflow-hidden pr-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="pb-title min-w-0 flex-1 truncate cursor-pointer hover:underline max-md:text-[12px] max-md:leading-snug">
+                      <div className="pb-title min-w-0 flex-[0_1_auto] max-w-[22ch] lg:max-w-[30ch] truncate cursor-pointer hover:underline max-md:text-[12px] max-md:leading-snug">
                         {currentTrack.title}
                       </div>
                       {qualityBadge && (
