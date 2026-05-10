@@ -56,14 +56,17 @@ export default function Sidebar() {
       <div className={cn('flex items-center p-4 gap-2', sidebarCollapsed && 'justify-center')}>
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 12L12 22L22 12L12 2ZM12 6L18 12L12 18L6 12L12 6Z" fill="white" />
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg,#1DB954 0%,#0ea5e9 100%)', boxShadow: '0 2px 8px rgba(29,185,84,0.3)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M2 14 L2 5 L6.5 11 L9 7.5 L11.5 11 L16 5 L16 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <span
               className={cn(
-                'font-bold text-xl tracking-tight',
+                'font-bold tracking-[-0.04em] text-[18px] leading-none',
                 playerTheme === 'tidal' ? 'text-white' : 'text-foreground'
               )}
             >

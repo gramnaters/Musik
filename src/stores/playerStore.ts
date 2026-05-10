@@ -159,7 +159,6 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
               const trackToPlay = {
                 ...track,
                 url: finalStreamUrl,
-                quality: (track as any).quality || 'Normal',
               };
               set({ currentTrack: trackToPlay, isPlaying: true });
               

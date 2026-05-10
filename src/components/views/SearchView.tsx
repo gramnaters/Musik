@@ -42,6 +42,7 @@ function addonTrackToTrack(t: AddonTrack): Track {
     addonId: t.addonId,
     addonTrackId: t.id,
     quality: t.quality,
+    explicit: t.explicit,
   };
 }
 

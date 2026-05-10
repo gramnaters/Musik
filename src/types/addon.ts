@@ -44,6 +44,7 @@ export function normalizeAddonTrack(raw: Record<string, unknown>, addonId: strin
     artistId: raw.artistId ? String(raw.artistId) : raw.artist_id ? String(raw.artist_id) : undefined,
     albumId: raw.albumId ? String(raw.albumId) : undefined,
     quality: (raw.quality ?? raw.audioQuality ?? raw.stream_quality) as any,
+    explicit: !!(raw.explicit ?? raw.isExplicit),
     addonId,
     addonName,
   };

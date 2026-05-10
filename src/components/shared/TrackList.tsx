@@ -125,13 +125,28 @@ export function TrackContextMenu({
   );
 }
 
-function QualityBadge({ quality }: { quality?: string }) {
+function TagBadge({ quality, explicit }: { quality?: string; explicit?: boolean }) {
   const badge = getQualityBadge(quality);
-  if (!badge) return null;
+  if (!badge && !explicit) return null;
+  
   return (
-    <span className="text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 bg-black/80 text-white border border-white/15">
-      {badge.label}
-    </span>
+    <div className="flex gap-1 items-center">
+      {explicit && (
+        <span className="text-[8px] font-bold px-1 rounded-[2px] bg-white/20 text-white/70 leading-tight">E</span>
+      )}
+      {badge && (
+        <span className={cn(
+          "text-[8px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5",
+          badge.label === 'ATMOS' ? "text-white/80" : "bg-white/10 text-white/70"
+        )}>
+          {badge.label === 'ATMOS' ? (
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+            </svg>
+          ) : badge.label}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -267,7 +282,7 @@ export default function TrackList({
                     )}>
                       {track.title}
                     </p>
-                    <QualityBadge quality={track.quality} />
+                    <TagBadge quality={track.quality} explicit={track.explicit} />
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {track.artist}
