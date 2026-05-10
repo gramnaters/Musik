@@ -1,7 +1,3 @@
-/**
- * Rounded triangle play glyph — matches Apple Music / SF-style soft vertices
- * (Heroicons 24 solid play path).
- */
 export function AppleMusicPlayIcon({
   size,
   className,
@@ -20,7 +16,7 @@ export function AppleMusicPlayIcon({
       className={className}
       aria-hidden={ariaHidden}
     >
-      <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+      <path d="M8 5.14v14.72a1.07 1.07 0 0 0 1.61.93L19 14.43a1.07 1.07 0 0 0 0-1.86L9.61 4.21A1.07 1.07 0 0 0 8 5.14z" />
     </svg>
   );
 }

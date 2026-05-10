@@ -72,7 +72,7 @@ export default function PlayerBar() {
                     <div className="flex min-w-0 items-center gap-0.5">
                       <div
                         className={cn(
-                          'tidal-pb-title pb-title min-w-0 flex-1 cursor-pointer truncate font-medium hover:underline text-[12px] leading-snug md:text-[13px] md:font-semibold md:leading-tight md:tracking-tight'
+                          'tidal-pb-title pb-title min-w-0 cursor-pointer truncate font-medium hover:underline text-[12px] leading-snug md:text-[13px] md:font-semibold md:leading-tight md:tracking-tight'
                         )}
                         onClick={() => setShowNowPlaying(true)}
                         onKeyDown={(e) => e.key === 'Enter' && setShowNowPlaying(true)}
@@ -128,7 +128,7 @@ export default function PlayerBar() {
               ) : (
                 <>
                   <div className="pb-thumb tidal-pb-thumb flex items-center justify-center bg-white/5 border-none shadow-none shrink-0">
-                    <Music size={18} className="text-white/30" />
+                    <MusicIcon size={18} className="text-white/30" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="pb-title text-white/50 max-md:text-[12px]">No track playing</div>
@@ -205,14 +205,14 @@ export default function PlayerBar() {
           <div className="flex items-center justify-between w-full h-full relative">
             {/* Left column - Track info */}
             <div className="flex min-w-0 w-[30%] items-center gap-2 sm:gap-3">
-              <AnimatePresence mode="wait">
+<AnimatePresence mode="wait">
                 {currentTrack ? (
                   <motion.div
                     key={currentTrack.id}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex min-w-0 flex-1 items-center gap-3"
+                    className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
                   >
                     <div className="w-14 h-14 rounded-md overflow-hidden flex-shrink-0 bg-accent shadow-lg">
                       {currentTrack.albumCover ? (
@@ -223,24 +223,35 @@ export default function PlayerBar() {
                         />
                       ) : (
                         <div className="w-full h-full bg-accent flex items-center justify-center">
-                          <Music size={20} className="text-muted-foreground" />
+                          <MusicIcon size={20} className="text-muted-foreground" />
                         </div>
                       )}
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                      <div className="flex min-w-0 items-center gap-0.5">
-                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-white hover:underline cursor-pointer">
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <p className="min-w-0 truncate text-sm font-medium text-white hover:underline cursor-pointer pr-1">
                           {currentTrack.title}
                         </p>
-                        {currentTrack.quality && currentTrack.quality !== 'Normal' && (
+                        {currentTrack.explicit && (
+                          <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
+                        )}
+                        {qualityBadge && (
                           <span
                             className={cn(
-                              'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3 flex items-center border border-white/25 text-white/90',
-                              (currentTrack.quality === 'Master' || currentTrack.quality === 'MQA') &&
-                                'bg-cyan-500 text-black border-none'
+                              'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center',
+                              qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
+                              qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
+                              qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
+                              qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
+                              qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
+                              (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
                             )}
                           >
-                            {currentTrack.quality}
+                            {qualityBadge.label === 'ATMOS' ? (
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+                                </svg>
+                            ) : qualityBadge.label}
                           </span>
                         )}
                         <Button
@@ -248,7 +259,7 @@ export default function PlayerBar() {
                           size="icon"
                           onClick={() => toggleFavourite(currentTrack)}
                           className={cn(
-                            'h-7 w-7 shrink-0 p-0 hidden sm:flex',
+                            'h-6 w-6 shrink-0 p-0',
                             playerTheme === 'spotify' &&
                               (isFav ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'),
                             playerTheme === 'apple' &&
@@ -256,18 +267,18 @@ export default function PlayerBar() {
                           )}
                           aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
                         >
-                          <Heart size={16} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
+                          <Heart size={14} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => setShowNowPlaying(true)}
                           className={cn(
-                            'h-7 w-7 shrink-0 p-0 hidden sm:inline-flex rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white'
+                            'h-6 w-6 shrink-0 p-0 rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white hidden sm:inline-flex'
                           )}
                           aria-label="Open full player"
                         >
-                          <ChevronUp className="size-4" strokeWidth={2} />
+                          <ChevronUp className="size-3.5" strokeWidth={2} />
                         </Button>
                       </div>
                       <p className="min-h-[1.2em] truncate text-[11px] leading-snug text-white/55 hover:underline cursor-pointer">
@@ -278,7 +289,7 @@ export default function PlayerBar() {
                 ) : (
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-14 h-14 rounded-md bg-accent flex items-center justify-center flex-shrink-0">
-                      <Music size={20} className="text-muted-foreground" />
+                      <MusicIcon size={20} className="text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm text-white/45">No track playing</p>
@@ -291,7 +302,7 @@ export default function PlayerBar() {
             {/* Center column - Controls + Progress */}
             <div className="flex flex-col items-center gap-1 w-[40%] max-w-[722px]">
               {/* Controls */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-5">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -299,14 +310,14 @@ export default function PlayerBar() {
                       size="icon"
                       onClick={() => toggleShuffle()}
                       className={cn(
-                        'h-8 w-8 hidden sm:flex',
+                        'h-10 w-10 hidden sm:flex',
                         playerTheme === 'spotify' &&
                           (isShuffle ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'),
                         playerTheme === 'apple' &&
                           (isShuffle ? 'text-white hover:text-white' : 'text-white/40 hover:text-white/90')
                       )}
                     >
-                      <Shuffle size={16} />
+                      <Shuffle size={20} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
@@ -320,9 +331,9 @@ export default function PlayerBar() {
                       variant="ghost"
                       size="icon"
                       onClick={previousTrack}
-                      className="h-8 w-8 text-white/70 hover:text-white"
+                      className="h-10 w-10 text-white/70 hover:text-white"
                     >
-                      <SkipBack size={16} fill="currentColor" />
+                      <SkipBack size={24} fill="currentColor" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
@@ -330,35 +341,89 @@ export default function PlayerBar() {
                   </TooltipContent>
                 </Tooltip>
 
+                {/* ===== PLAY BUTTON ===== */}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      type="button"
-                      onClick={togglePlayPause}
-                      disabled={!currentTrack}
-                      className={cn(
-                        'h-11 w-11 shrink-0 p-0 rounded-full transition-[opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
-                        playerTheme === 'spotify' &&
-                          'bg-spotify-green hover:bg-spotify-green-hover hover:opacity-95 shadow-lg shadow-black/20',
-                        playerTheme === 'apple' &&
-                          'bg-transparent hover:bg-white/10 text-white shadow-none border-0',
-                        'disabled:opacity-50 disabled:cursor-not-allowed'
-                      )}
-                    >
-                      {isPlaying ? (
-                        <Pause
-                          size={22}
-                          fill={playerTheme === 'spotify' ? 'white' : 'currentColor'}
-                          className={playerTheme === 'spotify' ? 'text-white' : 'text-white'}
-                        />
-                      ) : playerTheme === 'apple' ? (
-                        <AppleMusicPlayIcon size={22} className="text-white translate-x-[1px]" />
-                      ) : (
-                        <Play size={20} fill="white" className="text-white ml-1" />
-                      )}
-                    </Button>
+                    {playerTheme === 'spotify' ? (
+                      /* Spotify: white circle with green fill, no border-radius on Button ghost */
+                      <button
+                        type="button"
+                        onClick={togglePlayPause}
+                        disabled={!currentTrack}
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        className={cn(
+                          'h-12 w-12 shrink-0 rounded-full flex items-center justify-center',
+                          'bg-white text-black',
+                          'transition-transform duration-150 ease-out',
+                          'hover:scale-[1.06] active:scale-[0.97]',
+                          'disabled:opacity-50 disabled:cursor-not-allowed',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40'
+                        )}
+                      >
+                        {isPlaying ? (
+                          <Pause size={24} fill="black" stroke="black" />
+                        ) : (
+                          <Play size={24} fill="black" stroke="black" className="translate-x-[1px]" />
+                        )}
+                      </button>
+                    ) : playerTheme === 'apple' ? (
+                      /* Apple Music: NO circle, larger professional icon, NO dimming on hover */
+                      <button
+                        type="button"
+                        onClick={togglePlayPause}
+                        disabled={!currentTrack}
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        className={cn(
+                          'h-12 w-12 shrink-0 flex items-center justify-center rounded-full',
+                          'bg-transparent text-white',
+                          'transition-transform duration-150',
+                          'hover:scale-110 active:scale-95',
+                          'disabled:opacity-30 disabled:cursor-not-allowed',
+                          'focus-visible:outline-none'
+                        )}
+                        style={{ background: 'none', border: 'none', boxShadow: 'none' }}
+                      >
+                        <AnimatePresence mode="wait">
+                          {isPlaying ? (
+                            <motion.div
+                              key="pause"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Pause size={32} fill="none" stroke="currentColor" strokeWidth={2.5} />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="play"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <AppleMusicPlayIcon size={32} className="translate-x-[1px]" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </button>
+                    ) : (
+                      /* Tidal fallback */
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        onClick={togglePlayPause}
+                        disabled={!currentTrack}
+                        className="h-11 w-11 shrink-0 rounded-full bg-white/95 text-black hover:bg-white hover:scale-105 disabled:opacity-50 transition-all"
+                      >
+                        {isPlaying ? (
+                          <Pause size={20} fill="black" stroke="black" />
+                        ) : (
+                          <Play size={20} fill="black" stroke="black" className="translate-x-[1px]" />
+                        )}
+                      </Button>
+                    )}
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
                     <p>{isPlaying ? 'Pause' : 'Play'}</p>
@@ -371,9 +436,9 @@ export default function PlayerBar() {
                       variant="ghost"
                       size="icon"
                       onClick={nextTrack}
-                      className="h-8 w-8 text-white/70 hover:text-white"
+                      className="h-10 w-10 text-white/70 hover:text-white"
                     >
-                      <SkipForward size={16} fill="currentColor" />
+                      <SkipForward size={24} fill="currentColor" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
@@ -388,7 +453,7 @@ export default function PlayerBar() {
                       size="icon"
                       onClick={cycleRepeat}
                       className={cn(
-                        'h-8 w-8 hidden sm:flex',
+                        'h-10 w-10 hidden sm:flex',
                         playerTheme === 'spotify' &&
                           (repeatMode !== 'off'
                             ? 'text-[#1DB954] hover:text-[#1DB954]'
@@ -399,7 +464,7 @@ export default function PlayerBar() {
                             : 'text-white/40 hover:text-white/90')
                       )}
                     >
-                      {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+                      {repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
@@ -419,7 +484,7 @@ export default function PlayerBar() {
                   className={cn(
                     'flex-1 min-w-0',
                     seekbarWrapperClass(seekbarStyle),
-                    playerTheme === 'spotify' ? 'spotify-progress' : 'enhanced-seekbar'
+                    playerTheme === 'spotify' ? 'spotify-progress' : playerTheme === 'apple' ? 'apple-progress' : 'enhanced-seekbar'
                   )}
                 >
                   <Slider
@@ -562,7 +627,7 @@ export default function PlayerBar() {
   );
 }
 
-function Music({ size, className }: { size: number; className?: string }) {
+function MusicIcon({ size, className }: { size: number; className?: string }) {
   return (
     <svg
       width={size}

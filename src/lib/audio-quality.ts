@@ -1,59 +1,90 @@
+import type { Track } from '@/types/music';
+
 export type QualityBadge = {
   label: string;
 };
 
-/**
- * Normalizes various quality strings into a small set of user-facing badges,
- * matching common TIDAL/Monochrome conventions.
- *
- * Notes:
- * - We intentionally hide "Normal"/unknown to avoid misleading users.
- * - Addons may return arbitrary strings (e.g. "LOSSLESS", "HI_RES", "24BIT").
- */
+const AUDIO_QUALITIES = {
+  DOLBY_ATMOS: 'DOLBY_ATMOS',
+  HI_RES_LOSSLESS: 'HI_RES_LOSSLESS',
+  LOSSLESS: 'LOSSLESS',
+  HIGH: 'HIGH',
+  LOW: 'LOW',
+} as const;
+
+const QUALITY_PRIORITY = ['DOLBY_ATMOS', 'HI_RES_LOSSLESS', 'LOSSLESS', 'HIGH', 'LOW'];
+
+const QUALITY_TOKENS: Record<string, string[]> = {
+  DOLBY_ATMOS: ['DOLBY_ATMOS', 'ATMOS'],
+  HI_RES_LOSSLESS: [
+    'HI_RES_LOSSLESS', 'HIRES_LOSSLESS', 'HIRESLOSSLESS',
+    'HIFI_PLUS', 'HI_RES_FLAC', 'HI_RES', 'HIRES',
+    'MASTER', 'MASTER_QUALITY', 'MQA', 'MAX',
+  ],
+  LOSSLESS: ['LOSSLESS', 'HIFI', 'FLAC', 'ALAC', 'CD', 'CDQUALITY', 'HI_FI', 'HIFI'],
+  HIGH: ['HIGH', 'HIGH_QUALITY', 'PREMIUM'],
+  LOW: ['LOW', 'LOW_QUALITY'],
+};
+
+function normalizeToken(value: string): string {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+
+function pickBestQuality(candidates: (string | null | undefined)[]): string | null {
+  let best: string | null = null;
+  let bestRank = Infinity;
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const rank = QUALITY_PRIORITY.indexOf(candidate);
+    const currentRank = rank === -1 ? Infinity : rank;
+    if (currentRank < bestRank) {
+      best = candidate;
+      bestRank = currentRank;
+    }
+  }
+  return best;
+}
+
+function normalizeQualityToken(value: string): string | null {
+  if (!value) return null;
+  const token = normalizeToken(value);
+
+  for (const [quality, aliases] of Object.entries(QUALITY_TOKENS)) {
+    if (aliases.includes(token)) return quality;
+  }
+  return null;
+}
+
 export function getQualityBadge(raw?: string | null): QualityBadge | null {
   if (!raw) return null;
   const q = String(raw).trim();
   if (!q) return null;
 
-  const norm = q.toLowerCase().replace(/[\s_-]+/g, '');
+  const normalized = normalizeQualityToken(q);
+  if (!normalized) {
+    const norm = q.toLowerCase().replace(/[\s_-]+/g, '');
+    if (norm.includes('320') || norm.includes('mp3') || norm.includes('aac')) {
+      return { label: 'HIGH' };
+    }
+    return null;
+  }
 
-  // Hide low/unknown labels
-  if (norm === 'normal' || norm === 'low' || norm === 'standard') return null;
-
-  // Atmos / immersive
-  if (norm.includes('atmos') || norm.includes('360') || norm.includes('spatial')) {
+  if (normalized === AUDIO_QUALITIES.DOLBY_ATMOS) {
     return { label: 'ATMOS' };
   }
-
-  // Master / MQA / Hi-Res
-  if (
-    norm === 'master' ||
-    norm === 'mqa' ||
-    norm.includes('hires') ||
-    norm.includes('hireslossless') ||
-    norm.includes('24bit') ||
-    norm.includes('24') && norm.includes('bit')
-  ) {
-    return { label: 'MASTER' };
+  if (normalized === AUDIO_QUALITIES.HI_RES_LOSSLESS) {
+    return { label: 'HD' };
   }
-
-  // Lossless / HiFi (CD quality)
-  if (
-    norm === 'hifi' ||
-    norm === 'lossless' ||
-    norm.includes('flac') ||
-    norm.includes('alac') ||
-    norm.includes('cd')
-  ) {
+  if (normalized === AUDIO_QUALITIES.LOSSLESS) {
     return { label: 'HIFI' };
   }
-
-  // High / AAC / MP3 320
-  if (norm === 'high' || norm.includes('320') || norm.includes('aac') || norm.includes('mp3')) {
+  if (normalized === AUDIO_QUALITIES.HIGH) {
     return { label: 'HIGH' };
   }
+  if (normalized === AUDIO_QUALITIES.LOW) {
+    return { label: 'LOW' };
+  }
 
-  // Unknown value: don't lie; hide it.
   return null;
 }
-

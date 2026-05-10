@@ -132,36 +132,32 @@ export default function NowPlaying() {
               </motion.div>
 
               <div className="w-full max-w-[min(80vw,400px)] text-left">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0 flex-1">
-                        {currentTrack.title}
-                      </h2>
-                      {qualityBadge && (
-                        <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
-                          {qualityBadge.label}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[15px] text-white/70 truncate mt-1.5">{currentTrack.artist}</p>
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0">
+                    {currentTrack.title}
+                  </h2>
+                  {qualityBadge && (
+                    <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
+                      {qualityBadge.label}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => toggleFavourite(currentTrack)}
                     className={cn(
-                      'shrink-0 self-center rounded-full p-1.5 transition-colors',
-                      isFav ? 'text-pink-500' : 'text-white/50 hover:text-white'
+                      'shrink-0 rounded-full p-1 transition-colors',
+                      isFav ? 'text-pink-500' : 'text-white/45 hover:text-white'
                     )}
                     aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
                   >
-                    <Heart size={22} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
+                    <Heart size={18} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                   </button>
                 </div>
-                <div className="flex items-center gap-1.5 min-h-[22px] text-sm text-white/55 mt-1">
+                <p className="text-[15px] text-white/70 truncate mt-0.5">{currentTrack.artist}</p>
+                <div className="flex items-center gap-1.5 min-h-[22px] text-sm text-white/55 mt-0.5">
                   {currentTrack.album?.trim() ? (
                     <>
-                      <Disc3 className="size-4 shrink-0 opacity-80" aria-hidden />
+                      <Disc3 className="size-3.5 shrink-0 opacity-70" aria-hidden />
                       <span className="truncate">{currentTrack.album}</span>
                     </>
                   ) : null}
@@ -169,38 +165,10 @@ export default function NowPlaying() {
               </div>
             </div>
 
-            {/* Controls + Progress */}
-            <div className="p-6 md:p-8 pb-12 md:pb-16 space-y-4">
-              {/* Progress */}
-              <div className="w-full max-w-[min(90vw,600px)] mx-auto">
-                <div
-                  className={cn(
-                    'w-full cursor-pointer min-w-0',
-                    seekbarWrapperClass(seekbarStyle),
-                    playerTheme === 'spotify' ? 'spotify-progress' : 'enhanced-seekbar'
-                  )}
-                >
-                  <Slider
-                    value={[currentTime]}
-                    min={0}
-                    max={duration || 100}
-                    step={0.1}
-                    onValueChange={(value) => seekTo(value[0])}
-                    className="w-full"
-                  />
-                </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-white/50 tabular-nums">
-                    {formatDuration(currentTime)}
-                  </span>
-                  <span className="text-xs text-white/50 tabular-nums">
-                    {duration > 0 ? `-${formatDuration(Math.max(0, duration - currentTime))}` : '0:00'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Main controls */}
-              <div className="flex items-center justify-center gap-6">
+            {/* Controls + Progress - Restructured Layout */}
+            <div className="p-6 md:p-8 pb-12 md:pb-16 flex flex-col gap-6 w-full">
+              {/* Main controls row (centered) */}
+              <div className="flex items-center justify-center gap-8">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -210,7 +178,7 @@ export default function NowPlaying() {
                     isShuffle ? 'text-spotify-green' : 'text-white/70'
                   )}
                 >
-                  <Shuffle size={20} />
+                  <Shuffle size={22} />
                 </Button>
 
                 <Button
@@ -219,7 +187,7 @@ export default function NowPlaying() {
                   onClick={previousTrack}
                   className="h-10 w-10 text-white hover:bg-white/10"
                 >
-                  <SkipBack size={24} fill="currentColor" />
+                  <SkipBack size={26} fill="currentColor" />
                 </Button>
 
                 <Button
@@ -230,23 +198,43 @@ export default function NowPlaying() {
                   className={cn(
                     'shrink-0 p-0 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
                     (playerTheme === 'spotify' || playerTheme === 'tidal') &&
-                      'w-14 h-14 rounded-full bg-white text-black hover:opacity-[0.93]',
+                      'w-16 h-16 rounded-full bg-white text-black hover:opacity-[0.93]',
                     playerTheme === 'tidal' && 'shadow-[0_0_20px_rgba(255,255,255,0.12)]',
                     playerTheme === 'apple' &&
-                      'h-14 w-14 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 active:scale-[0.97]'
+                      'h-16 w-16 rounded-full bg-transparent text-white shadow-none active:scale-[0.97]'
                   )}
                 >
-                  {isPlaying ? (
-                    playerTheme === 'apple' ? (
-                      <Pause size={32} fill="currentColor" strokeWidth={2} className="scale-95" />
+                  <AnimatePresence mode="wait">
+                    {isPlaying ? (
+                      <motion.div
+                        key="pause"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        {playerTheme === 'apple' ? (
+                          <Pause size={36} fill="none" stroke="currentColor" strokeWidth={2.5} />
+                        ) : (
+                          <Pause size={32} fill="currentColor" />
+                        )}
+                      </motion.div>
                     ) : (
-                      <Pause size={28} fill="currentColor" />
-                    )
-                  ) : playerTheme === 'apple' ? (
-                    <AppleMusicPlayIcon size={34} className="translate-x-[2px]" />
-                  ) : (
-                    <Play size={28} fill="currentColor" className="ml-1" />
-                  )}
+                      <motion.div
+                        key="play"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        {playerTheme === 'apple' ? (
+                          <AppleMusicPlayIcon size={36} className="translate-x-[2px]" />
+                        ) : (
+                          <Play size={32} fill="currentColor" className="ml-1.5" />
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Button>
 
                 <Button
@@ -255,7 +243,7 @@ export default function NowPlaying() {
                   onClick={nextTrack}
                   className="h-10 w-10 text-white hover:bg-white/10"
                 >
-                  <SkipForward size={24} fill="currentColor" />
+                  <SkipForward size={26} fill="currentColor" />
                 </Button>
 
                 <Button
@@ -267,32 +255,66 @@ export default function NowPlaying() {
                     repeatMode !== 'off' ? 'text-spotify-green' : 'text-white/70'
                   )}
                 >
-                  {repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                  {repeatMode === 'one' ? <Repeat1 size={22} /> : <Repeat size={22} />}
                 </Button>
               </div>
 
-              {/* Volume + download */}
-              <div className="flex items-center justify-center gap-3 w-full max-w-[min(90vw,400px)] mx-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Download track"
-                  className="text-white/50 hover:bg-white/10 hover:text-white h-10 w-10 shrink-0"
-                  onClick={() => void downloadCurrentTrack(currentTrack)}
-                >
-                  <Download size={18} />
-                </Button>
-                <Volume2 size={16} className="text-white/50 shrink-0" />
-                <Slider
-                  value={[isMuted ? 0 : volume * 100]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onValueChange={(value) => setVolume(value[0] / 100)}
-                  className="flex-1 min-w-0 cursor-pointer"
-                />
-                <VolumeIcon size={16} className="text-white/50 shrink-0 cursor-pointer" onClick={toggleMute} />
+              {/* Bottom row: Download (left), Seekbar (center), Volume (right) */}
+              <div className="grid grid-cols-[1fr_2fr_1fr] gap-4 items-center w-full max-w-[min(90vw,600px)] mx-auto">
+                {/* Left: Download button */}
+                <div className="flex justify-start">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Download track"
+                    className="text-white/50 hover:bg-white/10 hover:text-white h-10 w-10 shrink-0"
+                    onClick={() => void downloadCurrentTrack(currentTrack)}
+                  >
+                    <Download size={18} />
+                  </Button>
+                </div>
+
+                {/* Center: Seekbar */}
+                <div className="flex flex-col gap-1">
+                  <div
+                    className={cn(
+                      'w-full cursor-pointer min-w-0',
+                      seekbarWrapperClass(seekbarStyle),
+                      playerTheme === 'spotify' ? 'spotify-progress' : playerTheme === 'apple' ? 'apple-progress' : 'enhanced-seekbar'
+                    )}
+                  >
+                    <Slider
+                      value={[currentTime]}
+                      min={0}
+                      max={duration || 100}
+                      step={0.1}
+                      onValueChange={(value) => seekTo(value[0])}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex justify-between gap-1">
+                    <span className="text-xs text-white/50 tabular-nums">
+                      {formatDuration(currentTime)}
+                    </span>
+                    <span className="text-xs text-white/50 tabular-nums">
+                      {duration > 0 ? `-${formatDuration(Math.max(0, duration - currentTime))}` : '0:00'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Volume slider */}
+                <div className="flex items-center justify-end gap-2">
+                  <VolumeIcon size={18} className="text-white/50 shrink-0 cursor-pointer" onClick={toggleMute} />
+                  <Slider
+                    value={[isMuted ? 0 : volume * 100]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(value) => setVolume(value[0] / 100)}
+                    className="w-24 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
