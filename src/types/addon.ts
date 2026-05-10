@@ -27,7 +27,7 @@ export interface AddonTrack {
   albumId?: string;
   addonId?: string;
   addonName?: string;
-  quality?: 'HiFi' | 'Master' | 'High' | 'Normal' | 'MQA';
+  quality?: string; // Accept any quality token from addons
 }
 
 // Helper to normalize track fields from various addon response formats

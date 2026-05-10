@@ -214,31 +214,31 @@
   background-color: rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Filled range — white by default, green on hover */
+/* Filled range — Spotify green by default */
 .spotify-progress [data-slot="slider-range"] {
   height: var(--sp-height) !important;
-  background-color: #ffffff !important;
+  background-color: #1DB954 !important;
   transition: background-color 0.2s, height 0.15s;
 }
 
 .spotify-progress:hover [data-slot="slider-range"] {
-  background-color: #1DB954 !important;
+  background-color: #1ed760 !important;
 }
 
 /* Light mode range */
 :is(:root:not(.dark)) .spotify-progress [data-slot="slider-range"] {
-  background-color: #121212 !important;
-}
-
-:is(:root:not(.dark)) .spotify-progress:hover [data-slot="slider-range"] {
   background-color: #1DB954 !important;
 }
 
-/* Thumb — hidden by default, green circle on hover */
+:is(:root:not(.dark)) .spotify-progress:hover [data-slot="slider-range"] {
+  background-color: #1ed760 !important;
+}
+
+/* Thumb — always visible, green circle */
 .spotify-progress [data-slot="slider-thumb"] {
   width: 12px !important;
   height: 12px !important;
-  background-color: #ffffff !important;
+  background-color: #1DB954 !important;
   border: 2px solid #1DB954 !important;
   opacity: 0;
   transform: scale(0.5) translateY(-50%);
@@ -431,6 +431,8 @@
   opacity: 0;
   transition: opacity 0.15s;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.4) !important;
+  border-radius: 50% !important;
+  -webkit-border-radius: 50% !important;
 }
 
 .tidal-progress:hover [data-slot="slider-thumb"] {
@@ -966,6 +968,8 @@ img {
     0 2px 12px rgba(255, 255, 255, 0.35) !important;
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
+  border-radius: 50% !important;
+  -webkit-border-radius: 50% !important;
 }
 .tidal-progress-slider:hover [data-slot="slider-thumb"],
 .tidal-progress-slider:focus-visible [data-slot="slider-thumb"],

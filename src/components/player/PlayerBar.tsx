@@ -228,56 +228,56 @@ export default function PlayerBar() {
                       )}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-0">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <p className="min-w-0 truncate text-sm font-medium text-white hover:underline cursor-pointer pr-1">
-                          {currentTrack.title}
-                        </p>
-                        {currentTrack.explicit && (
-                          <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
-                        )}
-                        {qualityBadge && (
-                          <span
-                            className={cn(
-                              'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center',
-                              qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
-                              qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
-                              qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
-                              qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
-                              qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
-                              (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
-                            )}
-                          >
-                            {qualityBadge.label === 'ATMOS' ? (
-                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-                                </svg>
-                            ) : qualityBadge.label}
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleFavourite(currentTrack)}
-                          className={cn(
-                            'h-6 w-6 shrink-0 p-0',
-                            playerTheme === 'spotify' &&
-                              (isFav ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'),
-                            playerTheme === 'apple' &&
-                              (isFav ? 'text-pink-400 hover:text-pink-400' : 'text-white/45 hover:text-white')
-                          )}
-                          aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
-                        >
+<div className="flex min-w-0 items-center gap-3">
+                         <p className="min-w-0 truncate text-sm font-medium text-white hover:underline cursor-pointer pr-2">
+                           {currentTrack.title}
+                         </p>
+                         {currentTrack.explicit && (
+                           <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
+                         )}
+                         {qualityBadge && (
+                           <span
+                             className={cn(
+                               'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center',
+                               qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
+                               qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
+                               qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
+                               qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
+                               qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
+                               (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
+                             )}
+                           >
+                             {qualityBadge.label === 'ATMOS' ? (
+                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+                                 </svg>
+                             ) : qualityBadge.label}
+                           </span>
+                         )}
+<Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => toggleFavourite(currentTrack)}
+                           className={cn(
+                             'h-6 w-6 shrink-0 p-0 ml-1',
+                             playerTheme === 'spotify' &&
+                               (isFav ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'),
+                             playerTheme === 'apple' &&
+                               (isFav ? 'text-pink-400 hover:text-pink-400' : 'text-white/45 hover:text-white')
+                           )}
+                           aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                         >
                           <Heart size={14} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setShowNowPlaying(true)}
-                          className={cn(
-                            'h-6 w-6 shrink-0 p-0 rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white hidden sm:inline-flex'
-                          )}
-                          aria-label="Open full player"
-                        >
+<Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => setShowNowPlaying(true)}
+                           className={cn(
+                             'h-6 w-6 shrink-0 p-0 rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white hidden sm:inline-flex ml-1'
+                           )}
+                           aria-label="Open full player"
+                         >
                           <ChevronUp className="size-3.5" strokeWidth={2} />
                         </Button>
                       </div>
@@ -353,7 +353,7 @@ export default function PlayerBar() {
                         aria-label={isPlaying ? 'Pause' : 'Play'}
                         className={cn(
                           'h-12 w-12 shrink-0 rounded-full flex items-center justify-center',
-                          'bg-white text-black',
+                          'bg-[#1DB954] text-black',
                           'transition-transform duration-150 ease-out',
                           'hover:scale-[1.06] active:scale-[0.97]',
                           'disabled:opacity-50 disabled:cursor-not-allowed',
@@ -392,7 +392,7 @@ export default function PlayerBar() {
                               exit={{ opacity: 0, scale: 0.8 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <Pause size={32} fill="none" stroke="currentColor" strokeWidth={2.5} />
+                              <Pause size={32} fill="currentColor" stroke="currentColor" strokeWidth={0} />
                             </motion.div>
                           ) : (
                             <motion.div

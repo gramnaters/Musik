@@ -12,7 +12,7 @@ export interface Track {
   format?: string;
   addonId?: string;
   addonTrackId?: string;
-  quality?: 'HiFi' | 'Master' | 'High' | 'Normal' | 'MQA';
+  quality?: string; // Flexible to accept any quality token from addons
   explicit?: boolean;
   genres?: string[]; // local/demo metadata
 }
