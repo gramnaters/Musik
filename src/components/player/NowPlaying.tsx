@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef, MouseEvent } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
@@ -20,6 +21,34 @@ import { seekbarWrapperClass } from '@/lib/seekbar-styles';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 
 export default function NowPlaying() {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
+  const [isHovering, setIsHovering] = useState(false);
+  const albumRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!albumRef.current) return;
+    const rect = albumRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    setTilt({ x: dy * -18, y: dx * 18 });
+    const sx = ((e.clientX - rect.left) / rect.width) * 100;
+    const sy = ((e.clientY - rect.top) / rect.height) * 100;
+    setShine({ x: sx, y: sy, opacity: 0.45 });
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setTilt({ x: 0, y: 0 });
+    setShine((s) => ({ ...s, opacity: 0 }));
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
   const {
     currentTrack, isPlaying, currentTime, duration,
     volume, isMuted, isShuffle, repeatMode,
@@ -52,19 +81,34 @@ export default function NowPlaying() {
               Background: blurred album art, dark vignette overlay
               Layout: centred column, album square, slim controls below
           ═══════════════════════════════════════════════════════════ */}
-          {playerTheme === 'apple' && (
-            <div className="absolute inset-0 flex flex-col h-full">
-              {/* Blurred album bg */}
-              <div className="absolute inset-0 overflow-hidden">
-                {currentTrack.albumCover && (
-                  <img
-                    src={currentTrack.albumCover}
-                    alt=""
-                    aria-hidden
-                    className="absolute inset-0 w-full h-full object-cover scale-110"
-                    style={{ filter: 'blur(48px) saturate(1.6) brightness(0.45)' }}
-                  />
-                )}
+           {playerTheme === 'apple' && (
+             <div className="absolute inset-0 flex flex-col h-full">
+               {/* Blurred album bg */}
+               <div className="absolute inset-0 overflow-hidden">
+                 {currentTrack.albumCover && (
+                   <img
+                     src={currentTrack.albumCover}
+                     alt=""
+                     aria-hidden
+                     className="absolute inset-0 w-full h-full object-cover scale-110"
+                     style={{ filter: 'blur(48px) saturate(1.6) brightness(0.45)' }}
+                   />
+                 )}
+                 {/* Apple-style deep dark vignette */}
+                 <div className="absolute inset-0 bg-black/55" />
+                 <div className="absolute inset-x-0 bottom-0 h-2/3"
+                   style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.75) 60%, rgba(0,0,0,0.92) 100%)' }} />
+               </div>
+               {/* Animated blobs */}
+               <div className="apple-bg-gradient absolute inset-0">
+                 <div className="apple-blob apple-blob-1" />
+                 <div className="apple-blob apple-blob-2" />
+                 <div className="apple-blob apple-blob-3" />
+                 <div className="apple-blob apple-blob-4" />
+                 <div className="absolute inset-0 bg-black/40 backdrop-blur-3xl" />
+               </div>
+             </div>
+           )}
                 {/* Apple-style deep dark vignette */}
                 <div className="absolute inset-0 bg-black/55" />
                 <div className="absolute inset-x-0 bottom-0 h-2/3"
@@ -97,27 +141,106 @@ export default function NowPlaying() {
                   </button>
                 </div>
 
-                {/* Album Art — Apple Music: large square, prominent rounded corners, deep shadow */}
-                <div className="flex-1 flex items-center justify-center py-4">
-                  <motion.div
-                    key={currentTrack.id}
-                    initial={{ opacity: 0, scale: 0.94 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className="w-full aspect-square max-w-[min(72vw,380px)] rounded-2xl overflow-hidden"
-                    style={{ boxShadow: '0 32px 72px rgba(0,0,0,0.75), 0 8px 24px rgba(0,0,0,0.5)' }}
-                  >
-                    {currentTrack.albumCover ? (
-                      <img src={currentTrack.albumCover} alt={currentTrack.album} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-white/10 flex items-center justify-center">
-                        <svg className="w-20 h-20 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                        </svg>
-                      </div>
-                    )}
-                  </motion.div>
-                </div>
+                 {/* Album Art — Apple Music: large square, prominent rounded corners, deep shadow */}
+                 <div className="flex-1 flex items-center justify-center py-4">
+                   <motion.div
+                     key={currentTrack.id}
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     transition={{ duration: 0.22, ease: 'easeOut' }}
+                     className="relative flex flex-col items-center"
+                   >
+                     <div
+                       ref={albumRef}
+                       onMouseMove={handleMouseMove}
+                       onMouseEnter={handleMouseEnter}
+                       onMouseLeave={handleMouseLeave}
+                       className="relative cursor-pointer"
+                       style={{
+                         perspective: "800px",
+                         transformStyle: "preserve-3d",
+                       }}
+                     >
+                       <div
+                         className={cn(
+                           "relative w-full max-w-[min(80vw,400px)] aspect-square rounded-lg overflow-hidden transition-all duration-500 shadow-2xl shadow-black/60",
+                           isPlaying ? "scale-100" : "scale-[0.93]"
+                         )}
+                         style={{
+                           transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) ${isHovering ? "scale(1.04)" : "scale(1)"}`,
+                           transition: isHovering
+                             ? "transform 0.08s ease-out, box-shadow 0.2s"
+                             : "transform 0.5s cubic-bezier(0.23,1,0.32,1), box-shadow 0.5s",
+                           boxShadow: isHovering
+                             ? `${-tilt.y * 1.5}px ${tilt.x * 1.5}px 60px rgba(0,0,0,0.7), 0 20px 80px rgba(0,0,0,0.5)`
+                             : "0 10px 40px rgba(0,0,0,0.4)",
+                           transformStyle: "preserve-3d",
+                         }}
+                       >
+                         {currentTrack.albumCover ? (
+                           <img
+                             src={currentTrack.albumCover}
+                             alt={currentTrack.album}
+                             className="w-full h-full object-cover"
+                           />
+                         ) : (
+                           <div className="w-full h-full bg-accent/30 flex items-center justify-center">
+                             <svg className="w-24 h-24 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                               <path d="M9 18V5l12-2v13" />
+                               <circle cx="6" cy="18" r="3" />
+                               <circle cx="18" cy="16" r="3" />
+                             </svg>
+                           </div>
+                         )}
+
+                         {/* Shine layer */}
+                         <div
+                           className="absolute inset-0 pointer-events-none"
+                           style={{
+                             background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,${shine.opacity}) 0%, rgba(255,255,255,0.05) 40%, transparent 70%)`,
+                             mixBlendMode: "overlay",
+                             transition: isHovering ? "background 0.05s" : "background 0.5s, opacity 0.5s",
+                           }}
+                         />
+                         {/* Edge sheen */}
+                         <div
+                           className="absolute inset-0 pointer-events-none"
+                           style={{
+                             background: `linear-gradient(${135 + tilt.y * 2}deg, rgba(255,255,255,${isHovering ? 0.12 : 0}) 0%, transparent 50%, rgba(0,0,0,${isHovering ? 0.1 : 0}) 100%)`,
+                             transition: isHovering ? "background 0.08s" : "background 0.5s",
+                           }}
+                         />
+                       </div>
+
+                       {/* Reflection below */}
+                       {isHovering && (
+                         <div
+                           className="absolute left-0 right-0 overflow-hidden pointer-events-none"
+                           style={{
+                             top: "100%",
+                             height: "60px",
+                             transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+                             transition: "transform 0.08s ease-out",
+                           }}
+                         >
+                           <div
+                             className="w-full aspect-square rounded-lg"
+                             style={{
+                               backgroundImage: currentTrack.albumCover ? `url(${currentTrack.albumCover})` : undefined,
+                               backgroundSize: "cover",
+                               backgroundPosition: "bottom",
+                               transform: "scaleY(-1)",
+                               maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.25), transparent)",
+                               WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.25), transparent)",
+                               filter: "blur(2px)",
+                               opacity: 0.4,
+                             }}
+                           />
+                         )}
+                       />
+                     </div>
+                   </motion.div>
+                 </div>
 
                 {/* Track info — Apple Music: title left, heart right */}
                 <div className="flex items-center justify-between gap-4 mb-3">
