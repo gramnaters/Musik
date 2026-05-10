@@ -185,17 +185,22 @@ export default function NowPlaying() {
                     </svg>
                   </button>
 
-                  {/* Apple Music: LARGE icon, NO circle, NO background */}
+                  {/* Apple Music: LARGE icon, NO circle, NO background - fixed position */}
                   <button
                     onClick={togglePlayPause}
                     aria-label={isPlaying ? 'Pause' : 'Play'}
-                    className="h-14 w-14 flex items-center justify-center text-white transition-opacity hover:opacity-75 active:opacity-50 focus-visible:outline-none"
-                    style={{ background: 'none', border: 'none', boxShadow: 'none' }}
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-transform duration-150 ease-out hover:scale-105 active:scale-95"
+                    style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
                   >
                     {isPlaying ? (
-                      <Pause size={46} fill="currentColor" strokeWidth={0} />
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
                     ) : (
-                      <AppleMusicPlayIcon size={46} className="translate-x-[2px]" />
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="6,3 20,12 6,21" />
+                      </svg>
                     )}
                   </button>
 
