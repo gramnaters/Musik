@@ -16,7 +16,7 @@ export function AppleMusicPlayIcon({
       className={className}
       aria-hidden={ariaHidden}
     >
-      <path d="M8 5.14v14.72a1.07 1.07 0 0 0 1.61.93L19 14.43a1.07 1.07 0 0 0 0-1.86L9.61 4.21A1.07 1.07 0 0 0 8 5.14z" />
+      <path d="M9.5 6.4v11.2c0 .7.8 1.1 1.4.7l9-5.6c.5-.3.5-1.1 0-1.4l-9-5.6c-.6-.4-1.4 0-1.4.7z" />
     </svg>
   );
 }

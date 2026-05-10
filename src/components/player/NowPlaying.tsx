@@ -131,25 +131,25 @@ export default function NowPlaying() {
                 )}
               </motion.div>
 
-              <div className="w-full max-w-[min(80vw,400px)] text-left">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0">
-                    {currentTrack.title}
-                  </h2>
-                  {qualityBadge && (
-                    <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
-                      {qualityBadge.label}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => toggleFavourite(currentTrack)}
-                    className={cn(
-                      'shrink-0 rounded-full p-1 transition-colors',
-                      isFav ? 'text-pink-500' : 'text-white/45 hover:text-white'
-                    )}
-                    aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
-                  >
+<div className="w-full max-w-[min(80vw,400px)] text-left">
+                 <div className="flex items-center gap-3">
+                   <h2 className="text-xl sm:text-2xl font-bold text-white truncate min-w-0 pr-2">
+                     {currentTrack.title}
+                   </h2>
+                   {qualityBadge && (
+                     <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wider bg-black/80 text-white border border-white/15">
+                       {qualityBadge.label}
+                     </span>
+                   )}
+                   <button
+                     type="button"
+                     onClick={() => toggleFavourite(currentTrack)}
+                     className={cn(
+                       'shrink-0 rounded-full p-1 transition-colors ml-1',
+                       isFav ? 'text-pink-500' : 'text-white/45 hover:text-white'
+                     )}
+                     aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                   >
                     <Heart size={18} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                   </button>
                 </div>
@@ -214,7 +214,7 @@ export default function NowPlaying() {
                         transition={{ duration: 0.15 }}
                       >
                         {playerTheme === 'apple' ? (
-                          <Pause size={36} fill="none" stroke="currentColor" strokeWidth={2.5} />
+                          <Pause size={36} fill="currentColor" stroke="currentColor" strokeWidth={0} />
                         ) : (
                           <Pause size={32} fill="currentColor" />
                         )}
