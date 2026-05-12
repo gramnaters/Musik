@@ -715,7 +715,7 @@ export default function SettingsView() {
           <SettingsSectionHeader title="Playback" />
           <SettingsGroup>
             <div className="px-4 py-4 border-b border-border/30 space-y-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border border-white/10 bg-zinc-900/90">
                     <Waves size={18} strokeWidth={1.75} className="text-white" />
@@ -725,8 +725,12 @@ export default function SettingsView() {
                     <p className="text-xs text-muted-foreground">Preset and live preview</p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-end w-full lg:w-auto lg:flex-1 lg:min-w-0">
-                  <div className="space-y-2 w-full sm:w-[min(220px,48%)] lg:w-[200px] shrink-0">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6 w-full xl:flex-1 xl:min-w-0 xl:justify-end">
+                  <div className="flex-1 min-w-0 order-2 sm:order-1 rounded-xl border border-border/40 bg-muted/15 p-4 space-y-2 w-full sm:min-w-0 lg:max-w-[min(420px,100%)]">
+                    <span className="text-xs font-medium text-muted-foreground">Preview</span>
+                    <SeekbarStylePreview />
+                  </div>
+                  <div className="w-full sm:w-[200px] shrink-0 order-1 sm:order-2 sm:ml-auto space-y-2">
                     <Label className="text-xs text-muted-foreground">Style</Label>
                     <Select value={seekbarStyle} onValueChange={(v) => setSeekbarStyle(v as SeekbarStyle)}>
                       <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border/40">
@@ -740,10 +744,6 @@ export default function SettingsView() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="flex-1 min-w-0 rounded-xl border border-border/40 bg-muted/15 p-4 space-y-2 w-full sm:min-w-[240px] lg:max-w-[min(380px,52%)] lg:ml-auto">
-                    <span className="text-xs font-medium text-muted-foreground">Preview</span>
-                    <SeekbarStylePreview />
                   </div>
                 </div>
               </div>

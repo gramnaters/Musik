@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, Suspense } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -36,7 +36,11 @@ function MainContent() {
           transition={{ duration: 0.15 }}
           className="h-full min-h-0 flex flex-col overflow-hidden"
         >
-          {activeView === 'home' && <HomeView />}
+          {activeView === 'home' && (
+            <Suspense fallback={null}>
+              <HomeView />
+            </Suspense>
+          )}
           {activeView === 'search' && <SearchView />}
           {(activeView === 'library' || activeView === 'playlist') && <LibraryView />}
           {activeView === 'connections' && <AddonsView />}

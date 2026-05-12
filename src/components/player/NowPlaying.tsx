@@ -616,12 +616,23 @@ export default function NowPlaying() {
           ═══════════════════════════════════════════════════════════ */}
           {playerTheme === 'tidal' && (
             <div className="absolute inset-0 flex flex-col h-full">
-              {/* Tidal: dark animated gradient background */}
-              <div className="tidal-nowplaying-bg">
-                <div className="tidal-nowplaying-blob tidal-nowplaying-blob-1" />
-                <div className="tidal-nowplaying-blob tidal-nowplaying-blob-2" />
-                <div className="tidal-nowplaying-blob tidal-nowplaying-blob-3" />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
+              {/* Tidal: blurred album art + subtle moving mesh (closer to tidal.com) */}
+              <div className="absolute inset-0 overflow-hidden">
+                {currentTrack.albumCover ? (
+                  <img
+                    src={currentTrack.albumCover}
+                    alt=""
+                    aria-hidden
+                    className="absolute inset-0 w-full h-full object-cover scale-110 tidal-nowplaying-artwash"
+                  />
+                ) : null}
+                <div className="absolute inset-0 bg-black/55" />
+                <div className="tidal-nowplaying-bg tidal-nowplaying-bg--over-art">
+                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-1" />
+                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-2" />
+                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-3" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/65" />
+                </div>
               </div>
 
               <div className="now-playing-tidal relative z-10 flex flex-col h-full max-w-[600px] mx-auto w-full px-6 pb-10 pt-3">
@@ -664,7 +675,7 @@ export default function NowPlaying() {
                       style={{ perspective: '900px', transformStyle: 'preserve-3d' }}
                     >
                       <div
-                        className="relative w-full max-w-[min(72vw,380px)] aspect-square rounded-xl overflow-hidden"
+                        className="relative w-full max-w-[min(88vw,520px)] aspect-square rounded-xl overflow-hidden"
                         style={{
                           transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovering ? 1.03 : 1})`,
                           transition: isHovering
