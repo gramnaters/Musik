@@ -18,7 +18,7 @@ interface MetadataActions {
 export const useMetadataStore = create<MetadataState & MetadataActions>()(
   persist(
     (set) => ({
-      catalogProvider: 'apple',
+      catalogProvider: 'spotify',
       appleStorefront: 'US',
       setCatalogProvider: (catalogProvider) => set({ catalogProvider }),
       setAppleStorefront: (appleStorefront) =>

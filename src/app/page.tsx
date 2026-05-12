@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useMetadataStore } from '@/stores/metadataStore';
 import Sidebar from '@/components/layout/Sidebar';
 import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
@@ -61,6 +62,12 @@ export default function AppPage() {
       cleanup();
     };
   }, [cleanup]);
+
+  // Migrate persisted catalog choice away from removed Apple catalog option
+  useEffect(() => {
+    const { catalogProvider, setCatalogProvider } = useMetadataStore.getState();
+    if (catalogProvider === 'apple') setCatalogProvider('spotify');
+  }, []);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(

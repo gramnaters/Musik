@@ -16,13 +16,17 @@ export function metadataSearchUrl(params: {
   });
   if (params.limit != null) u.set('limit', String(params.limit));
   if (params.entity) u.set('entity', params.entity);
-  const cc = params.appleCountry?.trim().slice(0, 2).toUpperCase();
-  if (params.provider === 'apple' && cc) {
+
+  const pick2 = (v: string | undefined, fallback: string) => {
+    const t = (v ?? fallback).toString().trim().toUpperCase().slice(0, 2);
+    return /^[A-Z]{2}$/.test(t) ? t : fallback;
+  };
+  const cc = pick2(params.appleCountry, 'US');
+  if (params.provider === 'apple') {
     u.set('country', cc);
   }
-  const mkt = (params.market || cc || 'US').trim().slice(0, 2).toUpperCase();
   if (params.provider === 'spotify') {
-    u.set('market', mkt);
+    u.set('market', pick2(params.market, pick2(params.appleCountry, 'US')));
   }
   return `/api/metadata/search?${u.toString()}`;
 }
