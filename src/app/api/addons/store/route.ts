@@ -1,26 +1,91 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
+import { eightspineRegistryToStoreRows, isEightspineRegistryShape } from '@/lib/eightspine-registry';
 
-const ECLIPSE_STORE_REGISTRY = 'https://eclipsemusic.app/addonstore/registry.json';
+const DEFAULT_REGISTRY = 'https://eclipsemusic.app/addonstore/registry.json';
 
-// Cache the registry for 5 minutes
-let cachedRegistry: any = null;
-let cacheTimestamp = 0;
+const cache = new Map<string, { payload: unknown; ts: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
+function firstNonEmptyString(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return '';
+}
+
+/** Map alternate registry field names so every row has a usable install URL when possible. */
+function normalizeStoreAddonRow(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const o = raw as Record<string, unknown>;
+  const next = { ...o };
+
+  let manifestUrl = firstNonEmptyString(o, ['manifestUrl', 'manifest_url', 'manifest', 'manifestURL']);
+  let setupUrl = firstNonEmptyString(o, ['setupUrl', 'setup_url', 'setup', 'installUrl', 'install_url']);
+  const eightspinePackageUrl = firstNonEmptyString(o, [
+    'eightspinePackageUrl',
+    'packageUrl',
+    'moduleUrl',
+    'eightspine_url',
+    'package',
+    'downloadUrl',
+    'download',
+  ]);
+  const genericUrl = firstNonEmptyString(o, ['url', 'pluginUrl', 'href', 'link']);
+
+  if (!manifestUrl && !setupUrl && genericUrl) {
+    if (/manifest\.json/i.test(genericUrl)) manifestUrl = genericUrl;
+    else setupUrl = genericUrl;
+  }
+
+  if (manifestUrl) next.manifestUrl = manifestUrl;
+  if (setupUrl) next.setupUrl = setupUrl;
+  if (eightspinePackageUrl) next.eightspinePackageUrl = eightspinePackageUrl;
+  if (o.eightspineOnly === true || o['8spine'] === true) next.eightspineOnly = true;
+
+  return next;
+}
+
+function isAllowedRegistryUrl(url: URL): boolean {
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+  if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+    return false;
+  }
+  return true;
+}
+
 export async function GET(request: NextRequest) {
-  // Check cache
-  if (cachedRegistry && Date.now() - cacheTimestamp < CACHE_TTL) {
-    return NextResponse.json(cachedRegistry);
+  const param = request.nextUrl.searchParams.get('url');
+  let target = DEFAULT_REGISTRY;
+
+  if (param) {
+    try {
+      const decoded = decodeURIComponent(param);
+      const u = new URL(decoded);
+      if (!isAllowedRegistryUrl(u)) {
+        return NextResponse.json({ error: 'Invalid registry URL' }, { status: 400 });
+      }
+      target = u.toString();
+    } catch {
+      return NextResponse.json({ error: 'Invalid registry URL' }, { status: 400 });
+    }
+  }
+
+  const cached = cache.get(target);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return NextResponse.json(cached.payload);
   }
 
   try {
-    const res = await fetch(ECLIPSE_STORE_REGISTRY, {
+    const res = await fetch(target, {
       headers: {
-        'User-Agent': 'Musik/1.0 (Eclipse-compatible addon client)',
-        Accept: 'application/json',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
+        Accept: 'application/json, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!res.ok) {
@@ -30,10 +95,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json();
-    
-    // Inject All in One addon
+    let data = (await res.json()) as Record<string, unknown> & { addons?: unknown[] };
+
+    const hasEclipseList = Array.isArray(data.addons) && data.addons.length > 0;
+    if (!hasEclipseList && isEightspineRegistryShape(data)) {
+      data = { addons: eightspineRegistryToStoreRows(target, data).addons } as typeof data;
+    }
+
     if (data.addons && Array.isArray(data.addons)) {
+      data.addons = data.addons.map(normalizeStoreAddonRow);
+    }
+
+    if (data.addons && Array.isArray(data.addons) && target === DEFAULT_REGISTRY) {
       data.addons.unshift({
         id: 'all-in-one',
         name: 'All in One',
@@ -41,12 +114,11 @@ export async function GET(request: NextRequest) {
         version: '1.0.0',
         author: 'musik',
         icon: '🌍',
-        manifestUrl: 'https://all-in-one.cyrusna29.workers.dev/manifest.json'
+        manifestUrl: 'https://all-in-one.cyrusna29.workers.dev/manifest.json',
       });
     }
 
-    cachedRegistry = data;
-    cacheTimestamp = Date.now();
+    cache.set(target, { payload: data, ts: Date.now() });
     return NextResponse.json(data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to fetch addon store';

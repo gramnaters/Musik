@@ -23,7 +23,7 @@ function MainContent() {
 
   return (
     <div className={cn(
-      "flex-1 h-full overflow-hidden transition-colors",
+      "flex-1 h-full min-h-0 overflow-hidden flex flex-col transition-colors",
       playerTheme === 'tidal' ? "bg-transparent" : "bg-background"
     )}>
       <AnimatePresence mode="wait">
@@ -33,12 +33,12 @@ function MainContent() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="h-full"
+          className="h-full min-h-0 flex flex-col overflow-hidden"
         >
           {activeView === 'home' && <HomeView />}
           {activeView === 'search' && <SearchView />}
           {(activeView === 'library' || activeView === 'playlist') && <LibraryView />}
-          {activeView === 'addons' && <AddonsView />}
+          {activeView === 'connections' && <AddonsView />}
           {activeView === 'settings' && <SettingsView />}
         </motion.div>
       </AnimatePresence>

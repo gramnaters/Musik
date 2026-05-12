@@ -8,8 +8,9 @@ import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { downloadCurrentTrack } from '@/lib/download-track';
 import { seekbarWrapperClass } from '@/lib/seekbar-styles';
-import { getQualityBadge } from '@/lib/audio-quality';
+import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
 import { Slider } from '@/components/ui/slider';
+import { PlaybackSeekSlider } from '@/components/player/PlaybackSeekSlider';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -23,14 +24,12 @@ import {
   Volume2, Volume1, VolumeX, Heart, ListMusic, Maximize2,
   Mic2, ChevronUp, Disc3, Download,
 } from 'lucide-react';
-import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
-
 export default function PlayerBar() {
   const {
     currentTrack, isPlaying, currentTime, duration,
     volume, isMuted, isShuffle, repeatMode,
     togglePlayPause, nextTrack, previousTrack,
-    seekTo, setVolume, toggleMute, toggleShuffle, cycleRepeat,
+    setVolume, toggleMute, toggleShuffle, cycleRepeat,
     setShowNowPlaying,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
@@ -38,7 +37,8 @@ export default function PlayerBar() {
   const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
-  const qualityBadge = getQualityBadge(currentTrack?.quality);
+  const qualityBadge = getQualityBadgeForTrack(currentTrack ?? undefined);
+  const qualityTip = getQualityTooltip(currentTrack ?? undefined);
 
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
@@ -50,7 +50,7 @@ export default function PlayerBar() {
         className={cn(
           'flex-shrink-0 flex flex-col transition-all duration-500',
           playerTheme === 'spotify' &&
-            'h-[90px] bg-[#121212] border-t border-[#282828] px-2 sm:px-4 items-center justify-center text-white',
+            'h-[90px] bg-black border-t border-[#282828] px-2 sm:px-4 items-center justify-center text-white',
           playerTheme === 'tidal' &&
             'min-h-[100px] h-auto py-2.5 md:py-0 md:h-[100px] tidal-player-bar w-full relative justify-center max-md:rounded-t-2xl max-md:mx-2 max-md:border max-md:border-white/15 max-md:border-b-0 max-md:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]',
           playerTheme === 'apple' &&
@@ -82,9 +82,23 @@ export default function PlayerBar() {
                         {currentTrack.title}
                       </div>
                       {qualityBadge && (
-                        <span className="shrink-0 text-[8px] font-bold tracking-tight sm:text-[9px] px-1 py-0.5 rounded-[2px] leading-none bg-black/75 text-white border border-white/15">
-                          {qualityBadge.label}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="shrink-0 text-[8px] font-bold tracking-tight sm:text-[9px] px-1 py-0.5 rounded-[2px] leading-none bg-black/75 text-white border border-white/15 cursor-default"
+                              aria-label={qualityTip}
+                            >
+                              {qualityBadge.label}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5"
+                          >
+                            {qualityTip}
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       <button
                         type="button"
@@ -163,15 +177,7 @@ export default function PlayerBar() {
               <div className="pb-progress w-full max-w-none md:max-w-[440px] tidal-pb-progress mx-auto">
                 <span className="time-label">{currentTrack ? formatDuration(currentTime) : '0:00'}</span>
                 <div className={cn('min-w-0 flex-1', seekbarWrapperClass(seekbarStyle))}>
-                  <Slider
-                    value={[Math.min(currentTime, duration || 0)]}
-                    min={0}
-                    max={duration > 0 ? duration : 100}
-                    step={0.05}
-                    onValueChange={(value) => seekTo(value[0])}
-                    disabled={!currentTrack || !duration}
-                    className="tidal-progress-slider w-full cursor-pointer touch-pan-y"
-                  />
+                  <PlaybackSeekSlider sliderClassName="tidal-progress-slider w-full touch-pan-y" />
                 </div>
                 <span className="time-label right">{currentTrack && duration ? formatDuration(duration) : '0:00'}</span>
               </div>
@@ -236,23 +242,34 @@ export default function PlayerBar() {
                            <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
                          )}
                          {qualityBadge && (
-                           <span
-                             className={cn(
-                               'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center',
-                               qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
-                               qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
-                               qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
-                               qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
-                               qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
-                               (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
-                             )}
-                           >
-                             {qualityBadge.label === 'ATMOS' ? (
-                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-                                 </svg>
-                             ) : qualityBadge.label}
-                           </span>
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <span
+                                 className={cn(
+                                   'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center cursor-default',
+                                   qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
+                                   qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
+                                   qualityBadge.label === 'MP3' && 'bg-white/12 text-white/85 border border-white/20',
+                                   qualityBadge.label === 'AAC' && 'bg-white/12 text-white/85 border border-white/20',
+                                   qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
+                                   qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
+                                   qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
+                                   (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
+                                 )}
+                               >
+                                 {qualityBadge.label === 'ATMOS' ? (
+                                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                                   </svg>
+                                 ) : (
+                                   qualityBadge.label
+                                 )}
+                               </span>
+                             </TooltipTrigger>
+                             <TooltipContent side="top" className="max-w-xs border border-white/15 bg-neutral-950 text-white text-xs px-2 py-1.5">
+                               {qualityTip}
+                             </TooltipContent>
+                           </Tooltip>
                          )}
 <Button
                            variant="ghost"
@@ -345,29 +362,27 @@ export default function PlayerBar() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     {playerTheme === 'spotify' ? (
-                      /* Spotify: white circle with green fill, no border-radius on Button ghost */
                       <button
                         type="button"
                         onClick={togglePlayPause}
                         disabled={!currentTrack}
                         aria-label={isPlaying ? 'Pause' : 'Play'}
                         className={cn(
-                          'h-12 w-12 shrink-0 rounded-full flex items-center justify-center',
-                          'bg-[#1DB954] text-black',
+                          'h-10 w-10 shrink-0 rounded-full flex items-center justify-center',
+                          'bg-white text-black shadow-lg shadow-black/40',
                           'transition-transform duration-150 ease-out',
-                          'hover:scale-[1.06] active:scale-[0.97]',
+                          'hover:scale-[1.06] active:scale-[0.96] hover:bg-white',
                           'disabled:opacity-50 disabled:cursor-not-allowed',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40'
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1DB954]/50'
                         )}
                       >
                         {isPlaying ? (
-                          <Pause size={24} fill="black" stroke="black" />
+                          <Pause size={20} fill="black" strokeWidth={0} />
                         ) : (
-                          <Play size={24} fill="black" stroke="black" className="translate-x-[1px]" />
+                          <Play size={20} fill="black" strokeWidth={0} className="translate-x-[1px]" />
                         )}
                       </button>
                     ) : playerTheme === 'apple' ? (
-                      /* Apple Music: NO circle, larger professional icon, NO dimming on hover */
                       <button
                         type="button"
                         onClick={togglePlayPause}
@@ -375,37 +390,25 @@ export default function PlayerBar() {
                         aria-label={isPlaying ? 'Pause' : 'Play'}
                         className={cn(
                           'h-12 w-12 shrink-0 flex items-center justify-center rounded-full',
-                          'bg-transparent text-white',
-                          'transition-transform duration-150',
-                          'hover:scale-110 active:scale-95',
+                          'bg-transparent text-white border-0 shadow-none',
+                          'transition-transform duration-200 ease-out',
+                          'hover:scale-[1.05] active:scale-[0.96]',
                           'disabled:opacity-30 disabled:cursor-not-allowed',
                           'focus-visible:outline-none'
                         )}
-                        style={{ background: 'none', border: 'none', boxShadow: 'none' }}
                       >
-                        <AnimatePresence mode="wait">
+                        <span className="w-8 h-8 flex items-center justify-center pointer-events-none">
                           {isPlaying ? (
-                            <motion.div
-                              key="pause"
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <Pause size={32} fill="currentColor" stroke="currentColor" strokeWidth={0} />
-                            </motion.div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                              <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
+                              <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
+                            </svg>
                           ) : (
-                            <motion.div
-                              key="play"
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <AppleMusicPlayIcon size={32} className="translate-x-[1px]" />
-                            </motion.div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                              <path d="M8 5.5v13L19 12 8 5.5z" />
+                            </svg>
                           )}
-                        </AnimatePresence>
+                        </span>
                       </button>
                     ) : (
                       /* Tidal fallback */
@@ -484,18 +487,14 @@ export default function PlayerBar() {
                   className={cn(
                     'flex-1 min-w-0',
                     seekbarWrapperClass(seekbarStyle),
-                    playerTheme === 'spotify' ? 'spotify-progress' : playerTheme === 'apple' ? 'apple-progress' : 'enhanced-seekbar'
+                    playerTheme === 'spotify'
+                      ? 'spotify-progress'
+                      : playerTheme === 'apple'
+                        ? cn('apple-progress', 'apple-playerbar-scrubber')
+                        : 'enhanced-seekbar'
                   )}
                 >
-                  <Slider
-                    value={[currentTime]}
-                    min={0}
-                    max={duration || 100}
-                    step={0.1}
-                    onValueChange={(value) => seekTo(value[0])}
-                    disabled={!currentTrack}
-                    className="w-full cursor-pointer"
-                  />
+                  <PlaybackSeekSlider />
                 </div>
                 <span className="text-[11px] w-10 tabular-nums text-white/50">
                   {currentTrack && duration ? formatDuration(duration) : '0:00'}

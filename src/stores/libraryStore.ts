@@ -17,6 +17,9 @@ interface LibraryActions {
   toggleFavourite: (track: Track) => boolean;
   isFavourite: (trackId: string) => boolean;
   addRecentlyPlayed: (track: Track) => void;
+  removeFromRecentlyPlayed: (trackId: string) => void;
+  clearRecentlyPlayed: () => void;
+  importExternalPlaylist: (name: string, tracks: Track[]) => string;
   renamePlaylist: (id: string, name: string) => void;
   initializeDefaults: () => void;
 }
@@ -32,9 +35,9 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
         const { playlists } = get();
         if (playlists.length === 0) {
           set({
-            playlists: demoPlaylists.map(p => ({
+            playlists: demoPlaylists.map((p) => ({
               ...p,
-              tracks: p.tracks?.map(t => ({ ...t })) || [],
+              tracks: p.tracks?.map((t) => ({ ...t })) || [],
             })),
           });
         }
@@ -109,11 +112,33 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
         });
       },
 
+      removeFromRecentlyPlayed: (trackId: string) => {
+        set((state) => ({
+          recentlyPlayed: state.recentlyPlayed.filter((t) => t.id !== trackId),
+        }));
+      },
+
+      clearRecentlyPlayed: () => set({ recentlyPlayed: [] }),
+
+      importExternalPlaylist: (name: string, tracks: Track[]) => {
+        const id = `pl_imp_${Date.now().toString(36)}`;
+        const deduped = tracks.map((t, i) => ({ ...t, id: `${id}_t_${i}_${t.id}`.slice(0, 120) }));
+        const playlist: Playlist = {
+          id,
+          name: name.trim() || 'Imported',
+          description: 'Imported playlist',
+          cover: deduped[0]?.albumCover || `https://picsum.photos/seed/${Date.now()}/300/300`,
+          tracks: deduped,
+          trackCount: deduped.length,
+          createdAt: Date.now(),
+        };
+        set((state) => ({ playlists: [...state.playlists, playlist] }));
+        return id;
+      },
+
       renamePlaylist: (id: string, name: string) => {
         set((state) => ({
-          playlists: state.playlists.map((p) =>
-            p.id === id ? { ...p, name } : p
-          ),
+          playlists: state.playlists.map((p) => (p.id === id ? { ...p, name } : p)),
         }));
       },
     }),

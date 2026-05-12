@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const CHROME_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0';
+
+function upstreamHeaders(streamUrl: string, range: string | null, method: string): Record<string, string> {
+  const origin = new URL(streamUrl).origin;
+  const h: Record<string, string> = {
+    'User-Agent': CHROME_UA,
+    Accept: '*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    Referer: `${origin}/`,
+  };
+  if (method === 'GET' && range) {
+    h.Range = range;
+  }
+  return h;
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': 'Range',
-      'Access-Control-Expose-Headers': 'Content-Range, Content-Length',
+      'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Content-Type',
     },
   });
 }
 
-export async function GET(request: NextRequest) {
+async function proxyStream(request: NextRequest, method: 'GET' | 'HEAD') {
   const url = request.nextUrl;
   const streamUrl = url.searchParams.get('url');
 
@@ -26,26 +43,16 @@ export async function GET(request: NextRequest) {
     return new Response('Invalid URL', { status: 400 });
   }
 
+  const rangeHeader = request.headers.get('Range');
+  const timeoutMs = method === 'HEAD' ? 25_000 : 120_000;
+
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    const headers: Record<string, string> = {
-      'User-Agent': 'Musik/1.0 (Eclipse-compatible)',
-      Accept: 'audio/*, */*',
-    };
-    const rangeHeader = request.headers.get('Range');
-    if (rangeHeader) {
-      headers['Range'] = rangeHeader;
-    }
-
     const response = await fetch(streamUrl, {
-      headers,
+      method,
+      headers: upstreamHeaders(streamUrl, rangeHeader, method),
       redirect: 'follow',
-      signal: controller.signal,
+      signal: AbortSignal.timeout(timeoutMs),
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok && response.status !== 206) {
       return new Response(`Upstream error: ${response.status}`, { status: response.status });
@@ -60,20 +67,36 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'public, max-age=86400',
       'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Content-Type',
     };
 
     if (contentLength) respHeaders['Content-Length'] = contentLength;
     if (contentRange) respHeaders['Content-Range'] = contentRange;
+
+    if (method === 'HEAD') {
+      return new Response(null, {
+        status: response.status,
+        headers: respHeaders,
+      });
+    }
 
     return new Response(response.body, {
       status: response.status,
       headers: respHeaders,
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'AbortError') {
       return new Response('Stream timed out', { status: 504 });
     }
     console.error(`[Stream Proxy] Error for ${streamUrl}:`, err);
     return new Response('Failed to fetch stream', { status: 500 });
   }
+}
+
+export async function HEAD(request: NextRequest) {
+  return proxyStream(request, 'HEAD');
+}
+
+export async function GET(request: NextRequest) {
+  return proxyStream(request, 'GET');
 }

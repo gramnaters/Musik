@@ -13,15 +13,12 @@ function Slider({
   max = 100,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
-  const _values = React.useMemo(
-    () =>
-      Array.isArray(value)
-        ? value
-        : Array.isArray(defaultValue)
-          ? defaultValue
-          : [min, max],
-    [value, defaultValue, min, max]
-  )
+  const _values = React.useMemo(() => {
+    if (Array.isArray(value)) return value
+    if (Array.isArray(defaultValue)) return defaultValue
+    /* Single-thumb slider: [min,max] would render two thumbs (Radix range). */
+    return [min]
+  }, [value, defaultValue, min])
 
   return (
     <SliderPrimitive.Root

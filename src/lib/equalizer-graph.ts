@@ -12,6 +12,14 @@ const PRESET_GAINS: Record<EqPreset, Band> = {
   jazz: { low: 3, mid: 1, high: 3 },
   classical: { low: 2, mid: 0, high: 3 },
   electronic: { low: 6, mid: 2, high: 4 },
+  dance: { low: 7, mid: 1, high: 3 },
+  hip_hop: { low: 8, mid: 2, high: -1 },
+  acoustic: { low: 1, mid: 3, high: 4 },
+  podcast: { low: -3, mid: 5, high: 2 },
+  latenight: { low: 4, mid: -1, high: -2 },
+  stadium: { low: 3, mid: 2, high: 5 },
+  movie: { low: 6, mid: 3, high: 4 },
+  voice_boost: { low: -3, mid: 6, high: 3 },
 };
 
 let ctx: AudioContext | null = null;

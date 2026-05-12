@@ -22,7 +22,7 @@ interface HomeLayoutActions {
 export const useHomeLayoutStore = create<HomeLayoutState & HomeLayoutActions>()(
   persist(
     (set) => ({
-      showQuickPicks: true,
+      showQuickPicks: false,
       showDiscover: true,
       showTopTen: true,
       showRecentlyPlayed: true,

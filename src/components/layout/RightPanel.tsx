@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, GripVertical, Play, Music } from 'lucide-react';
+import { X, GripVertical, Play, Pause, Music } from 'lucide-react';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -47,6 +47,9 @@ function SortableTrackItem({
   const { playerTheme } = useUIStore();
   const isThisTrack = track.id === currentTrackId;
   const isCurrentlyPlaying = isThisTrack && isPlaying;
+  const tidalPlaying = playerTheme === 'tidal' && isCurrentlyPlaying;
+  const applePlaying = playerTheme === 'apple' && isCurrentlyPlaying;
+  const spotifyPlaying = playerTheme === 'spotify' && isCurrentlyPlaying;
 
   const {
     attributes,
@@ -69,8 +72,12 @@ function SortableTrackItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-md group hover:bg-accent',
-        isThisTrack && 'bg-accent/50'
+        'flex items-center gap-3 px-3 py-2 rounded-md group',
+        !spotifyPlaying && 'hover:bg-accent',
+        !spotifyPlaying && isThisTrack && 'bg-accent/50',
+        spotifyPlaying && 'hover:bg-[#2a2a2a]',
+        tidalPlaying && 'bg-[#1a1a1a] hover:bg-[#222] border border-white/[0.06]',
+        applePlaying && 'bg-accent/45 hover:bg-accent/60'
       )}
     >
       {/* Drag handle */}
@@ -82,13 +89,50 @@ function SortableTrackItem({
         <GripVertical size={14} />
       </button>
 
-      {/* Index / Equalizer */}
-      <div className="w-5 flex items-center justify-center flex-shrink-0">
-        {isCurrentlyPlaying ? (
-          <div className="flex items-end gap-0.5 h-4 text-spotify-green">
-            <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-1" style={{ height: 4 }} />
-            <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-2" style={{ height: 8 }} />
-            <div className="w-0.5 bg-spotify-green rounded-full equalizer-bar-3" style={{ height: 6 }} />
+      {/* Index / playing */}
+      <div className="w-5 flex items-center justify-center flex-shrink-0 tabular-nums">
+        {applePlaying ? (
+          <span className="text-xs text-muted-foreground">{index + 1}</span>
+        ) : tidalPlaying ? (
+          <span className="w-3 shrink-0" aria-hidden />
+        ) : spotifyPlaying ? (
+          <span className="text-xs text-muted-foreground">{index + 1}</span>
+        ) : isCurrentlyPlaying ? (
+          <div
+            className={cn(
+              'flex items-end gap-0.5 h-4',
+              playerTheme === 'spotify' && 'text-spotify-green',
+              playerTheme === 'tidal' && 'text-cyan-400',
+              playerTheme === 'apple' && 'text-apple-red'
+            )}
+          >
+            <div
+              className={cn(
+                'w-0.5 rounded-full equalizer-bar-1',
+                playerTheme === 'spotify' && 'bg-spotify-green',
+                playerTheme === 'tidal' && 'bg-cyan-400',
+                playerTheme === 'apple' && 'bg-apple-red'
+              )}
+              style={{ height: 4 }}
+            />
+            <div
+              className={cn(
+                'w-0.5 rounded-full equalizer-bar-2',
+                playerTheme === 'spotify' && 'bg-spotify-green',
+                playerTheme === 'tidal' && 'bg-cyan-400',
+                playerTheme === 'apple' && 'bg-apple-red'
+              )}
+              style={{ height: 8 }}
+            />
+            <div
+              className={cn(
+                'w-0.5 rounded-full equalizer-bar-3',
+                playerTheme === 'spotify' && 'bg-spotify-green',
+                playerTheme === 'tidal' && 'bg-cyan-400',
+                playerTheme === 'apple' && 'bg-apple-red'
+              )}
+              style={{ height: 6 }}
+            />
           </div>
         ) : (
           <span className="text-xs text-muted-foreground">{index + 1}</span>
@@ -96,7 +140,7 @@ function SortableTrackItem({
       </div>
 
       {/* Album art */}
-      <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-accent">
+      <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-accent ring-1 ring-white/10">
         {track.albumCover ? (
           <img src={track.albumCover} alt={track.title} className="w-full h-full object-cover" loading="lazy" />
         ) : (
@@ -104,21 +148,82 @@ function SortableTrackItem({
             <Music size={14} className="text-muted-foreground" />
           </div>
         )}
+        {tidalPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/45 pointer-events-none" aria-hidden>
+            <Play size={16} className="text-white fill-white translate-x-px" strokeWidth={0} />
+          </div>
+        )}
+        {applePlaying && (
+          <div
+            className="absolute bottom-1 left-1 flex items-end gap-0.5 pointer-events-none track-playing-eq"
+            aria-hidden
+          >
+            <span className="w-[3px] rounded-full bg-white h-1.5 track-eq-bar" />
+            <span className="w-[3px] rounded-full bg-white h-2.5 track-eq-bar" />
+            <span className="w-[3px] rounded-full bg-white h-2 track-eq-bar" />
+            <span className="w-[3px] rounded-full bg-white h-2.5 track-eq-bar" />
+          </div>
+        )}
+        {spotifyPlaying && (
+          <div
+            className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/55 pointer-events-none"
+            aria-hidden
+          >
+            <Pause size={16} className="text-white fill-white" strokeWidth={0} />
+          </div>
+        )}
       </div>
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <p className={cn(
-          'text-sm font-medium truncate',
-          isThisTrack ? 'text-spotify-green' : 'text-foreground'
-        )}>
-          {track.title}
+        <div className="flex items-center gap-2 min-w-0">
+          <p
+            className={cn(
+              'text-sm font-medium truncate',
+              spotifyPlaying && 'text-foreground group-hover:text-white',
+              !spotifyPlaying && isThisTrack && playerTheme === 'spotify' && 'text-spotify-green',
+              !spotifyPlaying && isThisTrack && playerTheme === 'tidal' && 'text-cyan-400',
+              !spotifyPlaying && isThisTrack && playerTheme === 'apple' && 'text-apple-red',
+              !isThisTrack && 'text-foreground',
+              tidalPlaying && 'text-white font-semibold'
+            )}
+          >
+            {track.title}
+          </p>
+          {spotifyPlaying && (
+            <span className="hidden group-hover:inline-flex text-[9px] font-semibold px-1 py-0.5 rounded bg-[#333] text-white/95 shrink-0 border border-white/10">
+              Song
+            </span>
+          )}
+        </div>
+        <p
+          className={cn(
+            'text-xs truncate',
+            tidalPlaying && 'text-white/50',
+            spotifyPlaying && 'text-muted-foreground group-hover:text-white/60'
+          )}
+        >
+          {tidalPlaying ? (
+            `Track · ${track.artist}`
+          ) : spotifyPlaying ? (
+            <>
+              <span className="group-hover:hidden">{track.artist}</span>
+              <span className="hidden group-hover:inline">Song · {track.artist}</span>
+            </>
+          ) : (
+            track.artist
+          )}
         </p>
-        <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
       </div>
 
       {/* Duration */}
-      <span className="text-xs text-muted-foreground flex-shrink-0">
+      <span
+        className={cn(
+          'text-xs flex-shrink-0 tabular-nums',
+          tidalPlaying && 'text-white/45',
+          spotifyPlaying && 'text-muted-foreground group-hover:text-white/55'
+        )}
+      >
         {track.duration ? formatDuration(track.duration) : '--:--'}
       </span>
 

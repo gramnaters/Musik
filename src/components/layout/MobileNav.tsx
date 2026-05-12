@@ -2,18 +2,19 @@
 
 import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
-import { Home, Search, Library, Puzzle } from 'lucide-react';
+import { Home, Search, Settings } from 'lucide-react';
+import { ConnectionsNavIcon } from '@/components/icons/ConnectionsNavIcon';
 import { motion } from 'framer-motion';
 
 const navItems = [
   { icon: Home, label: 'Home', view: 'home' as const },
   { icon: Search, label: 'Search', view: 'search' as const },
-  { icon: Library, label: 'Library', view: 'library' as const },
-  { icon: Puzzle, label: 'Addons', view: 'addons' as const },
+  { icon: Home, label: 'Connections', view: 'connections' as const },
+  { icon: Settings, label: 'Settings', view: 'settings' as const },
 ];
 
 export default function MobileNav() {
-  const { activeView, navigateTo, setSelectedPlaylistId, playerTheme } = useUIStore();
+  const { activeView, navigateTo, setSelectedPlaylistId, playerTheme, setConnectionsScreen, setConnectionsCatalogSourceId } = useUIStore();
 
   return (
     <motion.div
@@ -36,8 +37,12 @@ export default function MobileNav() {
         const isActive = activeView === item.view;
         return (
           <button
-            key={item.view}
+            key={`${item.view}-${item.label}`}
             onClick={() => {
+              if (item.view === 'connections') {
+                setConnectionsScreen('home');
+                setConnectionsCatalogSourceId(null);
+              }
               navigateTo(item.view);
               setSelectedPlaylistId(null);
             }}
@@ -47,11 +52,26 @@ export default function MobileNav() {
               playerTheme === 'tidal' && (isActive ? 'text-white' : 'text-white/45')
             )}
           >
-            <item.icon size={22} className={cn(
-              isActive && playerTheme === 'spotify' && 'text-spotify-green',
-              isActive && playerTheme === 'tidal' && 'text-cyan-400',
-              isActive && playerTheme === 'apple' && 'text-apple-red'
-            )} />
+            {item.view === 'connections' ? (
+              <ConnectionsNavIcon
+                size={22}
+                className={cn(
+                  isActive && playerTheme === 'spotify' && 'text-spotify-green',
+                  isActive && playerTheme === 'tidal' && 'text-cyan-400',
+                  isActive && playerTheme === 'apple' && 'text-apple-red',
+                  !isActive && (playerTheme === 'tidal' ? 'text-white/45' : 'text-muted-foreground')
+                )}
+              />
+            ) : (
+              <item.icon
+                size={22}
+                className={cn(
+                  isActive && playerTheme === 'spotify' && 'text-spotify-green',
+                  isActive && playerTheme === 'tidal' && 'text-cyan-400',
+                  isActive && playerTheme === 'apple' && 'text-apple-red'
+                )}
+              />
+            )}
             <span className={cn(
               'text-[10px] font-medium',
               isActive && playerTheme === 'spotify' && 'text-spotify-green',

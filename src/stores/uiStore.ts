@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 
-type ActiveView = 'home' | 'search' | 'library' | 'playlist' | 'addons' | 'settings';
+type ActiveView = 'home' | 'search' | 'library' | 'playlist' | 'connections' | 'settings';
 type RightPanel = 'none' | 'queue' | 'lyrics';
 export type PlayerTheme = 'spotify' | 'tidal' | 'apple';
+
+export type ConnectionsScreen = 'home' | 'sources' | 'browse';
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -11,6 +13,10 @@ interface UIState {
   activeView: ActiveView;
   playerTheme: PlayerTheme;
   selectedPlaylistId: string | null;
+  /** Browse store scoped to one catalog source (from Module sources → chevron). */
+  connectionsCatalogSourceId: string | null;
+  /** Which Connections sub-screen is shown. */
+  connectionsScreen: ConnectionsScreen;
 }
 
 interface UIActions {
@@ -21,6 +27,10 @@ interface UIActions {
   setPlayerTheme: (theme: PlayerTheme) => void;
   navigateTo: (view: ActiveView) => void;
   setSelectedPlaylistId: (id: string | null) => void;
+  setConnectionsCatalogSourceId: (id: string | null) => void;
+  setConnectionsScreen: (screen: ConnectionsScreen) => void;
+  /** Open Connections → Browse modules, optionally scoped to one source. */
+  openConnectionsForCatalog: (sourceId: string | null) => void;
 }
 
 export const useUIStore = create<UIState & UIActions>((set) => ({
@@ -30,6 +40,8 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   activeView: 'home',
   playerTheme: 'tidal',
   selectedPlaylistId: null,
+  connectionsCatalogSourceId: null,
+  connectionsScreen: 'home',
 
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
@@ -38,11 +50,33 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
 
   setSearchQuery: (query: string) => set({ searchQuery: query }),
 
-  setActiveView: (view: ActiveView) => set({ activeView: view }),
+  setActiveView: (view: ActiveView) =>
+    set((s) => ({
+      activeView: view,
+      connectionsCatalogSourceId: view === 'connections' ? s.connectionsCatalogSourceId : null,
+      connectionsScreen: view === 'connections' ? s.connectionsScreen : 'home',
+    })),
+
+  setConnectionsCatalogSourceId: (id: string | null) => set({ connectionsCatalogSourceId: id }),
+
+  setConnectionsScreen: (connectionsScreen: ConnectionsScreen) => set({ connectionsScreen }),
+
+  openConnectionsForCatalog: (sourceId: string | null) =>
+    set({
+      activeView: 'connections',
+      connectionsCatalogSourceId: sourceId,
+      connectionsScreen: 'browse',
+    }),
+
   setPlayerTheme: (theme: PlayerTheme) => set({ playerTheme: theme }),
 
   navigateTo: (view: ActiveView) => {
-    set({ activeView: view, selectedPlaylistId: view === 'playlist' ? undefined : null });
+    set((s) => ({
+      activeView: view,
+      selectedPlaylistId: view === 'playlist' ? undefined : null,
+      connectionsCatalogSourceId: view === 'connections' ? s.connectionsCatalogSourceId : null,
+      connectionsScreen: view === 'connections' ? s.connectionsScreen : 'home',
+    }));
   },
 
   setSelectedPlaylistId: (id: string | null) => {
