@@ -189,37 +189,37 @@ export default function AddonsView() {
     void fetchAllCatalogs();
   }, [fetchAllCatalogs]);
 
-  const catalogIdsCompatible = (rowId: string, manifestId: string) => {
-    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '_');
-    const a = norm(rowId);
-    const b = norm(manifestId);
-    if (a === b) return true;
-    const lastSeg = (x: string) => {
-      const p = x.split('.');
-      return p[p.length - 1] || x;
-    };
-    // Registry may use pkg `com.vendor.module.foo` while runtime manifest uses `foo`
-    if (lastSeg(a) === lastSeg(b)) return true;
-    if (lastSeg(a) === b || a === lastSeg(b)) return true;
-    return false;
+  const normalizeCatalogId = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '_');
+
+  const directoryOfFileUrl = (fileUrl: string): string | null => {
+    try {
+      const u = new URL(fileUrl);
+      const path = u.pathname.replace(/\/[^/]+$/, '');
+      return `${u.origin}${path}`.replace(/\/$/, '') || u.origin;
+    } catch {
+      return null;
+    }
   };
 
   const storeRowMatchesInstalled = (row: StoreAddon, manifestId: string, baseURL?: string) => {
-    if (manifestId === row.id) return true;
-    if (catalogIdsCompatible(row.id, manifestId)) return true;
-    const rowUrl = (row.manifestUrl || row.setupUrl || '').replace(/\/manifest\.json$/i, '').replace(/\/$/, '');
+    const mid = manifestId.trim();
+    const rid = row.id.trim();
+    if (!mid || !rid) return false;
+    if (mid === rid) return true;
+    if (normalizeCatalogId(mid) === normalizeCatalogId(rid)) return true;
+
     const instBase = (baseURL || '').replace(/\/$/, '');
-    if (rowUrl && instBase && (rowUrl === instBase || instBase.startsWith(rowUrl) || rowUrl.startsWith(instBase))) {
-      return true;
-    }
-    const pkg = row.eightspinePackageUrl?.trim();
-    if (pkg && instBase) {
-      try {
-        const pkgRoot = parentDirUrl(pkg).replace(/\/$/, '');
-        if (pkgRoot === instBase || instBase.startsWith(pkgRoot) || pkgRoot.startsWith(instBase)) return true;
-      } catch {
-        /* ignore */
-      }
+    if (!instBase) return false;
+
+    const rowUrls = [row.manifestUrl, row.eightspinePackageUrl, row.setupUrl]
+      .map((u) => (typeof u === 'string' ? u.trim() : ''))
+      .filter(Boolean);
+
+    for (const raw of rowUrls) {
+      const trimmed = raw.replace(/\/$/, '');
+      if (trimmed && trimmed === instBase) return true;
+      const dir = directoryOfFileUrl(raw);
+      if (dir && dir === instBase) return true;
     }
     return false;
   };

@@ -23,10 +23,8 @@ import { APPLE_STOREFRONTS } from '@/lib/apple-storefronts';
 import { metadataSearchUrl } from '@/lib/catalog-api';
 import { getEqBandPreview } from '@/lib/equalizer-graph';
 import { cn } from '@/lib/utils';
-import { seekbarWrapperClass } from '@/lib/seekbar-styles';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -131,30 +129,6 @@ function SettingsRow({
 
 function SettingsGroup({ children }: { children: React.ReactNode }) {
   return <div className="mx-4 rounded-xl overflow-hidden border border-border/40 bg-card/40 mt-2">{children}</div>;
-}
-
-function SeekbarStylePreview() {
-  const [v, setV] = useState(38);
-  const playerTheme = useUIStore((s) => s.playerTheme);
-  const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
-  const barClass =
-    playerTheme === 'spotify'
-      ? 'spotify-progress'
-      : playerTheme === 'apple'
-        ? cn('apple-progress', 'apple-playerbar-scrubber')
-        : 'enhanced-seekbar';
-  return (
-    <div className={cn('w-full min-h-[44px] flex items-center', seekbarWrapperClass(seekbarStyle), barClass)}>
-      <Slider
-        value={[v]}
-        min={0}
-        max={100}
-        step={1}
-        onValueChange={(x) => setV(x[0] ?? 0)}
-        className="w-full cursor-pointer"
-      />
-    </div>
-  );
 }
 
 function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
@@ -714,39 +688,25 @@ export default function SettingsView() {
 
           <SettingsSectionHeader title="Playback" />
           <SettingsGroup>
-            <div className="px-4 py-4 border-b border-border/30 space-y-4">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border border-white/10 bg-zinc-900/90">
-                    <Waves size={18} strokeWidth={1.75} className="text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Seek bar</p>
-                    <p className="text-xs text-muted-foreground">Preset and live preview</p>
-                  </div>
+            <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border/30">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border border-white/10 bg-zinc-900/90">
+                  <Waves size={18} strokeWidth={1.75} className="text-white" />
                 </div>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6 w-full xl:flex-1 xl:min-w-0 xl:justify-end">
-                  <div className="flex-1 min-w-0 order-2 sm:order-1 rounded-xl border border-border/40 bg-muted/15 p-4 space-y-2 w-full sm:min-w-0 lg:max-w-[min(420px,100%)]">
-                    <span className="text-xs font-medium text-muted-foreground">Preview</span>
-                    <SeekbarStylePreview />
-                  </div>
-                  <div className="w-full sm:w-[200px] shrink-0 order-1 sm:order-2 sm:ml-auto space-y-2">
-                    <Label className="text-xs text-muted-foreground">Style</Label>
-                    <Select value={seekbarStyle} onValueChange={(v) => setSeekbarStyle(v as SeekbarStyle)}>
-                      <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border/40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border/40">
-                        {SEEKBAR_STYLES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {SEEKBAR_STYLE_LABELS[s]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <span className="text-sm font-medium text-foreground">Seek bar</span>
               </div>
+              <Select value={seekbarStyle} onValueChange={(v) => setSeekbarStyle(v as SeekbarStyle)}>
+                <SelectTrigger className="w-[min(200px,52%)] h-9 rounded-lg bg-background border-border/40 text-sm shrink-0">
+                  <SelectValue placeholder="Style" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border/40">
+                  {SEEKBAR_STYLES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {SEEKBAR_STYLE_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <SettingsRow
               icon={SlidersHorizontal}

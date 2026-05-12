@@ -1,6 +1,6 @@
 'use client';
 
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -34,10 +34,11 @@ export default function PlayButton({
   className,
   showPauseState = true,
 }: PlayButtonProps) {
-  const { currentTrack, isPlaying, togglePlayPause } = usePlayerStore();
+  const { currentTrack, isPlaying, isLoadingPlayback, togglePlayPause } = usePlayerStore();
   const { playerTheme } = useUIStore();
   const isThisTrack = currentTrack?.id === trackId;
   const showPause = showPauseState && isThisTrack && isPlaying;
+  const showBuffering = isThisTrack && isLoadingPlayback && !isPlaying;
 
   return (
     <motion.button
@@ -61,6 +62,8 @@ export default function PlayButton({
     >
       {showPause ? (
         <Pause size={iconSizes[size]} fill="white" />
+      ) : showBuffering ? (
+        <Loader2 size={iconSizes[size]} className="animate-spin text-white" aria-hidden />
       ) : playerTheme === 'apple' ? (
         <AppleMusicPlayIcon size={iconSizes[size]} className="text-white translate-x-px" />
       ) : (
