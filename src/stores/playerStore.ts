@@ -13,6 +13,8 @@ interface PlayerState {
   originalQueue: Track[];
   queueIndex: number;
   isPlaying: boolean;
+  /** True while stream is resolving / audio has not started yet (spinner on play control). */
+  isLoadingPlayback: boolean;
   currentTime: number;
   duration: number;
   volume: number;
@@ -80,6 +82,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       originalQueue: [],
       queueIndex: -1,
       isPlaying: false,
+      isLoadingPlayback: false,
       currentTime: 0,
       duration: 0,
       volume: 0.7,
@@ -165,14 +168,25 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
                 url: finalStreamUrl,
                 format: track.format || inferred,
               };
+              const markReady = () => set({ isLoadingPlayback: false });
+              audio.addEventListener('playing', markReady, { once: true });
+              audio.addEventListener('error', markReady, { once: true });
+              audio.addEventListener('abort', markReady, { once: true });
+
               set({ currentTrack: trackToPlay, isPlaying: true });
-              
+
+              audio.preload = 'auto';
               audio.src = `/api/stream?url=${encodeURIComponent(finalStreamUrl)}`;
+              audio.load();
               audio.volume = state.isMuted ? 0 : state.volume;
-              audio.play().catch(() => {});
+              void audio.play().catch(() => {
+                markReady();
+              });
+            } else {
+              set({ isLoadingPlayback: false });
             }
           } catch {
-            // Failed to resolve stream — silently fail
+            set({ isLoadingPlayback: false });
           }
         };
 
@@ -200,7 +214,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
             s.play(s.originalQueue[0], s.originalQueue, 0);
           } else {
             stopTimeSync();
-            set({ isPlaying: false });
+            set({ isPlaying: false, isLoadingPlayback: false });
           }
         };
 
@@ -216,6 +230,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           originalQueue,
           queueIndex: newIndex,
           isPlaying: true,
+          isLoadingPlayback: true,
           currentTime: 0,
           duration: audio.duration && isFinite(audio.duration) ? audio.duration : 0,
           audio,
@@ -226,8 +241,8 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         const { audio } = get();
         audio?.pause();
         stopTimeSync();
-        if (audio) set({ isPlaying: false, currentTime: audio.currentTime });
-        else set({ isPlaying: false });
+        if (audio) set({ isPlaying: false, isLoadingPlayback: false, currentTime: audio.currentTime });
+        else set({ isPlaying: false, isLoadingPlayback: false });
       },
 
       resume: () => {
@@ -389,7 +404,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         stopTimeSync();
         audio?.pause();
         audio?.removeAttribute('src');
-        set({ audio: null, isPlaying: false });
+        set({ audio: null, isPlaying: false, isLoadingPlayback: false });
       },
     }),
     {

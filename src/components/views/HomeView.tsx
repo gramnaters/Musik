@@ -8,16 +8,18 @@ import { useAddonStore } from '@/stores/addonStore';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { demoPlaylists, browseCategories, demoTracks } from '@/lib/demo-data';
 import { HOME_MOOD_MIXES, HOME_CATALOG_RAILS } from '@/lib/home-feed';
-import { metadataSearchUrl } from '@/lib/catalog-api';
+import {
+  fetchHomeArtistsDual,
+  fetchHomeTracksDual,
+  enrichArtistImagesFromTrackSearch,
+} from '@/lib/home-catalog-fetch';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
 import TrackList from '@/components/shared/TrackList';
 import { motion } from 'framer-motion';
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { openHomeHubInNewTab } from '@/lib/home-hub-deep-link';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, Loader2, MoreHorizontal } from 'lucide-react';
 import type { Track } from '@/types/music';
 import { Button } from '@/components/ui/button';
@@ -32,7 +34,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadCurrentTrack } from '@/lib/download-track';
-import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
+import {
+  homeFeedCacheGet,
+  homeFeedCacheKey,
+  homeFeedCachePutFeed,
+  homeFeedCachePutRails,
+} from '@/lib/home-feed-cache';
 
 /** Home row preview count; full list opens in the side hub via See all. */
 const RECENT_HOME_PREVIEW = 5;
@@ -46,7 +53,7 @@ function getGreeting(): string {
 
 /** Mobile: horizontal scroll. Desktop: auto-fill grid so rows span full width without a trailing gap. */
 const homeResponsiveRail =
-  'flex gap-3.5 pb-2 -mx-4 px-4 pr-7 md:-mx-8 md:px-8 md:pr-8 max-md:overflow-x-auto max-md:flex-nowrap max-md:custom-scrollbar-x md:grid md:overflow-x-visible md:[grid-template-columns:repeat(auto-fill,minmax(min(156px,100%),1fr))]';
+  'flex gap-4 pb-2 -mx-4 px-4 pr-7 md:-mx-8 md:px-8 md:pr-8 max-md:overflow-x-auto max-md:flex-nowrap max-md:custom-scrollbar-x md:grid md:overflow-x-visible md:[grid-template-columns:repeat(auto-fill,minmax(min(172px,100%),1fr))]';
 
 function AllInOneBadge() {
   return (
@@ -263,9 +270,6 @@ function SectionHeader({
 }
 
 export default function HomeView() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const hubLinkHandledRef = useRef<string | null>(null);
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
   const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
@@ -291,6 +295,7 @@ export default function HomeView() {
   const [popArtists, setPopArtists] = useState<{ id: string; name: string; image?: string }[]>([]);
   const [featuredArtist, setFeaturedArtist] = useState<{ name: string; image?: string } | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
+  const [moodLoadingId, setMoodLoadingId] = useState<string | null>(null);
   const [hubOverlay, setHubOverlay] = useState<{
     kind: 'genre' | 'mood' | 'fresh' | 'artist' | 'recent';
     title: string;
@@ -310,90 +315,116 @@ export default function HomeView() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const cacheKey = homeFeedCacheKey(browseAddonId, catalogProvider, appleStorefront);
+    const snap = homeFeedCacheGet(cacheKey);
+    if (snap?.feed) {
+      setFreshTracks(snap.feed.freshTracks);
+      setPopArtists(snap.feed.popArtists);
+      setFeaturedArtist(snap.feed.featuredArtist);
+      setFeedLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
       setFeedLoading(true);
+      let feedSnapshot: {
+        freshTracks: Track[];
+        popArtists: { id: string; name: string; image?: string }[];
+        featuredArtist: { name: string; image?: string } | null;
+      } | null = null;
+
       try {
         if (browseAddonId) {
           const rFresh = await searchWithAddon(browseAddonId, 'new music trending');
           if (cancelled) return;
-          setFreshTracks(rFresh.tracks.slice(0, 16).map(addonTrackToTrack));
+          const freshTracks = rFresh.tracks.slice(0, 16).map(addonTrackToTrack);
+          setFreshTracks(freshTracks);
           const rPop = await searchWithAddon(browseAddonId, 'popular hits');
           if (cancelled) return;
           const artists = rPop.artists ?? [];
+          let popArtists: { id: string; name: string; image?: string }[];
+          let featuredArtist: { name: string; image?: string } | null;
           if (artists.length > 0) {
-            const list = artists.slice(0, 14).map((a) => ({
+            popArtists = artists.slice(0, 14).map((a) => ({
               id: String(a.id ?? a.name),
               name: a.name,
               image: a.image || a.artworkURL,
             }));
-            setPopArtists(list);
-            setFeaturedArtist({ name: list[0].name, image: list[0].image });
+            featuredArtist = { name: popArtists[0]!.name, image: popArtists[0]!.image };
           } else {
             const map = new Map<string, { id: string; name: string; image?: string }>();
             rPop.tracks.forEach((t) => {
               const k = t.artistId || t.artist;
               if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.artworkURL || t.cover });
             });
-            const list = Array.from(map.values()).slice(0, 14);
-            setPopArtists(list);
-            setFeaturedArtist(list[0] ? { name: list[0].name, image: list[0].image } : null);
+            popArtists = Array.from(map.values()).slice(0, 14);
+            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
           }
+          setPopArtists(popArtists);
+          setFeaturedArtist(featuredArtist);
+          feedSnapshot = { freshTracks, popArtists, featuredArtist };
         } else {
-          const freshUrl = metadataSearchUrl({
-            q: 'new music trending',
-            provider: catalogProvider,
-            appleCountry: appleStorefront,
-          });
-          const artUrl = metadataSearchUrl({
-            q: 'popular artists',
-            provider: catalogProvider,
-            entity: 'artist',
-            appleCountry: appleStorefront,
-          });
-          const [rFresh, rArt] = await Promise.all([fetch(freshUrl), fetch(artUrl)]);
-          const jFresh = (await rFresh.json()) as { tracks?: Record<string, unknown>[] };
-          const jArt = (await rArt.json()) as {
-            artists?: { id: string; name: string; image?: string }[];
-          };
-          if (cancelled) return;
-          const ft = Array.isArray(jFresh.tracks) ? jFresh.tracks : [];
-          setFreshTracks(
-            ft.length > 0 ? ft.slice(0, 16).map((x) => mapMetadataSearchTrack(x)) : demoTracks.slice(0, 12)
+          const mergedFresh = await fetchHomeTracksDual(
+            'new music trending',
+            appleStorefront,
+            catalogProvider,
+            24
           );
-          const arts = Array.isArray(jArt.artists) ? jArt.artists : [];
-          if (arts.length > 0) {
-            const list = arts.slice(0, 14).map((a) => ({
-              id: a.id,
-              name: a.name,
-              image: a.image,
-            }));
-            setPopArtists(list);
-            setFeaturedArtist(list[0] ? { name: list[0].name, image: list[0].image } : null);
-          } else if (ft.length > 0) {
+          if (cancelled) return;
+          const freshTracks =
+            mergedFresh.length > 0 ? mergedFresh.slice(0, 16) : demoTracks.slice(0, 12);
+          setFreshTracks(freshTracks);
+
+          let mergedArtists = await fetchHomeArtistsDual(
+            'popular music artists',
+            appleStorefront,
+            catalogProvider,
+            20
+          );
+          mergedArtists = await enrichArtistImagesFromTrackSearch(
+            mergedArtists,
+            appleStorefront,
+            catalogProvider
+          );
+          if (cancelled) return;
+
+          let popArtists: { id: string; name: string; image?: string }[];
+          let featuredArtist: { name: string; image?: string } | null;
+
+          if (mergedArtists.length > 0) {
+            popArtists = mergedArtists.slice(0, 14);
+            featuredArtist = { name: popArtists[0]!.name, image: popArtists[0]!.image };
+          } else if (mergedFresh.length > 0) {
             const map = new Map<string, { id: string; name: string; image?: string }>();
-            ft.forEach((raw) => {
-              const t = mapMetadataSearchTrack(raw as Record<string, unknown>);
-              const k = t.artist;
+            mergedFresh.forEach((t) => {
+              const k = t.artistId || t.artist;
               if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
             });
-            const list = Array.from(map.values()).slice(0, 14);
-            setPopArtists(list);
-            setFeaturedArtist(list[0] ? { name: list[0].name, image: list[0].image } : null);
+            popArtists = Array.from(map.values()).slice(0, 14);
+            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
           } else {
             const map = new Map<string, { id: string; name: string; image?: string }>();
             demoTracks.forEach((t) => {
               const k = t.artistId || t.artist;
               if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
             });
-            const list = Array.from(map.values()).slice(0, 14);
-            setPopArtists(list);
-            setFeaturedArtist(list[0] ? { name: list[0].name, image: list[0].image } : null);
+            popArtists = Array.from(map.values()).slice(0, 14);
+            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
           }
+          setPopArtists(popArtists);
+          setFeaturedArtist(featuredArtist);
+          feedSnapshot = { freshTracks, popArtists, featuredArtist };
         }
       } finally {
+        if (!cancelled && feedSnapshot) {
+          homeFeedCachePutFeed(cacheKey, feedSnapshot);
+        }
         if (!cancelled) setFeedLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -415,24 +446,27 @@ export default function HomeView() {
       setCatalogRailsLoading(false);
       return;
     }
+    const cacheKey = homeFeedCacheKey(browseAddonId, catalogProvider, appleStorefront);
+    const snap = homeFeedCacheGet(cacheKey);
+    if (snap?.rails) {
+      setCatalogRails(snap.rails);
+      setCatalogRailsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setCatalogRailsLoading(true);
-    (async () => {
+    void (async () => {
       const next: Record<string, Track[]> = {};
       await Promise.all(
         HOME_CATALOG_RAILS.map(async (r) => {
           try {
-            const res = await fetch(
-              metadataSearchUrl({
-                q: r.query,
-                provider: catalogProvider,
-                limit: 16,
-                appleCountry: appleStorefront,
-              })
+            next[r.id] = await fetchHomeTracksDual(
+              r.query,
+              appleStorefront,
+              catalogProvider,
+              16
             );
-            const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
-            const list = Array.isArray(data.tracks) ? data.tracks : [];
-            next[r.id] = list.map((x) => mapMetadataSearchTrack(x));
           } catch {
             next[r.id] = [];
           }
@@ -441,6 +475,7 @@ export default function HomeView() {
       if (!cancelled) {
         setCatalogRails(next);
         setCatalogRailsLoading(false);
+        homeFeedCachePutRails(cacheKey, next);
       }
     })();
     return () => {
@@ -451,26 +486,20 @@ export default function HomeView() {
   const loadMood = useCallback(
     async (m: (typeof HOME_MOOD_MIXES)[0]) => {
       setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: true });
+      setMoodLoadingId(m.id);
       try {
         let tracks: Track[] = [];
         if (browseAddonId) {
           const r = await searchWithAddon(browseAddonId, m.query);
           tracks = r.tracks.map(addonTrackToTrack);
         } else {
-          const res = await fetch(
-            metadataSearchUrl({
-              q: m.query,
-              provider: catalogProvider,
-              limit: 60,
-              appleCountry: appleStorefront,
-            })
-          );
-          const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
-          tracks = (Array.isArray(data.tracks) ? data.tracks : []).map((x) => mapMetadataSearchTrack(x));
+          tracks = await fetchHomeTracksDual(m.query, appleStorefront, catalogProvider, 60);
         }
         setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks, loading: false });
       } catch {
         setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: false });
+      } finally {
+        setMoodLoadingId(null);
       }
     },
     [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]
@@ -485,16 +514,7 @@ export default function HomeView() {
           const r = await searchWithAddon(browseAddonId, cat.hubQuery);
           tracks = r.tracks.map(addonTrackToTrack);
         } else {
-          const res = await fetch(
-            metadataSearchUrl({
-              q: cat.hubQuery,
-              provider: catalogProvider,
-              limit: 60,
-              appleCountry: appleStorefront,
-            })
-          );
-          const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
-          tracks = (Array.isArray(data.tracks) ? data.tracks : []).map((x) => mapMetadataSearchTrack(x));
+          tracks = await fetchHomeTracksDual(cat.hubQuery, appleStorefront, catalogProvider, 60);
         }
         setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks, loading: false });
       } catch {
@@ -519,16 +539,7 @@ export default function HomeView() {
           const r = await searchWithAddon(browseAddonId, `${name} top songs`);
           tracks = r.tracks.map(addonTrackToTrack);
         } else {
-          const res = await fetch(
-            metadataSearchUrl({
-              q: name,
-              provider: catalogProvider,
-              limit: 60,
-              appleCountry: appleStorefront,
-            })
-          );
-          const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
-          tracks = (Array.isArray(data.tracks) ? data.tracks : []).map((x) => mapMetadataSearchTrack(x));
+          tracks = await fetchHomeTracksDual(name, appleStorefront, catalogProvider, 60);
         }
         setHubOverlay({
           kind: 'artist',
@@ -552,36 +563,8 @@ export default function HomeView() {
 
   const openFeaturedArtistHub = useCallback(() => {
     if (!featuredArtist) return;
-    openHomeHubInNewTab({ hub: 'artist', name: featuredArtist.name });
-  }, [featuredArtist]);
-
-  useEffect(() => {
-    const hub = searchParams.get('hub');
-    if (!hub) return;
-    const id = searchParams.get('id');
-    const name = searchParams.get('name');
-    const key = `${hub}:${id ?? name ?? ''}`;
-    if (hubLinkHandledRef.current === key) return;
-    hubLinkHandledRef.current = key;
-
-    setActiveView('home');
-
-    void (async () => {
-      try {
-        if (hub === 'artist' && name) {
-          await openArtistHubByName(decodeURIComponent(name));
-        } else if (hub === 'mood' && id) {
-          const m = HOME_MOOD_MIXES.find((x) => x.id === id);
-          if (m) await loadMood(m);
-        } else if (hub === 'genre' && id) {
-          const cat = browseCategories.find((c) => c.id === id);
-          if (cat) await openGenreHub(cat);
-        }
-      } finally {
-        router.replace('/', { scroll: false });
-      }
-    })();
-  }, [searchParams, router, setActiveView, openArtistHubByName, loadMood, openGenreHub]);
+    void openArtistHubByName(featuredArtist.name);
+  }, [featuredArtist, openArtistHubByName]);
 
   const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
   const quickTracks = useMemo(() => recentlyPlayed.slice(0, 4), [recentlyPlayed]);
@@ -601,7 +584,7 @@ export default function HomeView() {
               {greeting} —{' '}
               {browseAddonId
                 ? 'Rails load from your connected module.'
-                : `Discovery from Spotify (${appleStorefront}).`}
+                : `Discovery blends Spotify + Apple Music for your region (${appleStorefront}).`}
             </p>
           </div>
 
@@ -728,11 +711,17 @@ export default function HomeView() {
                   key={m.id}
                   type="button"
                   whileHover={{ y: -2 }}
-                  className="relative max-md:flex-shrink-0 w-[min(58vw,280px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10"
+                  disabled={moodLoadingId === m.id}
+                  className="relative max-md:flex-shrink-0 w-[min(64vw,320px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 disabled:opacity-60"
                   style={{ background: m.gradient }}
-                  onClick={() => openHomeHubInNewTab({ hub: 'mood', id: m.id })}
+                  onClick={() => void loadMood(m)}
                 >
                   <span className="absolute inset-0 bg-black/25" />
+                  {moodLoadingId === m.id && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Loader2 className="size-7 animate-spin text-white" />
+                    </span>
+                  )}
                   <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                     <p className="text-lg font-bold text-white drop-shadow-md">{m.label}</p>
                     <p className="text-xs text-white/80 mt-0.5">{m.subtitle}</p>
@@ -752,7 +741,7 @@ export default function HomeView() {
                   key={a.id}
                   type="button"
                   whileHover={{ y: -3 }}
-                  className="max-md:flex-shrink-0 w-[min(38vw,150px)] md:min-w-0 md:w-full p-2 rounded-2xl text-left bg-white/5 hover:bg-white/10 border border-white/10"
+                  className="max-md:flex-shrink-0 w-[min(44vw,176px)] md:min-w-0 md:w-full p-2 rounded-2xl text-left bg-white/5 hover:bg-white/10 border border-white/10"
                   onClick={() => void openArtistHubByName(a.name)}
                 >
                   <div className="w-full aspect-square rounded-full overflow-hidden bg-white/10 shadow-lg mb-2.5 border border-white/10">
@@ -822,8 +811,8 @@ export default function HomeView() {
                   key={cat.id}
                   type="button"
                   whileHover={{ y: -2 }}
-                  className="relative max-md:flex-shrink-0 w-[min(58vw,280px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 group"
-                  onClick={() => openHomeHubInNewTab({ hub: 'genre', id: cat.id })}
+                  className="relative max-md:flex-shrink-0 w-[min(64vw,320px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 group"
+                  onClick={() => void openGenreHub(cat)}
                 >
                   <img
                     src={cat.coverImage}

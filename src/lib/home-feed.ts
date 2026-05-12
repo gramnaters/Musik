@@ -11,6 +11,10 @@ export const HOME_CATALOG_RAILS: {
   { id: 'viral', title: 'Viral hits', query: 'viral tiktok trending songs', subtitle: 'What’s everywhere right now' },
   { id: 'throwbacks', title: 'Throwbacks', query: 'greatest hits classics 80s 90s 2000s', subtitle: 'All-time favorites' },
   { id: 'rising', title: 'Rising', query: 'new artists breakout 2025', subtitle: 'Fresh faces' },
+  { id: 'hiphop', title: 'Hip-Hop', query: 'hip hop rap hits chart', subtitle: 'Beats & bars' },
+  { id: 'pop', title: 'Pop', query: 'pop hits chart today', subtitle: 'Singalong smashes' },
+  { id: 'dance', title: 'Dance / Electronic', query: 'electronic dance edm festival', subtitle: 'Club energy' },
+  { id: 'chill', title: 'Chill', query: 'chill lofi relax beats', subtitle: 'Low-key vibes' },
 ];
 
 /** Mood / mix tiles on Home — query is sent to the first search-capable installed module. */

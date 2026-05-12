@@ -20,13 +20,13 @@ import {
 } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
+  Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
   Volume2, Volume1, VolumeX, Heart, ListMusic, Maximize2,
   Mic2, ChevronUp, Disc3, Download,
 } from 'lucide-react';
 export default function PlayerBar() {
   const {
-    currentTrack, isPlaying, currentTime, duration,
+    currentTrack, isPlaying, isLoadingPlayback, currentTime, duration,
     volume, isMuted, isShuffle, repeatMode,
     togglePlayPause, nextTrack, previousTrack,
     setVolume, toggleMute, toggleShuffle, cycleRepeat,
@@ -39,6 +39,7 @@ export default function PlayerBar() {
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
   const qualityBadge = getQualityBadgeForTrack(currentTrack ?? undefined);
   const qualityTip = getQualityTooltip(currentTrack ?? undefined);
+  const showBuffering = Boolean(currentTrack && isLoadingPlayback && !isPlaying);
 
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
@@ -163,6 +164,8 @@ export default function PlayerBar() {
                 <button className="play-btn-main" onClick={togglePlayPause}>
                   {isPlaying ? (
                     <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                  ) : showBuffering ? (
+                    <Loader2 width={24} height={24} className="animate-spin text-white" aria-hidden />
                   ) : (
                     <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
                   )}
@@ -366,7 +369,7 @@ export default function PlayerBar() {
                         type="button"
                         onClick={togglePlayPause}
                         disabled={!currentTrack}
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        aria-label={isPlaying ? 'Pause' : showBuffering ? 'Loading' : 'Play'}
                         className={cn(
                           'h-10 w-10 shrink-0 rounded-full flex items-center justify-center',
                           'bg-white text-black shadow-lg shadow-black/40',
@@ -378,6 +381,8 @@ export default function PlayerBar() {
                       >
                         {isPlaying ? (
                           <Pause size={20} fill="black" strokeWidth={0} />
+                        ) : showBuffering ? (
+                          <Loader2 size={20} className="animate-spin text-black" aria-hidden />
                         ) : (
                           <Play size={20} fill="black" strokeWidth={0} className="translate-x-[1px]" />
                         )}
@@ -387,7 +392,7 @@ export default function PlayerBar() {
                         type="button"
                         onClick={togglePlayPause}
                         disabled={!currentTrack}
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        aria-label={isPlaying ? 'Pause' : showBuffering ? 'Loading' : 'Play'}
                         className={cn(
                           'h-12 w-12 shrink-0 flex items-center justify-center rounded-full',
                           'bg-transparent text-white border-0 shadow-none',
@@ -403,6 +408,8 @@ export default function PlayerBar() {
                               <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
                               <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
                             </svg>
+                          ) : showBuffering ? (
+                            <Loader2 size={28} className="animate-spin text-white" aria-hidden />
                           ) : (
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                               <path d="M8 5.5v13L19 12 8 5.5z" />
@@ -422,6 +429,8 @@ export default function PlayerBar() {
                       >
                         {isPlaying ? (
                           <Pause size={20} fill="black" stroke="black" />
+                        ) : showBuffering ? (
+                          <Loader2 size={20} className="animate-spin text-black" aria-hidden />
                         ) : (
                           <Play size={20} fill="black" stroke="black" className="translate-x-[1px]" />
                         )}
@@ -429,7 +438,7 @@ export default function PlayerBar() {
                     )}
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
-                    <p>{isPlaying ? 'Pause' : 'Play'}</p>
+                    <p>{isPlaying ? 'Pause' : showBuffering ? 'Loading' : 'Play'}</p>
                   </TooltipContent>
                 </Tooltip>
 
