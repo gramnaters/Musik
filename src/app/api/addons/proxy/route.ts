@@ -8,8 +8,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Validate URL
+  let origin = '';
   try {
-    new URL(targetUrl);
+    origin = new URL(targetUrl).origin;
   } catch {
     return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
   }
@@ -22,8 +23,11 @@ export async function GET(request: NextRequest) {
       signal: controller.signal,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'Musik/1.0 (Eclipse-compatible addon client)',
-        Accept: 'application/json, audio/*, */*',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
+        Accept: 'image/*,audio/*,application/json,text/plain,*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: `${origin}/`,
       },
     });
 
@@ -47,9 +51,22 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    const lowerType = contentType.toLowerCase();
+    const isEightspinePackage = /\.8spine($|[?#])/i.test(targetUrl);
 
-    // If it's audio, stream it through
-    if (contentType.startsWith('audio/') || contentType.includes('octet-stream')) {
+    // Images must stay binary — never use response.text() (corrupts JPEG/PNG/WebP and breaks UI thumbnails).
+    if (lowerType.startsWith('image/')) {
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    }
+
+    // Stream real audio / binary media (not generic octet-stream — CDNs often use that for .8spine JS)
+    if (lowerType.startsWith('audio/')) {
       return new Response(response.body, {
         headers: {
           'Content-Type': contentType,
@@ -59,9 +76,62 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Otherwise return JSON
-    const data = await response.json();
-    return NextResponse.json(data);
+    // Binary streams (e.g. MP3 as application/octet-stream). Skip when URL is a .8spine module file.
+    if (lowerType.includes('octet-stream') && !/\.8spine($|[?#])/i.test(targetUrl)) {
+      return new Response(response.body, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400',
+          'Accept-Ranges': 'bytes',
+        },
+      });
+    }
+
+    // 8SPINE packages are JS source: GitHub/jsDelivr often serve them as text/plain — never JSON-parse
+    if (
+      isEightspinePackage ||
+      lowerType.includes('text/plain') ||
+      lowerType.includes('javascript') ||
+      lowerType.includes('ecmascript')
+    ) {
+      const text = await response.text();
+      return new NextResponse(text, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=600',
+        },
+      });
+    }
+
+    const bodyText = await response.text();
+    const looksJson =
+      lowerType.includes('json') ||
+      /\.json($|[?#])/i.test(targetUrl) ||
+      /\/(search|stream|album|artist|playlist)(\/|\?|$)/i.test(targetUrl);
+
+    if (looksJson || /^\s*[\[{]/.test(bodyText)) {
+      try {
+        return NextResponse.json(JSON.parse(bodyText));
+      } catch {
+        // Upstream lied about type or mixed content — return raw text for callers using .text()
+        return new NextResponse(bodyText, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'public, max-age=120',
+          },
+        });
+      }
+    }
+
+    return new NextResponse(bodyText, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType || 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=120',
+      },
+    });
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       console.error(`[Addon Proxy] Timeout for ${targetUrl}`);

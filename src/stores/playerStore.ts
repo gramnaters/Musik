@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Track } from '@/types/music';
+import { inferFormatFromUrl } from '@/lib/audio-quality';
+import { useAddonStore } from '@/stores/addonStore';
+import type { AddonTrack } from '@/types/addon';
 
 type RepeatMode = 'off' | 'all' | 'one';
 
@@ -131,23 +134,22 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           try {
             let finalStreamUrl = track.streamURL;
 
-            // If no direct URL, try resolving via addon's /stream/{id} endpoint
+            // If no direct URL, resolve via addon store (Eclipse HTTP or in-browser 8SPINE module)
             if (!finalStreamUrl && track.addonId && track.addonTrackId) {
-              // Find the addon's baseURL from the persisted addons
               try {
-                const storedAddons = JSON.parse(localStorage.getItem('musik-addons') || '{}');
-                const addonsData = storedAddons?.state?.addons || storedAddons?.addons || [];
-                const addon = addonsData.find((a: any) => a?.manifest?.id === track.addonId);
-                const baseURL = addon?.manifest?.baseURL || '';
-
-                if (baseURL) {
-                  const streamApiUrl = `${baseURL}/stream/${track.addonTrackId}`;
-                  const proxyRes = await fetch(`/api/addons/proxy?url=${encodeURIComponent(streamApiUrl)}`).catch(() => null);
-                  if (proxyRes && proxyRes.ok) {
-                    const streamData = await proxyRes.json().catch(() => ({}));
-                    if (streamData.url) {
-                      finalStreamUrl = streamData.url;
-                    }
+                const proxied = await useAddonStore.getState().resolveStreamUrl({
+                  id: track.addonTrackId,
+                  title: track.title,
+                  artist: track.artist,
+                  addonId: track.addonId,
+                  streamURL: track.streamURL,
+                } as AddonTrack);
+                const m = proxied.match(/^\/api\/stream\?url=(.+)$/);
+                if (m) {
+                  try {
+                    finalStreamUrl = decodeURIComponent(m[1]);
+                  } catch {
+                    finalStreamUrl = m[1];
                   }
                 }
               } catch {
@@ -156,9 +158,12 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
             }
 
             if (finalStreamUrl) {
+              const inferred = inferFormatFromUrl(finalStreamUrl);
               const trackToPlay = {
                 ...track,
+                streamURL: finalStreamUrl,
                 url: finalStreamUrl,
+                format: track.format || inferred,
               };
               set({ currentTrack: trackToPlay, isPlaying: true });
               
@@ -282,11 +287,17 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       },
 
       seekTo: (time: number) => {
-        const { audio } = get();
-        if (audio) {
-          audio.currentTime = time;
-          set({ currentTime: time });
-        }
+        const { audio, duration } = get();
+        if (!audio) return;
+        const cap =
+          audio.duration && isFinite(audio.duration) && audio.duration > 0
+            ? audio.duration
+            : duration > 0
+              ? duration
+              : Number.POSITIVE_INFINITY;
+        const t = Math.max(0, Math.min(time, cap));
+        audio.currentTime = t;
+        set({ currentTime: t });
       },
 
       setVolume: (vol: number) => {

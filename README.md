@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎵 Musik
+<img src="./public/musik-mark.svg" width="96" height="96" alt="Musik logo" />
+
+# Musik
 
 <p align="center">
   <strong>A minimalist, high-fidelity music experience.</strong>
@@ -15,14 +17,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gramnaters/Music-Player/stargazers">
-    <img src="https://img.shields.io/github/stars/gramnaters/Music-Player?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub stars">
+  <a href="https://github.com/gramnaters/Musik/stargazers">
+    <img src="https://img.shields.io/github/stars/gramnaters/Musik?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub stars">
   </a>
-  <a href="https://github.com/gramnaters/Music-Player/forks">
-    <img src="https://img.shields.io/github/forks/gramnaters/Music-Player?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub forks">
+  <a href="https://github.com/gramnaters/Musik/forks">
+    <img src="https://img.shields.io/github/forks/gramnaters/Musik?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub forks">
   </a>
-  <a href="https://github.com/gramnaters/Music-Player/issues">
-    <img src="https://img.shields.io/github/issues/gramnaters/Music-Player?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub issues">
+  <a href="https://github.com/gramnaters/Musik/issues">
+    <img src="https://img.shields.io/github/issues/gramnaters/Musik?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub issues">
   </a>
 </p>
 
@@ -82,8 +84,8 @@ Experience Musik directly in your browser:
 
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/gramnaters/Music-Player.git
-    cd Music-Player
+    git clone https://github.com/gramnaters/Musik.git
+    cd Musik
     ```
 
 2. **Install dependencies:**

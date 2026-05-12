@@ -3,7 +3,8 @@
 import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { cn } from '@/lib/utils';
-import { Home, Search, Library, Plus, ChevronLeft, ChevronRight, Music, Puzzle, Settings as SettingsIcon } from 'lucide-react';
+import { Home, Search, Plus, ChevronLeft, ChevronRight, Music, Settings as SettingsIcon } from 'lucide-react';
+import { ConnectionsNavIcon } from '@/components/icons/ConnectionsNavIcon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,8 @@ export default function Sidebar() {
     activeView, navigateTo, sidebarCollapsed, toggleSidebar, 
     selectedPlaylistId, setSelectedPlaylistId,
     playerTheme,
+    setConnectionsScreen,
+    setConnectionsCatalogSourceId,
   } = useUIStore();
   const { playlists, createPlaylist } = useLibraryStore();
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -38,8 +41,7 @@ export default function Sidebar() {
   const navItems = [
     { icon: Home, label: 'Home', view: 'home' as const },
     { icon: Search, label: 'Search', view: 'search' as const },
-    { icon: Library, label: 'Your Library', view: 'library' as const },
-    { icon: Puzzle, label: 'Addons', view: 'addons' as const },
+    { icon: Home, label: 'Connections', view: 'connections' as const },
     { icon: SettingsIcon, label: 'Settings', view: 'settings' as const },
   ];
 
@@ -93,8 +95,12 @@ export default function Sidebar() {
           const isActive = activeView === item.view && !selectedPlaylistId;
           return (
             <button
-              key={item.view}
+            key={item.label}
               onClick={() => {
+                if (item.view === 'connections') {
+                  setConnectionsScreen('home');
+                  setConnectionsCatalogSourceId(null);
+                }
                 navigateTo(item.view);
                 setSelectedPlaylistId(null);
               }}
@@ -107,7 +113,30 @@ export default function Sidebar() {
               )}
               title={sidebarCollapsed ? item.label : undefined}
             >
-              <item.icon size={isActive && playerTheme === 'tidal' ? 22 : 20} className={cn("flex-shrink-0 transition-transform", isActive && "scale-110")} />
+              {item.view === 'connections' ? (
+                <ConnectionsNavIcon
+                  size={isActive && playerTheme === 'tidal' ? 22 : 20}
+                  className={cn(
+                    'flex-shrink-0 transition-transform',
+                    isActive && 'scale-110',
+                    isActive && playerTheme === 'spotify' && 'text-spotify-green',
+                    isActive && playerTheme === 'tidal' && 'text-cyan-400',
+                    isActive && playerTheme === 'apple' && 'text-apple-red',
+                    !isActive && (playerTheme === 'tidal' ? 'text-white/70' : 'text-muted-foreground')
+                  )}
+                />
+              ) : (
+                <item.icon
+                  size={isActive && playerTheme === 'tidal' ? 22 : 20}
+                  className={cn(
+                    'flex-shrink-0 transition-transform',
+                    isActive && 'scale-110',
+                    isActive && playerTheme === 'spotify' && 'text-spotify-green',
+                    isActive && playerTheme === 'tidal' && 'text-cyan-400',
+                    isActive && playerTheme === 'apple' && 'text-apple-red'
+                  )}
+                />
+              )}
               {!sidebarCollapsed && <span>{item.label}</span>}
             </button>
           );

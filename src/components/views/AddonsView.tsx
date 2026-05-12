@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAddonStore } from '@/stores/addonStore';
 import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
@@ -25,16 +26,28 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
-  ExternalLink,
   Download,
   Store,
   Search,
   Globe,
-  Shield,
   Zap,
+  ChevronLeft,
+  Package,
+  Cloud,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { AddonManifest } from '@/types/addon';
+import { motion } from 'framer-motion';
+import { toast } from '@/hooks/use-toast';
+import { resolveAssetUrl, parentDirUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
+
+/** Icons from catalogs often hotlink CDNs; proxy avoids broken thumbnails (e.g. Claudochrome). */
+function addonIconImgSrc(icon: string | undefined, baseURL: string): string | undefined {
+  const resolved = resolveAssetUrl(icon?.trim(), baseURL) || icon?.trim();
+  if (!resolved) return undefined;
+  if (/^https?:\/\//i.test(resolved)) return proxiedRemoteUrl(resolved);
+  return resolved;
+}
 
 interface StoreAddon {
   id: string;
@@ -45,14 +58,41 @@ interface StoreAddon {
   icon?: string;
   setupUrl?: string;
   manifestUrl?: string;
+  /** Native 8SPINE `.8spine` package — installed in-app by fetching and running the module (fetch is proxied). */
+  eightspineOnly?: boolean;
+  eightspinePackageUrl?: string;
+  moduleType?: string;
+  tags?: string[];
 }
 
-const ECLIPSE_STORE_NAME = 'Eclipse Addon Store';
+function ModuleSourcesScreenHeader({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+  return (
+    <div className="flex items-center justify-between px-2 py-3 border-b border-white/10 shrink-0 bg-black">
+      <button
+        type="button"
+        onClick={onClose}
+        className="h-10 w-10 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+        aria-label="Close"
+      >
+        <X size={22} strokeWidth={2} />
+      </button>
+      <h1 className="text-base font-semibold text-white tracking-tight">Module Sources</h1>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="h-9 min-w-[2.25rem] px-3 rounded-full bg-white text-black text-lg font-light leading-none flex items-center justify-center hover:bg-white/90 transition-colors"
+        aria-label="Add source"
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
 export default function AddonsView() {
-  const { playerTheme } = useUIStore();
   const {
     addons,
+    sources,
     activeAddonId,
     addAddon,
     removeAddon,
@@ -61,7 +101,24 @@ export default function AddonsView() {
     fetchManifest,
     error,
     clearError,
+    search,
+    addSource,
+    removeSource,
   } = useAddonStore();
+
+  const {
+    connectionsCatalogSourceId,
+    setConnectionsCatalogSourceId,
+    connectionsScreen,
+    setConnectionsScreen,
+    navigateTo,
+    setSearchQuery,
+  } = useUIStore();
+
+  const catalogSources = useMemo(() => {
+    if (!connectionsCatalogSourceId) return sources;
+    return sources.filter((s) => s.id === connectionsCatalogSourceId);
+  }, [sources, connectionsCatalogSourceId]);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -72,50 +129,129 @@ export default function AddonsView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [bulkInstalling, setBulkInstalling] = useState(false);
 
-  // Store state
-  const [storeAddons, setStoreAddons] = useState<StoreAddon[]>([]);
-  const [storeLoading, setStoreLoading] = useState(false);
-  const [storeError, setStoreError] = useState('');
+  const [catalogBySource, setCatalogBySource] = useState<
+    Record<string, { addons: StoreAddon[]; loading: boolean; error: string }>
+  >({});
   const [storeSearch, setStoreSearch] = useState('');
+  const [eclipseSetup, setEclipseSetup] = useState<{ sourceId: string; addon: StoreAddon } | null>(null);
+  const [eclipseManifestUrl, setEclipseManifestUrl] = useState('');
+  const [eclipseDialogBusy, setEclipseDialogBusy] = useState(false);
+  const [eclipseQuality, setEclipseQuality] = useState('max');
+  const [eclipseUnowned, setEclipseUnowned] = useState(true);
+  const [eclipseTestQuery, setEclipseTestQuery] = useState('');
+  const [eclipseTestBusy, setEclipseTestBusy] = useState(false);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
 
-  // Fetch Eclipse addon store registry
-  const fetchStoreRegistry = useCallback(async () => {
-    setStoreLoading(true);
-    setStoreError('');
-    try {
-      const res = await fetch('/api/addons/store');
-      if (!res.ok) throw new Error(`Failed to fetch store (${res.status})`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      if (Array.isArray(data.addons)) {
-        setStoreAddons(data.addons);
+  const fetchAllCatalogs = useCallback(async () => {
+    setCatalogBySource((prev) => {
+      const next = { ...prev };
+      for (const s of sources) {
+        next[s.id] = { addons: next[s.id]?.addons ?? [], loading: true, error: '' };
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to load addon store';
-      setStoreError(message);
-    } finally {
-      setStoreLoading(false);
-    }
-  }, []);
+      return next;
+    });
+
+    const results: Record<string, { addons: StoreAddon[]; loading: boolean; error: string }> = {};
+
+    await Promise.all(
+      sources.map(async (source) => {
+        const fetchUrl = source.registryUrl?.trim()
+          ? `/api/addons/store?url=${encodeURIComponent(source.registryUrl.trim())}`
+          : '/api/addons/store';
+        try {
+          const res = await fetch(fetchUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          results[source.id] = {
+            addons: Array.isArray(data.addons) ? data.addons : [],
+            loading: false,
+            error: '',
+          };
+        } catch (err: unknown) {
+          results[source.id] = {
+            addons: [],
+            loading: false,
+            error: err instanceof Error ? err.message : 'Failed to load',
+          };
+        }
+      })
+    );
+
+    setCatalogBySource((prev) => ({ ...prev, ...results }));
+  }, [sources]);
 
   useEffect(() => {
-    fetchStoreRegistry();
-  }, [fetchStoreRegistry]);
+    void fetchAllCatalogs();
+  }, [fetchAllCatalogs]);
+
+  const catalogIdsCompatible = (rowId: string, manifestId: string) => {
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '_');
+    const a = norm(rowId);
+    const b = norm(manifestId);
+    if (a === b) return true;
+    const lastSeg = (x: string) => {
+      const p = x.split('.');
+      return p[p.length - 1] || x;
+    };
+    // Registry may use pkg `com.vendor.module.foo` while runtime manifest uses `foo`
+    if (lastSeg(a) === lastSeg(b)) return true;
+    if (lastSeg(a) === b || a === lastSeg(b)) return true;
+    return false;
+  };
+
+  const storeRowMatchesInstalled = (row: StoreAddon, manifestId: string, baseURL?: string) => {
+    if (manifestId === row.id) return true;
+    if (catalogIdsCompatible(row.id, manifestId)) return true;
+    const rowUrl = (row.manifestUrl || row.setupUrl || '').replace(/\/manifest\.json$/i, '').replace(/\/$/, '');
+    const instBase = (baseURL || '').replace(/\/$/, '');
+    if (rowUrl && instBase && (rowUrl === instBase || instBase.startsWith(rowUrl) || rowUrl.startsWith(instBase))) {
+      return true;
+    }
+    const pkg = row.eightspinePackageUrl?.trim();
+    if (pkg && instBase) {
+      try {
+        const pkgRoot = parentDirUrl(pkg).replace(/\/$/, '');
+        if (pkgRoot === instBase || instBase.startsWith(pkgRoot) || pkgRoot.startsWith(instBase)) return true;
+      } catch {
+        /* ignore */
+      }
+    }
+    return false;
+  };
+
+  const rowInstallUrl = (a: StoreAddon) =>
+    (a.eightspinePackageUrl || a.manifestUrl || a.setupUrl || '').trim();
+
+  const isCatalogRowInstallable = (a: StoreAddon) =>
+    a.eightspineOnly ? Boolean(a.eightspinePackageUrl?.trim()) : Boolean(rowInstallUrl(a));
 
   // Install from store
-  const handleStoreInstall = async (addon: StoreAddon) => {
-    const installSource = addon.manifestUrl || addon.setupUrl || '';
+  const handleStoreInstall = async (addon: StoreAddon, sourceId: string) => {
+    const installSource = rowInstallUrl(addon);
     if (!installSource) return;
 
-    setInstallingId(addon.id);
+    setInstallingId(`${sourceId}:${addon.id}`);
     setInstallError('');
+    setEclipseSetup(null);
     try {
-      const manifest = await fetchManifest(installSource);
-      await addAddon(manifest);
+      const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(installSource);
+      addAddon(manifest, { sourceId, eightspineInnerCode, eightspineKind });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install addon';
       setInstallError(message);
+      const setupOnly =
+        !addon.eightspineOnly &&
+        (addon.setupUrl || '').trim() &&
+        !(addon.manifestUrl || '').trim();
+      if (setupOnly) {
+        setEclipseSetup({ sourceId, addon });
+        setEclipseManifestUrl('');
+      }
     } finally {
       setInstallingId(null);
     }
@@ -126,8 +262,8 @@ export default function AddonsView() {
     setInstalling(true);
     setInstallError('');
     try {
-      const manifest = await fetchManifest(url);
-      await addAddon(manifest);
+      const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(url);
+      addAddon(manifest, { sourceId: 'custom', eightspineInnerCode, eightspineKind });
       setInstallUrl('');
       setDialogOpen(false);
     } catch (err: unknown) {
@@ -138,46 +274,424 @@ export default function AddonsView() {
     }
   };
 
-  const isInstalled = (storeAddonId: string) => {
-    return addons.some((a) => a.manifest.id === storeAddonId);
+  const runEclipseTestSearch = useCallback(async () => {
+    const q = eclipseTestQuery.trim();
+    if (!q) return;
+    setEclipseTestBusy(true);
+    try {
+      setSearchQuery(q);
+      await search(q);
+      navigateTo('search');
+      toast({ title: 'Search', description: `Results for "${q}" on Search.` });
+    } catch (e: unknown) {
+      toast({
+        title: 'Search failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setEclipseTestBusy(false);
+    }
+  }, [eclipseTestQuery, search, setSearchQuery, navigateTo]);
+
+  const isInstalled = (row: StoreAddon) =>
+    addons.some((a) => storeRowMatchesInstalled(row, a.manifest.id, a.manifest.baseURL));
+
+  const isInstallingStoreAddon = (sourceId: string, id: string) => installingId === `${sourceId}:${id}`;
+
+  const countCatalogInstallable = () => {
+    let n = 0;
+    for (const s of sources) {
+      const list = catalogBySource[s.id]?.addons ?? [];
+      for (const a of list) {
+        if (!isCatalogRowInstallable(a)) continue;
+        if (isInstalled(a)) continue;
+        n += 1;
+      }
+    }
+    return n;
   };
 
-  const isInstallingStoreAddon = (id: string) => installingId === id;
-
-  // Filter store addons by search
-  const filteredStoreAddons = storeSearch.trim()
-    ? storeAddons.filter(
-        (a) =>
-          a.name.toLowerCase().includes(storeSearch.toLowerCase()) ||
-          a.description?.toLowerCase().includes(storeSearch.toLowerCase()) ||
-          a.author?.toLowerCase().includes(storeSearch.toLowerCase())
+  const handleInstallAllEclipse = async () => {
+    const n = countCatalogInstallable();
+    if (n === 0) {
+      toast({
+        title: 'Nothing to install',
+        description: 'Everything in your catalogs is already installed, or no rows have a valid install URL.',
+      });
+      return;
+    }
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        `Install ${n} addon(s) from all catalogs? Only install sources you trust. This may take a minute.`
       )
-    : storeAddons;
+    ) {
+      return;
+    }
+    setBulkInstalling(true);
+    setInstallError('');
+    let ok = 0;
+    let fail = 0;
+    for (const s of sources) {
+      const list = catalogBySource[s.id]?.addons ?? [];
+      for (const a of list) {
+        if (!isCatalogRowInstallable(a) || isInstalled(a)) continue;
+        const src = rowInstallUrl(a);
+        if (!src) continue;
+        setInstallingId(`${s.id}:${a.id}`);
+        try {
+          const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(src);
+          addAddon(manifest, { sourceId: s.id, eightspineInnerCode, eightspineKind });
+          ok += 1;
+        } catch {
+          fail += 1;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    }
+    setInstallingId(null);
+    setBulkInstalling(false);
+    toast({
+      title: 'Bulk install finished',
+      description: `Installed: ${ok}. Failed: ${fail}.`,
+    });
+  };
+
+  const filterRows = (list: StoreAddon[]) =>
+    storeSearch.trim()
+      ? list.filter(
+          (a) =>
+            a.name.toLowerCase().includes(storeSearch.toLowerCase()) ||
+            a.description?.toLowerCase().includes(storeSearch.toLowerCase()) ||
+            a.author?.toLowerCase().includes(storeSearch.toLowerCase())
+        )
+      : list;
 
   const enabledAddons = addons.filter((a) => a.enabled);
 
   if (!mounted) return null;
 
-  return (
-    <ScrollArea className="h-full custom-scrollbar">
-      <div className="p-4 md:p-8 space-y-6 pb-32">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Addons</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Browse and install Eclipse-compatible addons to stream music
-            </p>
+  if (connectionsScreen === 'sources') {
+    return (
+      <div className="flex flex-col h-full min-h-0 bg-black text-white">
+        <ModuleSourcesScreenHeader
+          onClose={() => setConnectionsScreen('home')}
+          onAdd={() => setSourceDialogOpen(true)}
+        />
+        <ScrollArea className="flex-1 min-h-0 custom-scrollbar">
+          <div className="pb-32 px-3 pt-2 space-y-3">
+            {sources.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-stretch gap-0 rounded-2xl border border-zinc-800 bg-[#1a1a1a] overflow-hidden"
+              >
+                <button
+                  type="button"
+                  className="flex flex-1 items-center gap-3 p-3.5 text-left min-w-0 hover:bg-white/[0.04] transition-colors"
+                  onClick={() => {
+                    setConnectionsScreen('browse');
+                    setConnectionsCatalogSourceId(s.id);
+                  }}
+                >
+                  <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
+                    <Cloud size={20} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                    <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                      {s.registryUrl?.trim() ? s.registryUrl : 'Built-in default catalog'}
+                    </p>
+                  </div>
+                  <ChevronRight size={18} className="text-zinc-500 shrink-0 self-center" aria-hidden />
+                </button>
+                {!s.builtIn && (
+                  <button
+                    type="button"
+                    className="shrink-0 w-12 flex items-center justify-center border-l border-zinc-800 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeSource(s.id);
+                    }}
+                    aria-label={`Remove ${s.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12 rounded-2xl border border-zinc-700 bg-[#262626] text-white hover:bg-zinc-800 font-medium"
+              onClick={() => setSourceDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Source
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
+        </ScrollArea>
+        <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+          <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add module source</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Display name</Label>
+                <Input
+                  value={newSourceName}
+                  onChange={(e) => setNewSourceName(e.target.value)}
+                  placeholder="My catalog"
+                  className="bg-zinc-900 border-white/15 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Registry JSON URL</Label>
+                <Input
+                  value={newSourceUrl}
+                  onChange={(e) => setNewSourceUrl(e.target.value)}
+                  placeholder="https://…/index.json"
+                  className="bg-zinc-900 border-white/15 rounded-xl"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  className="flex-1 rounded-full bg-white text-black hover:bg-white/90"
+                  disabled={!newSourceName.trim() || !newSourceUrl.trim()}
+                  onClick={() => {
+                    addSource(newSourceName.trim(), newSourceUrl.trim());
+                    setNewSourceName('');
+                    setNewSourceUrl('');
+                    setSourceDialogOpen(false);
+                    void fetchAllCatalogs();
+                  }}
+                >
+                  Save
+                </Button>
+                <Button variant="outline" className="rounded-full border-white/25" onClick={() => setSourceDialogOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  const moduleCard =
+    'rounded-2xl border border-zinc-800 bg-[#1a1a1a] shadow-none';
+
+  return (
+    <>
+      <ScrollArea className="h-full min-h-0 custom-scrollbar">
+        <div className="p-4 md:p-6 space-y-5 pb-40 bg-black text-white min-h-full">
+        {connectionsScreen === 'home' && (
+          <>
+            <div className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-1 pt-1">
+              <span className="w-9" aria-hidden />
+              <h1 className="text-center text-base font-semibold tracking-tight text-white">Modules</h1>
+              <button
+                type="button"
+                onClick={() => setConnectionsScreen('sources')}
+                className="rounded-full bg-white text-black text-xs font-semibold px-3 py-1.5 hover:bg-white/90 shrink-0"
+              >
+                Sources
+              </button>
+            </div>
+            {addons.length === 0 ? (
+              <p className="text-sm text-zinc-500 text-center py-10 rounded-2xl border border-dashed border-zinc-800">
+                No modules installed. Tap Install module to browse catalogs.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {addons.map((addon) => {
+                  const shortId = addon.manifest.id.split('.').pop() || addon.manifest.id.slice(0, 8);
+                  const tagList = (addon.manifest.resources || []).slice(0, 8);
+                  return (
+                    <div
+                      key={addon.manifest.id}
+                      className={cn('rounded-2xl border border-zinc-800 bg-[#1a1a1a] p-4 space-y-3', moduleCard)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex gap-3 min-w-0 flex-1">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0 flex items-center justify-center">
+                            {(() => {
+                              const raw = addon.manifest.icon?.trim();
+                              const imgSrc = addonIconImgSrc(raw, addon.manifest.baseURL || '');
+                              if (imgSrc) {
+                                return (
+                                  <img
+                                    src={imgSrc}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                );
+                              }
+                              if (raw && raw.length <= 4) {
+                                return <span className="text-2xl leading-none select-none">{raw}</span>;
+                              }
+                              return <Puzzle className="w-6 h-6 text-zinc-500" />;
+                            })()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{addon.manifest.name}</p>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                              <span className="inline-block rounded-md bg-zinc-900 border border-zinc-700 px-1.5 py-0.5 mr-1">
+                                #{shortId}
+                              </span>
+                              <span>v{addon.manifest.version}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                          <Switch checked={addon.enabled} onCheckedChange={() => toggleAddon(addon.manifest.id)} />
+                        </div>
+                      </div>
+                      <p className="text-xs text-zinc-500">Installed user module.</p>
+                      {tagList.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {tagList.map((t) => (
+                            <span
+                              key={t}
+                              className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-white/25 text-white/90 bg-black/40"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        {confirmDelete === addon.manifest.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="flex-1 h-10 rounded-full"
+                              onClick={() => {
+                                removeAddon(addon.manifest.id);
+                                setConfirmDelete(null);
+                              }}
+                            >
+                              Confirm remove
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 rounded-full border-zinc-700"
+                              onClick={() => setConfirmDelete(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="flex-1 h-10 rounded-full border-zinc-700 bg-[#262626] text-zinc-200 hover:bg-zinc-800"
+                              onClick={() => setConfirmDelete(addon.manifest.id)}
+                            >
+                              Uninstall
+                            </Button>
+                            <Button
+                              type="button"
+                              className="flex-1 h-10 rounded-full bg-white text-black font-semibold hover:bg-white/90"
+                              onClick={() => {
+                                const u = addon.manifest.baseURL?.trim();
+                                if (u) {
+                                  window.open(
+                                    u.startsWith('http') ? u : `https://${u}`,
+                                    '_blank',
+                                    'noopener,noreferrer'
+                                  );
+                                } else {
+                                  setActiveAddon(addon.manifest.id);
+                                  setConnectionsScreen('browse');
+                                  setConnectionsCatalogSourceId(null);
+                                }
+                              }}
+                            >
+                              Open
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="pt-2">
+              <Button
+                type="button"
+                className="w-full h-12 rounded-2xl bg-[#262626] border border-zinc-700 text-white font-medium hover:bg-zinc-800"
+                onClick={() => {
+                  setConnectionsScreen('browse');
+                  setConnectionsCatalogSourceId(null);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Install module
+              </Button>
+            </div>
+          </>
+        )}
+
+        {connectionsScreen === 'browse' && (
+          <>
+        {/* Header — 8SPINE Browse Modules */}
+        <div className="grid grid-cols-[2.25rem_1fr_2.25rem] items-center gap-1 pt-1">
+          {connectionsCatalogSourceId ? (
+            <button
+              type="button"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+              onClick={() => {
+                setConnectionsCatalogSourceId(null);
+                setConnectionsScreen('sources');
+              }}
+              aria-label="Back to sources"
+            >
+              <ChevronLeft size={22} strokeWidth={2} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+              onClick={() => {
+                setConnectionsScreen('home');
+                setConnectionsCatalogSourceId(null);
+              }}
+              aria-label="Back to modules"
+            >
+              <ChevronLeft size={22} strokeWidth={2} />
+            </button>
+          )}
+          <h1 className="text-center text-base font-semibold tracking-tight text-white">Browse modules</h1>
+          <span className="w-9" aria-hidden />
+        </div>
+        {connectionsCatalogSourceId && (
+          <p className="text-center text-[11px] text-zinc-500 -mt-2">
+            {sources.find((s) => s.id === connectionsCatalogSourceId)?.name ?? 'Catalog'}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="border-border text-foreground">
+                <Button
+                  variant="outline"
+                  className="border-zinc-700 bg-[#262626] text-white rounded-full hover:bg-zinc-800"
+                >
                   <Globe size={16} className="mr-1" />
                   Custom URL
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-card border-border">
+              <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-foreground">Install from URL</DialogTitle>
                 </DialogHeader>
@@ -238,7 +752,6 @@ export default function AddonsView() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
         </div>
 
         {/* Error banner */}
@@ -283,42 +796,47 @@ export default function AddonsView() {
           )}
         </div>
 
-        {/* ── Eclipse Addon Store ── */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                <Store size={16} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-foreground">{ECLIPSE_STORE_NAME}</h2>
-                <p className="text-xs text-muted-foreground">
-                  Official community addons from eclipsemusic.app
-                </p>
-              </div>
+        {/* ── Catalog sources (Settings → Sources adds more) ── */}
+        <div className="space-y-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-white">Catalogs</h2>
+              <p className="text-xs text-zinc-500 mt-0.5">Browse and install modules from the sources you added.</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={fetchStoreRegistry}
-              disabled={storeLoading}
-            >
-              <RefreshCw size={16} className={storeLoading ? 'animate-spin' : ''} />
-            </Button>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                disabled={bulkInstalling}
+                onClick={() => void handleInstallAllEclipse()}
+              >
+                {bulkInstalling ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Download size={14} className="mr-1" />}
+                Install all from catalogs
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void fetchAllCatalogs()}
+              >
+                <RefreshCw size={14} className="mr-1" />
+                Refresh all
+              </Button>
+            </div>
           </div>
 
-          {/* Store search */}
-          <div className="relative mb-4">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative mb-2">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <Input
-              placeholder="Search addons..."
+              placeholder="Search across all catalogs…"
               value={storeSearch}
               onChange={(e) => setStoreSearch(e.target.value)}
-              className="pl-9 h-9 bg-foreground/5 border-none rounded-full text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-foreground/20"
+              className="pl-9 h-10 bg-zinc-900 border border-zinc-800 rounded-full text-sm text-white placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-white/20"
             />
             {storeSearch && (
               <button
+                type="button"
                 onClick={() => setStoreSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -327,321 +845,351 @@ export default function AddonsView() {
             )}
           </div>
 
-          {/* Store loading */}
-          {storeLoading && storeAddons.length === 0 && (
-            <div className="flex items-center gap-3 py-12 justify-center">
-              <Loader2 size={20} className="animate-spin text-spotify-green" />
-              <span className="text-sm text-muted-foreground">Loading addon store...</span>
-            </div>
-          )}
+          {catalogSources.map((source) => {
+            const cat = catalogBySource[source.id];
+            const loading = cat?.loading ?? true;
+            const err = cat?.error ?? '';
+            const rows = filterRows(cat?.addons ?? []);
 
-          {/* Store error */}
-          {storeError && !storeLoading && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-accent/20 border border-border/20 text-sm">
-              <WifiOff size={16} className="text-muted-foreground flex-shrink-0" />
-              <div>
-                <p className="text-muted-foreground">{storeError}</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  Check your internet connection and try again.
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto text-xs"
-                onClick={fetchStoreRegistry}
-              >
-                <RefreshCw size={12} className="mr-1" />
-                Retry
-              </Button>
-            </div>
-          )}
+            const catSection =
+              (source.registryUrl || '').toLowerCase().includes('8spine') ||
+              (source.name || '').toLowerCase().includes('8spine')
+                ? 'MODULES'
+                : 'MUSIC';
 
-          {/* Store addon grid */}
-          {!storeLoading && !storeError && filteredStoreAddons.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredStoreAddons.map((addon) => {
-                const installed = isInstalled(addon.id);
-                const currentlyInstalling = isInstallingStoreAddon(addon.id);
-                const isActive = addons.find((a) => a.manifest.id === addon.id)?.manifest.id === activeAddonId;
+            return (
+              <div key={source.id} className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 px-1">{catSection}</p>
+                <div className="flex items-center gap-2 pb-2 border-b border-zinc-800">
+                  <Store size={14} className="text-zinc-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-zinc-400 truncate">{source.name}</p>
+                    <p className="text-[10px] text-zinc-600 truncate">{source.registryUrl || 'Default registry'}</p>
+                  </div>
+                </div>
 
-                return (
-                  <motion.div
-                    key={addon.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={cn(
-                      'flex items-start gap-3 p-4 rounded-lg border transition-all',
-                      playerTheme === 'tidal'
-                        ? 'bg-white/5 backdrop-blur-md border-white/10'
-                        : installed
-                          ? isActive
-                            ? 'bg-card border-spotify-green/50 ring-1 ring-spotify-green/20'
-                            : 'bg-card border-spotify-green/30'
-                          : 'bg-card border-border/30 hover:border-border/50'
-                    )}
-                  >
-                    {/* Icon */}
-                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-accent flex items-center justify-center">
-                      {addon.icon ? (
-                        <img
-                          src={addon.icon}
-                          alt={addon.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <Puzzle size={24} className="text-muted-foreground" />
-                      )}
-                    </div>
+                {loading && rows.length === 0 && (
+                  <div className="flex items-center gap-3 py-8 justify-center text-zinc-500 text-sm">
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    Loading…
+                  </div>
+                )}
 
-                    {/* Info */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-foreground truncate">{addon.name}</p>
-                        <span className="text-[10px] text-muted-foreground">v{addon.version}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {addon.description || addon.author || 'Eclipse addon'}
-                      </p>
-                      {addon.author && (
-                        <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">
-                          by {addon.author}
-                        </p>
-                      )}
-                    </div>
+                {err && !loading && (
+                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-sm">
+                    <WifiOff size={16} className="text-zinc-500 shrink-0" />
+                    <p className="text-zinc-400">{err}</p>
+                    <Button variant="ghost" size="sm" className="ml-auto text-xs text-white" onClick={() => void fetchAllCatalogs()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
 
-                    {/* Install / Status */}
-                    <div className="flex-shrink-0">
-                      {installed ? (
-                        <div className="flex items-center gap-1.5 text-spotify-green">
-                          <Check size={14} />
-                          <span className="text-[10px] font-medium">{isActive ? 'ACTIVE' : 'INSTALLED'}</span>
-                        </div>
-                      ) : currentlyInstalling ? (
-                        <Loader2 size={16} className="text-spotify-green animate-spin" />
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs border-spotify-green/50 text-spotify-green hover:bg-spotify-green/10 hover:text-spotify-green"
-                          onClick={() => handleStoreInstall(addon)}
-                        >
-                          <Download size={12} className="mr-1" />
-                          Install
-                        </Button>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-
-          {!storeLoading && !storeError && filteredStoreAddons.length === 0 && storeSearch.trim() && (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground">
-                No addons matching &quot;{storeSearch}&quot;
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* How it works */}
-        <div className="p-4 rounded-lg bg-accent/30 border border-border/20">
-          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-            <Shield size={14} className="text-spotify-green" />
-            How Eclipse Addons Work
-          </h3>
-          <ul className="text-xs text-muted-foreground space-y-1.5">
-            <li className="flex items-start gap-2">
-              <span className="text-spotify-green mt-0.5">1.</span>
-              Browse the store above and click <strong>Install</strong> on any addon
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-spotify-green mt-0.5">2.</span>
-              The addon is set as active automatically — it&apos;s your search provider
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-spotify-green mt-0.5">3.</span>
-              Go to <strong>Search</strong> and type any song, artist, or album
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-spotify-green mt-0.5">4.</span>
-              Click a track to play it — Musik proxies the stream through its server
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-spotify-green mt-0.5">5.</span>
-              Use the <strong>Custom URL</strong> button to install any Eclipse-compatible addon by URL
-            </li>
-          </ul>
-        </div>
-
-        {/* ── Installed Addons ── */}
-        <div>
-          <h2 className="text-lg font-bold text-foreground mb-4">
-            Installed ({addons.length})
-          </h2>
-
-          {addons.length === 0 ? (
-            <div className="text-center py-12">
-              <Puzzle size={48} className="text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-muted-foreground mb-2">No addons installed</p>
-              <p className="text-sm text-muted-foreground/70 mb-4">
-                Install from the Eclipse Addon Store above to start streaming music
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <AnimatePresence>
-                {addons.map((addon) => {
-                  const isActive = addon.manifest.id === activeAddonId;
-                  return (
-                    <motion.div
-                      key={addon.manifest.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className={cn(
-                        'flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer',
-                        isActive
-                          ? 'bg-card border-spotify-green/50 ring-1 ring-spotify-green/20'
-                          : addon.enabled
-                            ? 'bg-card border-border/30 hover:border-border/50'
-                            : 'bg-accent/20 border-border/10 opacity-60'
-                      )}
-                      onClick={() => {
-                        if (addon.enabled && !isActive) {
-                          setActiveAddon(addon.manifest.id);
+                {!loading && !err && rows.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                    {rows.map((addon) => {
+                      const installed = isInstalled(addon);
+                      const installedAddon = addons.find((a) =>
+                        storeRowMatchesInstalled(addon, a.manifest.id, a.manifest.baseURL)
+                      );
+                      const isActive = installedAddon?.manifest.id === activeAddonId;
+                      const currentlyInstalling = isInstallingStoreAddon(source.id, addon.id);
+                      const desc = (addon.description || '').trim();
+                      const tagList = addon.tags?.length ? addon.tags : [];
+                      const installFrom = rowInstallUrl(addon);
+                      const pageHref =
+                        typeof window !== 'undefined' ? window.location.href : 'https://localhost/';
+                      let iconBase = typeof window !== 'undefined' ? window.location.origin : '';
+                      if (installFrom) {
+                        try {
+                          iconBase = parentDirUrl(new URL(installFrom, pageHref).href);
+                        } catch {
+                          try {
+                            iconBase = parentDirUrl(installFrom);
+                          } catch {
+                            /* keep origin */
+                          }
                         }
-                      }}
-                    >
-                      {/* Active indicator (radio button) */}
-                      <div className="flex-shrink-0">
-                        <div
+                      } else if (source.registryUrl?.trim()) {
+                        try {
+                          iconBase = parentDirUrl(source.registryUrl.trim());
+                        } catch {
+                          /* keep */
+                        }
+                      }
+                      const catalogIconSrc = addonIconImgSrc(addon.icon?.trim(), iconBase);
+
+                      return (
+                        <motion.div
+                          key={`${source.id}-${addon.id}`}
+                          layout
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
                           className={cn(
-                            'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors',
-                            isActive ? 'border-spotify-green' : 'border-border'
+                            'flex flex-col rounded-2xl border border-zinc-800 bg-[#1a1a1a] p-4 gap-3 transition-colors min-w-0',
+                            installed && isActive && 'ring-1 ring-white/30 border-zinc-600',
+                            !installed && 'hover:border-zinc-600'
                           )}
                         >
-                          {isActive && <div className="w-2.5 h-2.5 rounded-full bg-spotify-green" />}
-                        </div>
-                      </div>
-
-                      {/* Icon */}
-                      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-accent flex items-center justify-center">
-                        {addon.manifest.icon ? (
-                          <img
-                            src={addon.manifest.icon}
-                            alt={addon.manifest.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <Puzzle size={24} className="text-muted-foreground" />
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            {addon.manifest.name}
-                          </p>
-                          <span className="text-xs text-muted-foreground">v{addon.manifest.version}</span>
-                          {isActive && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-spotify-green/20 text-spotify-green font-semibold">
-                              ACTIVE
-                            </span>
+                          <div className="flex gap-3 min-w-0">
+                            <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-zinc-900 border border-zinc-700 flex items-center justify-center">
+                              {catalogIconSrc ? (
+                                <img
+                                  src={catalogIconSrc}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : addon.icon ? (
+                                <span className="text-2xl leading-none" aria-hidden>
+                                  {addon.icon}
+                                </span>
+                              ) : (
+                                <Package className="w-7 h-7 text-zinc-500" strokeWidth={1.5} />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[15px] font-semibold text-white leading-tight break-words">
+                                {addon.name}
+                              </p>
+                              <p className="text-xs text-zinc-500 mt-1 break-words">
+                                {addon.author ? `by ${addon.author}` : 'Catalog'}
+                                {' · '}v{addon.version}
+                              </p>
+                            </div>
+                          </div>
+                          {desc && (
+                            <p className="text-[11px] text-zinc-400 normal-case tracking-normal leading-relaxed break-words whitespace-pre-wrap">
+                              {desc}
+                            </p>
                           )}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {addon.manifest.description || addon.manifest.id}
-                        </p>
-                        {addon.manifest.baseURL && (
-                          <p className="text-xs text-muted-foreground/60 truncate mt-0.5">
-                            {addon.manifest.baseURL}
-                          </p>
-                        )}
-                      </div>
+                          {tagList.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {tagList.slice(0, 6).map((t) => (
+                                <span
+                                  key={t}
+                                  className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-white/25 text-white/90 bg-black/40"
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex justify-end pt-1">
+                            {installed ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 border border-zinc-600 px-4 py-2 text-xs font-semibold text-white">
+                                <Check size={14} className="shrink-0" />
+                                Installed
+                              </span>
+                            ) : currentlyInstalling ? (
+                              <Loader2 size={18} className="text-white animate-spin" />
+                            ) : (
+                              <Button
+                                type="button"
+                                className="rounded-full bg-white text-black font-semibold px-5 py-2 h-auto hover:bg-white/90 shadow-none border-0"
+                                onClick={() => void handleStoreInstall(addon, source.id)}
+                              >
+                                <Download size={16} className="mr-2 shrink-0" />
+                                Install
+                              </Button>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                      {/* Resources tags */}
-                      <div className="hidden md:flex items-center gap-1 flex-shrink-0">
-                        {(addon.manifest.resources || []).slice(0, 3).map((res) => (
-                          <span
-                            key={res}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground font-medium"
-                          >
-                            {res}
-                          </span>
-                        ))}
-                        {(addon.manifest.resources?.length || 0) > 3 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{(addon.manifest.resources?.length || 0) - 3}
-                          </span>
-                        )}
-                      </div>
+                {!loading && !err && rows.length === 0 && storeSearch.trim() && (
+                  <p className="text-sm text-muted-foreground py-2">No matches in {source.name}.</p>
+                )}
+              </div>
+            );
+          })}
 
-                      {/* Toggle */}
-                      <Switch
-                        checked={addon.enabled}
-                        onCheckedChange={() => toggleAddon(addon.manifest.id)}
-                      />
-
-                      {/* Delete */}
-                      {confirmDelete === addon.manifest.id ? (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeAddon(addon.manifest.id);
-                              setConfirmDelete(null);
-                            }}
-                          >
-                            Confirm
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmDelete(null);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmDelete(addon.manifest.id);
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          )}
+          {storeSearch.trim() &&
+            !catalogSources.some((s) => filterRows(catalogBySource[s.id]?.addons ?? []).length > 0) &&
+            catalogSources.every((s) => {
+              const c = catalogBySource[s.id];
+              return c && !c.loading && !c.error;
+            }) && (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No addons matching &quot;{storeSearch}&quot; in any catalog.
+              </div>
+            )}
         </div>
+
+        <div className="pt-2">
+          <Button
+            type="button"
+            className="w-full h-12 rounded-2xl bg-[#262626] border border-zinc-700 text-white font-medium hover:bg-zinc-800"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Install module
+          </Button>
+        </div>
+        </>
+        )}
+
       </div>
-    </ScrollArea>
+      </ScrollArea>
+
+      <Dialog
+        open={eclipseSetup != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEclipseSetup(null);
+            setEclipseManifestUrl('');
+            setEclipseDialogBusy(false);
+            setEclipseTestQuery('');
+            setEclipseQuality('max');
+            setEclipseUnowned(true);
+          }
+        }}
+      >
+        <DialogContent className="bg-black border-zinc-800 text-white sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base font-semibold leading-snug">
+              {eclipseSetup?.addon.name}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-zinc-500 text-center leading-relaxed -mt-1">
+            Connect to external music sources and stream tracks through this player after install.
+          </p>
+
+          <div className="rounded-2xl border border-zinc-800 bg-[#1a1a1a] p-3 space-y-2 mt-2">
+            <p className="text-xs font-semibold text-zinc-400 flex items-center gap-2">
+              <span className="inline-block w-3.5 h-3.5 rounded-full border border-zinc-500" aria-hidden />
+              Settings
+            </p>
+            <p className="text-[11px] text-zinc-500">Preferred streaming quality (stored on this device only).</p>
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { id: 'mp3', label: 'MP3 320kbps' },
+                { id: 'cd', label: 'CD — FLAC 16bit/44.1kHz' },
+                { id: 'hi', label: 'Hi-Res — 24bit/44.1kHz–96kHz' },
+                { id: 'max', label: 'Hi-Res Max — 24bit/192kHz' },
+              ].map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setEclipseQuality(o.id)}
+                  className={cn(
+                    'w-full text-left text-sm font-medium rounded-xl px-3 py-2.5 border transition-colors',
+                    eclipseQuality === o.id
+                      ? 'bg-white text-black border-white'
+                      : 'bg-zinc-900/80 text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 py-3 border-b border-zinc-800">
+            <div>
+              <p className="text-sm font-medium text-white">Use for unowned media</p>
+              <p className="text-[11px] text-zinc-500">Stream unowned tracks using this module</p>
+            </div>
+            <Switch checked={eclipseUnowned} onCheckedChange={setEclipseUnowned} />
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <p className="text-sm font-semibold text-white flex items-center gap-2">
+              <Search size={16} className="text-zinc-400" />
+              Test the module
+            </p>
+            <Input
+              value={eclipseTestQuery}
+              onChange={(e) => setEclipseTestQuery(e.target.value)}
+              placeholder="Search for songs…"
+              className="bg-zinc-900 border-zinc-700 rounded-xl text-white placeholder:text-zinc-600"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && eclipseTestQuery.trim()) void runEclipseTestSearch();
+              }}
+            />
+            <Button
+              type="button"
+              className="w-full rounded-full bg-zinc-700 text-white font-semibold hover:bg-zinc-600"
+              disabled={eclipseTestBusy || !eclipseTestQuery.trim()}
+              onClick={() => void runEclipseTestSearch()}
+            >
+              {eclipseTestBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+            </Button>
+          </div>
+
+          <p className="text-[11px] text-zinc-500 pt-2 border-t border-zinc-800">
+            If the catalog only lists a setup URL, open the provider page and paste the manifest URL below.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-full border-zinc-700 bg-zinc-900 text-white justify-center"
+            onClick={() => {
+              const u = eclipseSetup?.addon.setupUrl;
+              if (u) window.open(u, '_blank', 'noopener,noreferrer');
+            }}
+          >
+            <ExternalLink className="w-4 h-4 mr-2 shrink-0" />
+            Open setup page
+          </Button>
+          <div className="space-y-1.5">
+            <label className="text-xs text-zinc-500">Manifest URL</label>
+            <Input
+              value={eclipseManifestUrl}
+              onChange={(e) => setEclipseManifestUrl(e.target.value)}
+              placeholder="https://…/manifest.json"
+              className="bg-zinc-900 border-zinc-700 rounded-xl text-white"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              className="flex-1 rounded-full bg-white text-black hover:bg-white/90 font-semibold"
+              disabled={eclipseDialogBusy}
+              onClick={async () => {
+                if (!eclipseSetup) return;
+                const tryUrl = eclipseManifestUrl.trim() || eclipseSetup.addon.setupUrl?.trim() || '';
+                if (!tryUrl) return;
+                setEclipseDialogBusy(true);
+                setInstallError('');
+                try {
+                  const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(tryUrl);
+                  addAddon(manifest, {
+                    sourceId: eclipseSetup.sourceId,
+                    eightspineInnerCode,
+                    eightspineKind,
+                  });
+                  toast({ title: 'Installed', description: `${manifest.name} is ready. Try Test above or open Search.` });
+                  setEclipseSetup(null);
+                  setEclipseManifestUrl('');
+                } catch (e: unknown) {
+                  setInstallError(e instanceof Error ? e.message : 'Install failed');
+                } finally {
+                  setEclipseDialogBusy(false);
+                }
+              }}
+            >
+              {eclipseDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Install'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full border-zinc-700 text-white"
+              onClick={() => {
+                setEclipseSetup(null);
+                setEclipseManifestUrl('');
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

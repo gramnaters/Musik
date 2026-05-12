@@ -10,7 +10,15 @@ export type EqPreset =
   | 'pop'
   | 'jazz'
   | 'classical'
-  | 'electronic';
+  | 'electronic'
+  | 'dance'
+  | 'hip_hop'
+  | 'acoustic'
+  | 'podcast'
+  | 'latenight'
+  | 'stadium'
+  | 'movie'
+  | 'voice_boost';
 
 export const SEEKBAR_STYLES = [
   'classic',
@@ -92,6 +100,14 @@ export const EQ_PRESET_LABELS: Record<EqPreset, string> = {
   jazz: 'Jazz',
   classical: 'Classical',
   electronic: 'Electronic',
+  dance: 'Dance / Club',
+  hip_hop: 'Hip-Hop',
+  acoustic: 'Acoustic',
+  podcast: 'Podcast / Talk',
+  latenight: 'Late Night',
+  stadium: 'Stadium',
+  movie: 'Movie',
+  voice_boost: 'Voice Boost',
 };
 
 export const SEEKBAR_STYLE_LABELS: Record<SeekbarStyle, string> = {
