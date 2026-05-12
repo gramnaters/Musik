@@ -457,6 +457,30 @@
   overflow: hidden;
 }
 
+.tidal-nowplaying-bg--over-art {
+  background: transparent;
+  pointer-events: none;
+}
+
+.tidal-nowplaying-bg--over-art .tidal-nowplaying-blob {
+  opacity: 0.52;
+}
+
+.tidal-nowplaying-artwash {
+  filter: blur(52px) saturate(1.9) brightness(0.42);
+  animation: tidal-artwash-shift 22s ease-in-out infinite alternate;
+  will-change: transform, filter;
+}
+
+@keyframes tidal-artwash-shift {
+  0% {
+    transform: scale(1.06) translate(-1.5%, -1%);
+  }
+  100% {
+    transform: scale(1.14) translate(1.5%, 1.2%);
+  }
+}
+
 .tidal-nowplaying-blob {
   position: absolute;
   border-radius: 50%;
@@ -2024,9 +2048,10 @@ img {
   height: min(130vw, 900px);
   border-radius: 50%;
   filter: blur(88px);
-  opacity: 0.2;
+  opacity: 0.28;
   mix-blend-mode: soft-light;
-  animation: apple-blob-drift 140s ease-in-out infinite;
+  animation: apple-blob-drift 42s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 .apple-blob-1 {
   top: -22%;
@@ -2036,21 +2061,21 @@ img {
 .apple-blob-2 {
   bottom: -28%;
   right: -22%;
-  animation-duration: 160s;
+  animation-duration: 48s;
   animation-delay: -18s;
   background: radial-gradient(circle at 45% 45%, rgba(140, 175, 255, 0.35), rgba(70, 85, 120, 0.1) 60%, transparent 74%);
 }
 .apple-blob-3 {
   top: 28%;
   right: -24%;
-  animation-duration: 150s;
+  animation-duration: 52s;
   animation-delay: -40s;
   background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14), rgba(100, 120, 180, 0.08) 62%, transparent 76%);
 }
 .apple-blob-4 {
   bottom: 0%;
   left: -12%;
-  animation-duration: 170s;
+  animation-duration: 46s;
   animation-delay: -22s;
   background: radial-gradient(circle at 35% 55%, rgba(160, 185, 230, 0.22), rgba(60, 70, 110, 0.08) 64%, transparent 78%);
 }
@@ -2058,15 +2083,19 @@ img {
   0%,
   100% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    opacity: 0.16;
-  }
-  33% {
-    transform: translate(1.8%, -1.2%) scale(1.03) rotate(0.8deg);
     opacity: 0.22;
   }
-  66% {
-    transform: translate(-1.5%, 1.8%) scale(0.985) rotate(-0.6deg);
-    opacity: 0.18;
+  25% {
+    transform: translate(6%, -5%) scale(1.06) rotate(1.2deg);
+    opacity: 0.38;
+  }
+  50% {
+    transform: translate(-5%, 7%) scale(0.96) rotate(-1deg);
+    opacity: 0.28;
+  }
+  75% {
+    transform: translate(4%, 4%) scale(1.04) rotate(0.6deg);
+    opacity: 0.34;
   }
 }
 

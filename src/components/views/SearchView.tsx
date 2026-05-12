@@ -43,10 +43,8 @@ export default function SearchView() {
   const { navigateTo, searchQuery, setSearchQuery } = useUIStore();
   const { catalogProvider } = useMetadataStore();
   const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
-  const [metadataTracks, setMetadataTracks] = useState<Track[]>([]);
-  const [metaSearching, setMetaSearching] = useState(false);
   const [addonResults, setAddonResults] = useState<Track[]>([]);
-  /** `null` = catalog (Settings metadata provider); else module id */
+  /** Selected search module; `null` when no search-capable addons are installed. */
   const [addonSearchId, setAddonSearchId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [browseHub, setBrowseHub] = useState<{
@@ -71,8 +69,7 @@ export default function SearchView() {
       return;
     }
     setAddonSearchId((cur) => {
-      if (cur === null) return null;
-      if (enabledAddons.some((a) => a.manifest.id === cur)) return cur;
+      if (cur && enabledAddons.some((a) => a.manifest.id === cur)) return cur;
       return enabledAddons[0]!.manifest.id;
     });
   }, [enabledAddons]);
@@ -81,33 +78,13 @@ export default function SearchView() {
     if (addonSearchId) setActiveAddon(addonSearchId);
   }, [addonSearchId, setActiveAddon]);
 
-  const isCatalogMode = !addonSearchId;
-
-  useEffect(() => {
-    if (!isCatalogMode || !hasSearched || !query.trim()) {
-      if (!query.trim()) setMetadataTracks([]);
-      setMetaSearching(false);
-      return;
-    }
-    const t = window.setTimeout(() => {
-      setMetaSearching(true);
-      void fetch(
-        metadataSearchUrl({
-          q: query.trim(),
-          provider: catalogProvider,
-          limit: 50,
-          appleCountry: appleStorefront,
-        })
-      )
-        .then((r) => r.json())
-        .then((data: { tracks?: Record<string, unknown>[] }) => {
-          setMetadataTracks((data.tracks || []).map((x) => mapMetadataSearchTrack(x)));
-        })
-        .catch(() => setMetadataTracks([]))
-        .finally(() => setMetaSearching(false));
-    }, 420);
-    return () => window.clearTimeout(t);
-  }, [isCatalogMode, hasSearched, query, catalogProvider, appleStorefront]);
+  const localLibraryResults = useMemo(() => {
+    if (!hasSearched || !query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    return demoTracks.filter((t) =>
+      `${t.title} ${t.artist} ${t.album || ''}`.toLowerCase().includes(q)
+    );
+  }, [hasSearched, query]);
 
   const doAddonSearch = useCallback(
     async (q: string, id: string) => {
@@ -135,12 +112,9 @@ export default function SearchView() {
         setHasSearched(true);
         if (addonSearchId) {
           debounceRef.current = setTimeout(() => void doAddonSearch(value, addonSearchId), 400);
-        } else {
-          setAddonResults([]);
         }
       } else {
         setAddonResults([]);
-        setMetadataTracks([]);
         setHasSearched(false);
       }
     },
@@ -167,21 +141,22 @@ export default function SearchView() {
 
   const allResults = useMemo(() => {
     if (!hasSearched || !query.trim()) return [];
-    return addonSearchId ? addonResults : metadataTracks;
-  }, [hasSearched, query, addonSearchId, addonResults, metadataTracks]);
+    if (addonSearchId) return addonResults;
+    return localLibraryResults;
+  }, [hasSearched, query, addonSearchId, addonResults, localLibraryResults]);
 
   const showAddonSearching = isSearching && hasSearched && Boolean(addonSearchId);
   const showBlockingLoader =
-    allResults.length === 0 && hasSearched && (showAddonSearching || (isCatalogMode && metaSearching));
+    allResults.length === 0 && hasSearched && showAddonSearching;
   const showNoResults =
-    hasSearched && !isSearching && !metaSearching && allResults.length === 0 && query.trim();
+    hasSearched && !isSearching && allResults.length === 0 && query.trim();
 
   const searchSourceLabel = useMemo(() => {
     if (addonSearchId) {
       return enabledAddons.find((x) => x.manifest.id === addonSearchId)?.manifest.name ?? 'Module';
     }
-    return 'Spotify catalog';
-  }, [addonSearchId, enabledAddons, catalogProvider]);
+    return 'Your library';
+  }, [addonSearchId, enabledAddons]);
 
   const openBrowseHub = async (tile: (typeof SEARCH_CATEGORY_TILES)[number]) => {
     setBrowseHub({
@@ -272,73 +247,66 @@ export default function SearchView() {
           <>
             <div className="flex items-start justify-between gap-3">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Search</h1>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-9 px-3 gap-1.5 rounded-full border-white/10 bg-white/5 text-sky-300 hover:bg-white/10 hover:text-sky-200"
+              {hasAddons && enabledAddons.length > 1 ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-9 px-3 gap-1.5 rounded-full border-white/10 bg-white/5 text-sky-300 hover:bg-white/10 hover:text-sky-200"
+                    >
+                      <span className="text-sm font-medium max-w-[160px] truncate">{searchSourceLabel}</span>
+                      <ChevronDown size={14} className="text-white/60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-72 bg-[#1c1c1e] border-white/10 p-1 max-h-[min(70vh,420px)] overflow-y-auto custom-scrollbar"
+                    align="end"
                   >
-                    <span className="text-sm font-medium max-w-[160px] truncate">{searchSourceLabel}</span>
-                    <ChevronDown size={14} className="text-white/60" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-72 bg-[#1c1c1e] border-white/10 p-1 max-h-[min(70vh,420px)] overflow-y-auto custom-scrollbar"
-                  align="end"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setAddonSearchId(null)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left',
-                      isCatalogMode ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5'
-                    )}
-                  >
-                    <span className="size-9 rounded-lg bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-white/80">
-                      API
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-medium truncate">Catalog search</span>
-                      <span className="block text-[11px] text-white/45 truncate">Uses Spotify Web API from Settings</span>
-                    </span>
-                  </button>
-                  {enabledAddons.map((addon) => {
-                    const src = addonThumbSrc(addon.manifest.icon, addon.manifest.baseURL || '');
-                    return (
-                      <button
-                        key={addon.manifest.id}
-                        type="button"
-                        onClick={() => setAddonSearchId(addon.manifest.id)}
-                        className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left',
-                          addonSearchId === addon.manifest.id
-                            ? 'bg-white/10 text-white'
-                            : 'text-white/70 hover:bg-white/5'
-                        )}
-                      >
-                        <span className="size-9 rounded-lg overflow-hidden bg-zinc-800 border border-white/10 shrink-0 flex items-center justify-center">
-                          {src ? (
-                            <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <Puzzle className="size-4 text-zinc-500" />
+                    {enabledAddons.map((addon) => {
+                      const src = addonThumbSrc(addon.manifest.icon, addon.manifest.baseURL || '');
+                      return (
+                        <button
+                          key={addon.manifest.id}
+                          type="button"
+                          onClick={() => setAddonSearchId(addon.manifest.id)}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left',
+                            addonSearchId === addon.manifest.id
+                              ? 'bg-white/10 text-white'
+                              : 'text-white/70 hover:bg-white/5'
                           )}
-                        </span>
-                        <span className="truncate">{addon.manifest.name}</span>
-                      </button>
-                    );
-                  })}
-                  {!enabledAddons.length && (
-                    <p className="px-3 py-2 text-xs text-white/45">Install a search module in Connections.</p>
-                  )}
-                </PopoverContent>
-              </Popover>
+                        >
+                          <span className="size-9 rounded-lg overflow-hidden bg-zinc-800 border border-white/10 shrink-0 flex items-center justify-center">
+                            {src ? (
+                              <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                            ) : (
+                              <Puzzle className="size-4 text-zinc-500" />
+                            )}
+                          </span>
+                          <span className="truncate">{addon.manifest.name}</span>
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              ) : hasAddons ? (
+                <span className="h-9 px-3 inline-flex items-center rounded-full border border-white/10 bg-white/5 text-sm font-medium text-sky-300 max-w-[200px] truncate">
+                  {searchSourceLabel}
+                </span>
+              ) : (
+                <span className="h-9 px-3 inline-flex items-center rounded-full border border-white/10 bg-white/5 text-sm font-medium text-white/50">
+                  Local library
+                </span>
+              )}
             </div>
 
             <div className="relative">
               <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
               <Input
                 type="text"
-                placeholder={addonSearchId ? `Search ${searchSourceLabel}…` : 'Search Spotify catalog…'}
+                placeholder={
+                  addonSearchId ? `Search ${searchSourceLabel}…` : 'Search songs in your library…'
+                }
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 className={cn(
@@ -353,7 +321,6 @@ export default function SearchView() {
                   onClick={() => {
                     handleQueryChange('');
                     setAddonResults([]);
-                    setMetadataTracks([]);
                     setHasSearched(false);
                     if (addonError) clearError();
                   }}
@@ -369,8 +336,8 @@ export default function SearchView() {
                 <WifiOff size={20} className="text-white/50 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white/70">
-                    No search modules installed. You can still search the public catalog (provider from Settings →
-                    Metadata).
+                    No search modules installed. Search matches tracks from the built-in demo library, or install a
+                    search module in Connections.
                   </p>
                   <Button
                     className="mt-3 h-9 rounded-full bg-white text-black hover:bg-white/90 text-xs font-semibold"
@@ -447,12 +414,6 @@ export default function SearchView() {
                     </TabsList>
 
                     <TabsContent value="tracks" className="mt-4">
-                      {hasSearched && isCatalogMode && !metaSearching && metadataTracks.length > 0 && (
-                        <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
-                          <Wifi size={12} className="text-sky-400" />
-                          <span>{metadataTracks.length} from Spotify catalog</span>
-                        </div>
-                      )}
                       {hasSearched && addonSearchId && !isSearching && addonResults.length > 0 && (
                         <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
                           <Wifi size={12} className="text-emerald-400" />
@@ -463,15 +424,11 @@ export default function SearchView() {
                       )}
                       {hasSearched &&
                         !isSearching &&
-                        !metaSearching &&
-                        isCatalogMode &&
-                        metadataTracks.length === 0 &&
-                        demoTracks.some((t) =>
-                          `${t.title} ${t.artist}`.toLowerCase().includes(query.trim().toLowerCase())
-                        ) && (
+                        !addonSearchId &&
+                        localLibraryResults.length > 0 && (
                           <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
                             <span className="inline-flex size-2 rounded-full bg-emerald-400" />
-                            <span>Local demo matches</span>
+                            <span>Demo library matches</span>
                           </div>
                         )}
 
@@ -502,19 +459,6 @@ export default function SearchView() {
                       {!showBlockingLoader && allResults.length > 0 && (
                         <TrackList tracks={allResults} showAlbumArt showIndex />
                       )}
-
-                      {!showBlockingLoader &&
-                        allResults.length === 0 &&
-                        hasSearched &&
-                        isCatalogMode &&
-                        !metaSearching &&
-                        (() => {
-                          const q = query.trim().toLowerCase();
-                          const locals = demoTracks.filter((t) =>
-                            `${t.title} ${t.artist} ${t.album || ''}`.toLowerCase().includes(q)
-                          );
-                          return locals.length > 0 ? <TrackList tracks={locals} showAlbumArt showIndex /> : null;
-                        })()}
                     </TabsContent>
 
                     <TabsContent value="artists" className="mt-4">
@@ -571,7 +515,7 @@ export default function SearchView() {
             {showNoResults && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
                 <p className="text-xl font-bold mb-2">No results found for &quot;{query}&quot;</p>
-                <p className="text-sm text-white/50">Try another keyword or switch the search source.</p>
+                <p className="text-sm text-white/50">Try another keyword, or connect a search module in Connections.</p>
               </motion.div>
             )}
           </>

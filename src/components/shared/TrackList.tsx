@@ -8,7 +8,7 @@ import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
 import { downloadCurrentTrack } from '@/lib/download-track';
-import { MoreHorizontal, Play, Pause, Heart, Plus } from 'lucide-react';
+import { MoreHorizontal, Play, Pause, Heart, Plus, Volume2, CircleArrowUp } from 'lucide-react';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { Button } from '@/components/ui/button';
 import {
@@ -192,10 +192,12 @@ function TrackRowMenu({
   track,
   index,
   tracks,
+  alwaysShowTrigger,
 }: {
   track: Track;
   index: number;
   tracks: Track[];
+  alwaysShowTrigger?: boolean;
 }) {
   const { play, addToQueue, currentTrack, isPlaying, togglePlayPause } = usePlayerStore();
   const { toggleFavourite, isFavourite, playlists, addToPlaylist, addRecentlyPlayed } = useLibraryStore();
@@ -218,7 +220,10 @@ function TrackRowMenu({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+          className={cn(
+            'h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100',
+            alwaysShowTrigger && 'opacity-100'
+          )}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           aria-label="Track options"
@@ -325,7 +330,7 @@ export default function TrackList({
                   {applePlaying ? (
                     <span className="text-sm tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
                   ) : tidalPlaying ? (
-                    <span className="w-3 shrink-0" aria-hidden />
+                    <Volume2 className="w-4 h-4 text-cyan-400 shrink-0" aria-hidden />
                   ) : spotifyPlaying ? (
                     <span className="text-sm tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
                   ) : isCurrentlyPlaying ? (
@@ -410,14 +415,6 @@ export default function TrackList({
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />
-                      {tidalPlaying && (
-                        <div
-                          className="absolute inset-0 flex items-center justify-center bg-black/45 pointer-events-none"
-                          aria-hidden
-                        >
-                          <Play size={18} className="text-white fill-white translate-x-[1px]" strokeWidth={0} />
-                        </div>
-                      )}
                       {applePlaying && (
                         <div
                           className="absolute bottom-1 left-1 flex items-end gap-0.5 pointer-events-none track-playing-eq"
@@ -449,7 +446,7 @@ export default function TrackList({
                           !spotifyPlaying && isThisTrack && playerTheme === 'tidal' && 'text-cyan-400',
                           !spotifyPlaying && isThisTrack && playerTheme === 'apple' && 'text-apple-red',
                           !isThisTrack && 'text-foreground',
-                          tidalPlaying && 'text-white font-semibold'
+                          tidalPlaying && 'text-cyan-400 font-bold tracking-tight'
                         )}
                       >
                         {track.title}
@@ -458,6 +455,13 @@ export default function TrackList({
                         <span className="hidden group-hover:inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#333] text-white/95 shrink-0 border border-white/10">
                           Song
                         </span>
+                      )}
+                      {tidalPlaying && (
+                        <CircleArrowUp
+                          className="w-3.5 h-3.5 text-white/35 shrink-0 hidden sm:block"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
                       )}
                       {spotifyPlaying ? (
                         <span className="group-hover:hidden shrink-0">
@@ -470,13 +474,13 @@ export default function TrackList({
                     <p
                       className={cn(
                         'text-xs truncate',
-                        tidalPlaying && 'text-white/50',
+                        tidalPlaying && 'text-white/35',
                         applePlaying && 'text-muted-foreground',
                         spotifyPlaying && 'text-muted-foreground group-hover:text-white/60'
                       )}
                     >
                       {tidalPlaying ? (
-                        `Track · ${track.artist}`
+                        track.album?.trim() || '\u00a0'
                       ) : spotifyPlaying ? (
                         <>
                           <span className="group-hover:hidden">{track.artist}</span>
@@ -493,11 +497,12 @@ export default function TrackList({
                   <span
                     className={cn(
                       'text-sm truncate',
-                      tidalPlaying && 'text-white/40',
-                      spotifyPlaying && 'text-muted-foreground group-hover:text-white/45'
+                      tidalPlaying && 'text-white font-bold',
+                      !tidalPlaying && spotifyPlaying && 'text-muted-foreground group-hover:text-white/45',
+                      !tidalPlaying && !spotifyPlaying && 'text-muted-foreground'
                     )}
                   >
-                    {track.album}
+                    {tidalPlaying ? track.artist : track.album}
                   </span>
                 </div>
 
@@ -519,10 +524,11 @@ export default function TrackList({
                       type="button"
                       className={cn(
                         'opacity-0 group-hover:opacity-100 transition-opacity shrink-0',
+                        tidalPlaying && 'opacity-100 text-white/45 hover:text-white/80',
                         fav && playerTheme === 'spotify' && 'text-spotify-green',
                         fav && playerTheme === 'tidal' && 'text-cyan-400',
                         fav && playerTheme === 'apple' && 'text-apple-red',
-                        !fav && 'text-muted-foreground hover:text-foreground'
+                        !fav && !tidalPlaying && 'text-muted-foreground hover:text-foreground'
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -536,7 +542,7 @@ export default function TrackList({
                   <span
                     className={cn(
                       'text-sm tabular-nums shrink-0',
-                      tidalPlaying && 'text-white/45',
+                      tidalPlaying && 'text-white font-medium',
                       spotifyPlaying && 'text-muted-foreground group-hover:text-white/55'
                     )}
                   >
@@ -545,7 +551,7 @@ export default function TrackList({
                 </div>
 
                 <div className="hidden md:flex items-center justify-end">
-                  <TrackRowMenu track={track} index={index} tracks={tracks} />
+                  <TrackRowMenu track={track} index={index} tracks={tracks} alwaysShowTrigger={tidalPlaying} />
                 </div>
               </div>
             </TrackContextMenu>

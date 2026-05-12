@@ -15,7 +15,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
 import TrackList from '@/components/shared/TrackList';
 import { motion } from 'framer-motion';
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { openHomeHubInNewTab } from '@/lib/home-hub-deep-link';
 import { ChevronRight, ChevronLeft, Loader2, MoreHorizontal } from 'lucide-react';
 import type { Track } from '@/types/music';
 import { Button } from '@/components/ui/button';
@@ -44,7 +46,7 @@ function getGreeting(): string {
 
 /** Mobile: horizontal scroll. Desktop: auto-fill grid so rows span full width without a trailing gap. */
 const homeResponsiveRail =
-  'flex gap-3 pb-2 -mx-4 px-4 pr-7 md:-mx-8 md:px-8 md:pr-8 max-md:overflow-x-auto max-md:flex-nowrap max-md:custom-scrollbar-x md:grid md:overflow-x-visible md:[grid-template-columns:repeat(auto-fill,minmax(min(128px,100%),1fr))]';
+  'flex gap-3.5 pb-2 -mx-4 px-4 pr-7 md:-mx-8 md:px-8 md:pr-8 max-md:overflow-x-auto max-md:flex-nowrap max-md:custom-scrollbar-x md:grid md:overflow-x-visible md:[grid-template-columns:repeat(auto-fill,minmax(min(156px,100%),1fr))]';
 
 function AllInOneBadge() {
   return (
@@ -261,6 +263,9 @@ function SectionHeader({
 }
 
 export default function HomeView() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const hubLinkHandledRef = useRef<string | null>(null);
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
   const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
@@ -286,7 +291,6 @@ export default function HomeView() {
   const [popArtists, setPopArtists] = useState<{ id: string; name: string; image?: string }[]>([]);
   const [featuredArtist, setFeaturedArtist] = useState<{ name: string; image?: string } | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
-  const [moodLoadingId, setMoodLoadingId] = useState<string | null>(null);
   const [hubOverlay, setHubOverlay] = useState<{
     kind: 'genre' | 'mood' | 'fresh' | 'artist' | 'recent';
     title: string;
@@ -447,7 +451,6 @@ export default function HomeView() {
   const loadMood = useCallback(
     async (m: (typeof HOME_MOOD_MIXES)[0]) => {
       setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: true });
-      setMoodLoadingId(m.id);
       try {
         let tracks: Track[] = [];
         if (browseAddonId) {
@@ -468,8 +471,6 @@ export default function HomeView() {
         setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks, loading: false });
       } catch {
         setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: false });
-      } finally {
-        setMoodLoadingId(null);
       }
     },
     [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]
@@ -551,18 +552,46 @@ export default function HomeView() {
 
   const openFeaturedArtistHub = useCallback(() => {
     if (!featuredArtist) return;
-    void openArtistHubByName(featuredArtist.name);
-  }, [featuredArtist, openArtistHubByName]);
+    openHomeHubInNewTab({ hub: 'artist', name: featuredArtist.name });
+  }, [featuredArtist]);
+
+  useEffect(() => {
+    const hub = searchParams.get('hub');
+    if (!hub) return;
+    const id = searchParams.get('id');
+    const name = searchParams.get('name');
+    const key = `${hub}:${id ?? name ?? ''}`;
+    if (hubLinkHandledRef.current === key) return;
+    hubLinkHandledRef.current = key;
+
+    setActiveView('home');
+
+    void (async () => {
+      try {
+        if (hub === 'artist' && name) {
+          await openArtistHubByName(decodeURIComponent(name));
+        } else if (hub === 'mood' && id) {
+          const m = HOME_MOOD_MIXES.find((x) => x.id === id);
+          if (m) await loadMood(m);
+        } else if (hub === 'genre' && id) {
+          const cat = browseCategories.find((c) => c.id === id);
+          if (cat) await openGenreHub(cat);
+        }
+      } finally {
+        router.replace('/', { scroll: false });
+      }
+    })();
+  }, [searchParams, router, setActiveView, openArtistHubByName, loadMood, openGenreHub]);
 
   const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
   const quickTracks = useMemo(() => recentlyPlayed.slice(0, 4), [recentlyPlayed]);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black md:flex-row">
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black">
       <ScrollArea
         className={cn(
           'h-full min-h-0 min-w-0 flex-1 custom-scrollbar bg-black',
-          hubOverlay && 'max-md:hidden'
+          hubOverlay && 'hidden'
         )}
       >
         <div className="p-4 md:p-8 space-y-8 pb-32">
@@ -699,17 +728,11 @@ export default function HomeView() {
                   key={m.id}
                   type="button"
                   whileHover={{ y: -2 }}
-                  disabled={moodLoadingId === m.id}
-                  className="relative max-md:flex-shrink-0 w-[min(52vw,220px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 disabled:opacity-60"
+                  className="relative max-md:flex-shrink-0 w-[min(58vw,280px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10"
                   style={{ background: m.gradient }}
-                  onClick={() => void loadMood(m)}
+                  onClick={() => openHomeHubInNewTab({ hub: 'mood', id: m.id })}
                 >
                   <span className="absolute inset-0 bg-black/25" />
-                  {moodLoadingId === m.id && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <Loader2 className="size-7 animate-spin text-white" />
-                    </span>
-                  )}
                   <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                     <p className="text-lg font-bold text-white drop-shadow-md">{m.label}</p>
                     <p className="text-xs text-white/80 mt-0.5">{m.subtitle}</p>
@@ -799,8 +822,8 @@ export default function HomeView() {
                   key={cat.id}
                   type="button"
                   whileHover={{ y: -2 }}
-                  className="relative max-md:flex-shrink-0 w-[min(52vw,220px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 group"
-                  onClick={() => void openGenreHub(cat)}
+                  className="relative max-md:flex-shrink-0 w-[min(58vw,280px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 group"
+                  onClick={() => openHomeHubInNewTab({ hub: 'genre', id: cat.id })}
                 >
                   <img
                     src={cat.coverImage}
@@ -827,9 +850,7 @@ export default function HomeView() {
     {hubOverlay && (
       <div
         className={cn(
-          'flex min-h-0 flex-1 flex-col bg-[#050505] animate-in fade-in duration-200',
-          'max-md:absolute max-md:inset-0 max-md:z-[70]',
-          'md:relative md:h-full md:w-[min(520px,46%)] md:min-w-[300px] md:flex-shrink-0 md:border-l md:border-white/10'
+          'absolute inset-0 z-[70] flex min-h-0 flex-1 flex-col bg-[#050505] animate-in fade-in duration-200 border-0'
         )}
         role="dialog"
         aria-modal
