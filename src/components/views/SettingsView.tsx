@@ -221,61 +221,33 @@ export default function SettingsView() {
           <div className="px-4 py-6 pb-32 max-w-lg mx-auto">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Provider</p>
             <p className="text-sm text-zinc-500 mt-1 mb-4">
-              Choose which catalog Search and Home use for artwork and browse tiles. Apple uses the public iTunes Search
-              API (no key). Spotify uses the Web API with{' '}
+              Search and Home use the Spotify Web API. Set{' '}
               <code className="text-zinc-400">SPOTIFY_CLIENT_ID</code> and{' '}
-              <code className="text-zinc-400">SPOTIFY_CLIENT_SECRET</code> — set them in{' '}
-              <code className="text-zinc-400">.env.local</code> for development or in your host (for example Render) as
-              environment variables, then redeploy or restart.
+              <code className="text-zinc-400">SPOTIFY_CLIENT_SECRET</code> in{' '}
+              <code className="text-zinc-400">.env.local</code> or on your host (e.g. Render → Environment), then
+              redeploy or restart.
             </p>
-            <div className="rounded-2xl border border-zinc-800 bg-[#1c1c1e] overflow-hidden divide-y divide-zinc-800">
-              {(['spotify', 'apple'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.04]"
-                  onClick={() => setCatalogProvider(p)}
-                >
-                  <span
-                    className={cn(
-                      'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                      p === 'spotify' ? 'bg-[#1DB954]' : 'bg-gradient-to-br from-[#FA233B] to-[#FB5C74]'
-                    )}
-                    aria-hidden
-                  >
-                    {p === 'spotify' ? (
-                      <span className="flex gap-[3px] items-center justify-center">
-                        <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
-                        <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
-                      </span>
-                    ) : (
-                      <span className="text-white text-xs font-bold leading-none">♪</span>
-                    )}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-medium">{p === 'spotify' ? 'Spotify' : 'Apple Music'}</span>
-                    <span className="block text-[11px] text-zinc-500 mt-0.5">
-                      {p === 'spotify'
-                        ? 'Web API — requires SPOTIFY_CLIENT_ID / SECRET'
-                        : 'iTunes Search API — no setup'}
-                    </span>
-                  </span>
-                  {catalogProvider === p ? (
-                    <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shrink-0">
-                      <Check size={14} className="text-black" strokeWidth={3} />
-                    </span>
-                  ) : (
-                    <span className="w-6 h-6 rounded-full border-2 border-zinc-600 shrink-0" />
-                  )}
-                </button>
-              ))}
+            <div className="rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4 flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-[#1DB954] flex items-center justify-center shrink-0" aria-hidden>
+                <span className="flex gap-[3px] items-center justify-center">
+                  <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
+                  <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
+                </span>
+              </span>
+              <div className="flex-1 min-w-0">
+                <span className="block font-medium">Spotify catalog</span>
+                <span className="block text-[11px] text-zinc-500 mt-0.5">Web API — requires client ID and secret</span>
+              </div>
+              <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shrink-0">
+                <Check size={14} className="text-black" strokeWidth={3} />
+              </span>
             </div>
             <div className="mt-6 rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Catalog region</p>
                   <p className="text-sm text-zinc-500 mt-1">
-                    Apple iTunes <code className="text-zinc-400">country</code> and Spotify <code className="text-zinc-400">market</code> use this same code for Home, Search, and playlists.
+                    Spotify <code className="text-zinc-400">market</code> (ISO country code) for Search and Home.
                   </p>
                 </div>
                 <Select value={appleStorefront ?? 'US'} onValueChange={(v) => setAppleStorefront(v)}>
@@ -301,11 +273,11 @@ export default function SettingsView() {
                 onClick={async () => {
                   setCatalogTestBusy(true);
                   try {
-                    const q = catalogProvider === 'spotify' ? 'daft punk' : 'taylor swift';
+                    const q = 'daft punk';
                     const res = await fetch(
                       metadataSearchUrl({
                         q,
-                        provider: catalogProvider,
+                        provider: 'spotify',
                         limit: 5,
                         appleCountry: appleStorefront ?? 'US',
                       })
@@ -319,7 +291,7 @@ export default function SettingsView() {
                     if (res.ok && n > 0 && !data.error) {
                       toast({
                         title: 'Connection OK',
-                        description: `${catalogProvider === 'spotify' ? 'Spotify' : 'Apple'} returned ${n} sample tracks.`,
+                        description: `Spotify returned ${n} sample tracks.`,
                       });
                     } else if (data.error === 'missing_spotify_credentials') {
                       toast({
@@ -799,11 +771,7 @@ export default function SettingsView() {
             <SettingsRow
               icon={ListMusic}
               title="Metadata provider"
-              subtitle={
-                catalogProvider === 'apple'
-                  ? 'Apple Music (iTunes Search API)'
-                  : 'Spotify (requires API credentials in .env)'
-              }
+              subtitle="Spotify Web API — set credentials in .env or Render"
               onPress={() => setPage('metadata')}
             />
             <SettingsRow

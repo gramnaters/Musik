@@ -32,6 +32,9 @@ import {
 import { downloadCurrentTrack } from '@/lib/download-track';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 
+/** Home row preview count; full list opens in the side hub via See all. */
+const RECENT_HOME_PREVIEW = 5;
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
@@ -285,7 +288,7 @@ export default function HomeView() {
   const [feedLoading, setFeedLoading] = useState(false);
   const [moodLoadingId, setMoodLoadingId] = useState<string | null>(null);
   const [hubOverlay, setHubOverlay] = useState<{
-    kind: 'genre' | 'mood' | 'fresh' | 'artist';
+    kind: 'genre' | 'mood' | 'fresh' | 'artist' | 'recent';
     title: string;
     subtitle?: string;
     tracks: Track[];
@@ -569,15 +572,29 @@ export default function HomeView() {
               {greeting} —{' '}
               {browseAddonId
                 ? 'Rails load from your connected module.'
-                : `Discovery from ${catalogProvider === 'spotify' ? 'Spotify' : 'Apple Music'} (${appleStorefront}).`}
+                : `Discovery from Spotify (${appleStorefront}).`}
             </p>
           </div>
 
           {showRecentlyPlayed && recentlyPlayed.length > 0 && (
             <section>
-              <SectionHeader title="Recently played" />
+              <SectionHeader
+                title="Recently played"
+                onSeeAll={
+                  recentlyPlayed.length > RECENT_HOME_PREVIEW
+                    ? () =>
+                        setHubOverlay({
+                          kind: 'recent',
+                          title: 'Recently played',
+                          subtitle: `${recentlyPlayed.length} tracks`,
+                          tracks: recentlyPlayed,
+                          loading: false,
+                        })
+                    : undefined
+                }
+              />
               <div className={cn(homeResponsiveRail)}>
-                {recentlyPlayed.slice(0, 12).map((track) => (
+                {recentlyPlayed.slice(0, RECENT_HOME_PREVIEW).map((track) => (
                   <HomeRecentCard key={track.id} track={track} />
                 ))}
               </div>

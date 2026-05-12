@@ -58,25 +58,6 @@ export default function SearchView() {
     loading: boolean;
   } | null>(null);
 
-  type CatalogPlaylistHit = {
-    id: string;
-    name: string;
-    description?: string;
-    cover?: string;
-    trackCount?: number;
-    source?: string;
-  };
-
-  const [metadataPlaylists, setMetadataPlaylists] = useState<CatalogPlaylistHit[]>([]);
-  const [metaPlaylistSearching, setMetaPlaylistSearching] = useState(false);
-  const [catalogPlaylistDetail, setCatalogPlaylistDetail] = useState<{
-    id: string;
-    name: string;
-    cover?: string;
-    tracks: Track[];
-    loading: boolean;
-  } | null>(null);
-
   const enabledAddons = useMemo(
     () => addons.filter((a) => a.enabled && a.manifest.resources?.includes('search')),
     [addons]
@@ -105,6 +86,7 @@ export default function SearchView() {
   useEffect(() => {
     if (!isCatalogMode || !hasSearched || !query.trim()) {
       if (!query.trim()) setMetadataTracks([]);
+      setMetaSearching(false);
       return;
     }
     const t = window.setTimeout(() => {
@@ -123,32 +105,6 @@ export default function SearchView() {
         })
         .catch(() => setMetadataTracks([]))
         .finally(() => setMetaSearching(false));
-    }, 420);
-    return () => window.clearTimeout(t);
-  }, [isCatalogMode, hasSearched, query, catalogProvider, appleStorefront]);
-
-  useEffect(() => {
-    if (!isCatalogMode || !hasSearched || !query.trim()) {
-      if (!query.trim()) setMetadataPlaylists([]);
-      return;
-    }
-    const t = window.setTimeout(() => {
-      setMetaPlaylistSearching(true);
-      void fetch(
-        metadataSearchUrl({
-          q: query.trim(),
-          provider: catalogProvider,
-          limit: 25,
-          entity: 'playlist',
-          appleCountry: appleStorefront,
-        })
-      )
-        .then((r) => r.json())
-        .then((data: { playlists?: CatalogPlaylistHit[] }) => {
-          setMetadataPlaylists(Array.isArray(data.playlists) ? data.playlists : []);
-        })
-        .catch(() => setMetadataPlaylists([]))
-        .finally(() => setMetaPlaylistSearching(false));
     }, 420);
     return () => window.clearTimeout(t);
   }, [isCatalogMode, hasSearched, query, catalogProvider, appleStorefront]);
@@ -185,8 +141,6 @@ export default function SearchView() {
       } else {
         setAddonResults([]);
         setMetadataTracks([]);
-        setMetadataPlaylists([]);
-        setCatalogPlaylistDetail(null);
         setHasSearched(false);
       }
     },
@@ -220,19 +174,13 @@ export default function SearchView() {
   const showBlockingLoader =
     allResults.length === 0 && hasSearched && (showAddonSearching || (isCatalogMode && metaSearching));
   const showNoResults =
-    hasSearched &&
-    !isSearching &&
-    !metaSearching &&
-    !metaPlaylistSearching &&
-    allResults.length === 0 &&
-    metadataPlaylists.length === 0 &&
-    query.trim();
+    hasSearched && !isSearching && !metaSearching && allResults.length === 0 && query.trim();
 
   const searchSourceLabel = useMemo(() => {
     if (addonSearchId) {
       return enabledAddons.find((x) => x.manifest.id === addonSearchId)?.manifest.name ?? 'Module';
     }
-    return catalogProvider === 'spotify' ? 'Spotify catalog' : 'Apple Music catalog';
+    return 'Spotify catalog';
   }, [addonSearchId, enabledAddons, catalogProvider]);
 
   const openBrowseHub = async (tile: (typeof SEARCH_CATEGORY_TILES)[number]) => {
@@ -265,38 +213,6 @@ export default function SearchView() {
     }
   };
 
-  const openCatalogPlaylist = async (p: CatalogPlaylistHit) => {
-    setCatalogPlaylistDetail({
-      id: p.id,
-      name: p.name,
-      cover: p.cover,
-      tracks: [],
-      loading: true,
-    });
-    try {
-      const qs = new URLSearchParams({
-        provider: catalogProvider,
-        id: p.id,
-        country: appleStorefront,
-        market: appleStorefront,
-      });
-      const res = await fetch(`/api/metadata/playlist-items?${qs}`);
-      const data = (await res.json()) as { tracks?: Record<string, unknown>[]; error?: string };
-      const rows = Array.isArray(data.tracks) ? data.tracks : [];
-      setCatalogPlaylistDetail((cur) =>
-        cur
-          ? {
-              ...cur,
-              tracks: rows.map((x) => mapMetadataSearchTrack(x)),
-              loading: false,
-            }
-          : null
-      );
-    } catch {
-      setCatalogPlaylistDetail((cur) => (cur ? { ...cur, tracks: [], loading: false } : null));
-    }
-  };
-
   const artistResults = useMemo(() => {
     const map = new Map<string, { id: string; name: string; image?: string }>();
     allResults.forEach((t) => {
@@ -325,9 +241,7 @@ export default function SearchView() {
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold tracking-tight truncate">{browseHub.label}</h1>
                 {browseHub.subtitle && <p className="text-sm text-white/50 truncate">{browseHub.subtitle}</p>}
-                <p className="text-[11px] text-white/40 mt-0.5">
-                  From {catalogProvider === 'spotify' ? 'Spotify' : 'Apple Music'} (Settings → Metadata provider)
-                </p>
+                <p className="text-[11px] text-white/40 mt-0.5">From Spotify (Settings → Metadata)</p>
               </div>
             </div>
             {browseHub.loading ? (
@@ -351,60 +265,6 @@ export default function SearchView() {
                   Play all ({browseHub.tracks.length})
                 </Button>
                 <TrackList tracks={browseHub.tracks} showAlbumArt showIndex />
-              </>
-            )}
-          </div>
-        ) : catalogPlaylistDetail ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCatalogPlaylistDetail(null)}
-                className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white"
-                aria-label="Back"
-              >
-                <ChevronLeft size={22} />
-              </button>
-              <div className="min-w-0 flex-1 flex items-center gap-3">
-                {catalogPlaylistDetail.cover ? (
-                  <img
-                    src={catalogPlaylistDetail.cover}
-                    alt=""
-                    className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-white/10 border border-white/10 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <h1 className="text-2xl font-bold tracking-tight truncate">{catalogPlaylistDetail.name}</h1>
-                  <p className="text-[11px] text-white/40 mt-0.5">
-                    {catalogProvider === 'spotify' ? 'Spotify playlist' : 'Apple album'} · region {appleStorefront}
-                  </p>
-                </div>
-              </div>
-            </div>
-            {catalogPlaylistDetail.loading ? (
-              <div className="flex items-center gap-3 py-16 justify-center text-white/60">
-                <Loader2 size={22} className="animate-spin" />
-                <span className="text-sm">Loading…</span>
-              </div>
-            ) : catalogPlaylistDetail.tracks.length === 0 ? (
-              <p className="text-sm text-white/50 py-12 text-center">No tracks for this playlist.</p>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  className="rounded-full bg-white text-black hover:bg-white/90"
-                  onClick={() => {
-                    play(catalogPlaylistDetail.tracks[0], catalogPlaylistDetail.tracks, 0);
-                    catalogPlaylistDetail.tracks.forEach((t) => addRecentlyPlayed(t));
-                  }}
-                >
-                  <Play size={16} fill="currentColor" className="mr-1.5" />
-                  Play all ({catalogPlaylistDetail.tracks.length})
-                </Button>
-                <TrackList tracks={catalogPlaylistDetail.tracks} showAlbumArt showIndex />
               </>
             )}
           </div>
@@ -439,9 +299,7 @@ export default function SearchView() {
                     </span>
                     <span className="min-w-0">
                       <span className="block font-medium truncate">Catalog search</span>
-                      <span className="block text-[11px] text-white/45 truncate">
-                        Uses {catalogProvider === 'spotify' ? 'Spotify' : 'Apple'} from Settings
-                      </span>
+                      <span className="block text-[11px] text-white/45 truncate">Uses Spotify Web API from Settings</span>
                     </span>
                   </button>
                   {enabledAddons.map((addon) => {
@@ -480,7 +338,7 @@ export default function SearchView() {
               <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
               <Input
                 type="text"
-                placeholder={addonSearchId ? `Search ${searchSourceLabel}…` : 'Search Apple or Spotify catalog…'}
+                placeholder={addonSearchId ? `Search ${searchSourceLabel}…` : 'Search Spotify catalog…'}
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 className={cn(
@@ -496,8 +354,6 @@ export default function SearchView() {
                     handleQueryChange('');
                     setAddonResults([]);
                     setMetadataTracks([]);
-                    setMetadataPlaylists([]);
-                    setCatalogPlaylistDetail(null);
                     setHasSearched(false);
                     if (addonError) clearError();
                   }}
@@ -575,18 +431,12 @@ export default function SearchView() {
                   className="space-y-6"
                 >
                   <Tabs defaultValue="tracks" className="w-full">
-                    <TabsList className="bg-transparent border-b border-white/10 rounded-none h-auto p-0 w-full justify-start gap-6 flex-wrap">
+                    <TabsList className="bg-transparent border-b border-white/10 rounded-none h-auto p-0 w-full justify-start gap-6">
                       <TabsTrigger
                         value="tracks"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-white data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/50 data-[state=active]:text-white pb-2 px-0"
                       >
                         Tracks
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="playlists"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-white data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/50 data-[state=active]:text-white pb-2 px-0"
-                      >
-                        Playlists
                       </TabsTrigger>
                       <TabsTrigger
                         value="artists"
@@ -600,10 +450,7 @@ export default function SearchView() {
                       {hasSearched && isCatalogMode && !metaSearching && metadataTracks.length > 0 && (
                         <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
                           <Wifi size={12} className="text-sky-400" />
-                          <span>
-                            {metadataTracks.length} from {catalogProvider === 'spotify' ? 'Spotify' : 'Apple'}{' '}
-                            catalog
-                          </span>
+                          <span>{metadataTracks.length} from Spotify catalog</span>
                         </div>
                       )}
                       {hasSearched && addonSearchId && !isSearching && addonResults.length > 0 && (
@@ -668,56 +515,6 @@ export default function SearchView() {
                           );
                           return locals.length > 0 ? <TrackList tracks={locals} showAlbumArt showIndex /> : null;
                         })()}
-                    </TabsContent>
-
-                    <TabsContent value="playlists" className="mt-4">
-                      {isCatalogMode && metaPlaylistSearching && metadataPlaylists.length === 0 && (
-                        <div className="flex items-center gap-3 py-8 justify-center">
-                          <Loader2 size={20} className="animate-spin text-white" />
-                          <span className="text-sm text-white/60">Loading playlists…</span>
-                        </div>
-                      )}
-                      {!metaPlaylistSearching && isCatalogMode && metadataPlaylists.length === 0 && hasSearched && (
-                        <p className="text-sm text-white/50 py-8 text-center">
-                          No playlists or albums for this search. Try another term.
-                        </p>
-                      )}
-                      {addonSearchId && (
-                        <p className="text-sm text-white/50 py-6 text-center">
-                          Playlist search uses the catalog provider. Switch to &quot;Catalog search&quot; above.
-                        </p>
-                      )}
-                      {isCatalogMode && metadataPlaylists.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                          {metadataPlaylists.map((pl) => (
-                            <button
-                              key={pl.id}
-                              type="button"
-                              onClick={() => void openCatalogPlaylist(pl)}
-                              className="text-left rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 overflow-hidden transition-colors"
-                            >
-                              <div className="aspect-square bg-white/10 relative">
-                                {pl.cover ? (
-                                  <img src={pl.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-white/25">
-                                    ♪
-                                  </div>
-                                )}
-                              </div>
-                              <div className="p-2.5 min-w-0">
-                                <p className="text-sm font-semibold text-white line-clamp-2">{pl.name}</p>
-                                {pl.description && (
-                                  <p className="text-[11px] text-white/45 mt-1 line-clamp-2">{pl.description}</p>
-                                )}
-                                {typeof pl.trackCount === 'number' && (
-                                  <p className="text-[10px] text-white/35 mt-1">{pl.trackCount} tracks</p>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </TabsContent>
 
                     <TabsContent value="artists" className="mt-4">
