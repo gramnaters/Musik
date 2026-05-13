@@ -152,7 +152,6 @@ function losslessTooltip(bucket: string, raw?: string | null): string {
   return base;
 }
 
-/** Tooltip shown when hovering the small quality pill (monochrome.tf-style). */
 /** Guess container/codec from URL path (many addon CDNs omit accurate Content-Type in the client). */
 export function inferFormatFromUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
@@ -160,53 +159,40 @@ export function inferFormatFromUrl(url: string | undefined | null): string | und
   return m ? m[1].toLowerCase() : undefined;
 }
 
-export function getQualityTooltip(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): string {
-  if (!track) return 'Quality';
-  const delivery = classifyAudioDelivery(track);
-  if (delivery === 'lossy') return lossyTooltip(track);
-
-  const inferredTip = inferFormatFromUrl(track.streamURL);
-  if (inferredTip && ['mp3', 'aac', 'm4a', 'opus', 'ogg'].includes(inferredTip)) {
-    return lossyTooltip({ ...track, format: inferredTip });
-  }
-
-  const raw = track.quality?.trim();
-  const bucket = raw ? normalizeQualityToken(raw) : null;
-  if (bucket) return losslessTooltip(bucket, raw);
-
-  if (delivery === 'lossless_hint') {
-    return raw ? `Lossless — ${raw}` : 'Lossless stream';
-  }
-  if (raw) return raw;
-  return 'Standard playback quality';
-}
-
-/** Badge that reflects what you actually hear / save, not only catalog marketing. */
+/** Monochrome-style list pill: only Hi-Res (HD) and Dolby Atmos — no MP3/AAC/HIGH/CD lossless pill. */
 export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): QualityBadge | null {
   if (!track) return null;
-  const delivery = classifyAudioDelivery(track);
   const raw = track.quality?.trim();
-
-  if (delivery === 'lossy') {
-    return lossyBadgeLabel(track);
-  }
-
-  const inferred = inferFormatFromUrl(track.streamURL);
-  if (inferred && ['mp3', 'aac', 'm4a', 'opus', 'ogg'].includes(inferred)) {
-    return lossyBadgeLabel({ ...track, format: inferred });
-  }
-
   if (!raw) return null;
-
   const normalized = normalizeQualityToken(raw);
-  if (!normalized) {
-    const norm = raw.toLowerCase().replace(/[\s_-]+/g, '');
-    if (norm.includes('320') || norm.includes('256') || norm.includes('192')) return { label: 'HIGH' };
-    return null;
-  }
+  if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS' };
+  if (normalized === 'HI_RES_LOSSLESS') return { label: 'HD' };
+  return null;
+}
 
-  const label = BUCKET_LABEL[normalized];
-  return label ? { label } : null;
+/** Tooltip for the small quality pill (Monochrome: HD = Hi-Res Lossless, ATMOS = spatial). */
+export function getQualityTooltip(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): string {
+  if (!track) return 'Quality';
+  const raw = track.quality?.trim();
+  const normalized = raw ? normalizeQualityToken(raw) : null;
+  if (normalized === 'DOLBY_ATMOS') return 'Dolby Atmos spatial audio';
+  if (normalized === 'HI_RES_LOSSLESS') return 'Hi-Res Lossless';
+
+  const delivery = classifyAudioDelivery(track);
+  if (delivery === 'lossy') {
+    const inf = inferFormatFromUrl(track.streamURL);
+    if (inf === 'mp3' || inf === 'm4a' || inf === 'aac' || inf === 'opus' || inf === 'ogg') {
+      return 'Standard compressed audio — no quality badge (same idea as Monochrome for non Hi‑Res).';
+    }
+    return 'Compressed stream.';
+  }
+  if (delivery === 'lossless_hint') {
+    return raw
+      ? `Lossless stream (${raw}) — list shows HD only when the catalog marks Hi‑Res Lossless.`
+      : 'Lossless stream — HD badge only for Hi‑Res Lossless in the catalog.';
+  }
+  if (raw) return raw;
+  return 'Playback quality';
 }
 
 /** @deprecated Prefer getQualityBadgeForTrack — kept for call sites that only have a raw string. */

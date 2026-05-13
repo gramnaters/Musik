@@ -46,13 +46,25 @@ async function proxyStream(request: NextRequest, method: 'GET' | 'HEAD') {
   const rangeHeader = request.headers.get('Range');
   const timeoutMs = method === 'HEAD' ? 25_000 : 120_000;
 
-  try {
-    const response = await fetch(streamUrl, {
+  const doFetch = () =>
+    fetch(streamUrl, {
       method,
       headers: upstreamHeaders(streamUrl, rangeHeader, method),
       redirect: 'follow',
       signal: AbortSignal.timeout(timeoutMs),
     });
+
+  try {
+    let response = await doFetch();
+    const retryable =
+      response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504 ||
+      response.status === 429;
+    if (!response.ok && response.status !== 206 && retryable && method === 'GET') {
+      await new Promise((r) => setTimeout(r, 400));
+      response = await doFetch();
+    }
 
     if (!response.ok && response.status !== 206) {
       return new Response(`Upstream error: ${response.status}`, { status: response.status });

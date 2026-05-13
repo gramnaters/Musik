@@ -60,7 +60,6 @@ import {
   LayoutGrid,
   Waves,
   ListMusic,
-  Check,
 } from 'lucide-react';
 
 const MUSIK_VERSION = '0.2.0';
@@ -192,36 +191,36 @@ export default function SettingsView() {
           <span className="text-sm font-semibold">Metadata provider</span>
         </div>
         <ScrollArea className="flex-1 min-h-0 custom-scrollbar">
-          <div className="px-4 py-6 pb-32 max-w-lg mx-auto">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Provider</p>
-            <p className="text-sm text-zinc-500 mt-1 mb-4">
-              Search and Home use the Spotify Web API. Set{' '}
-              <code className="text-zinc-400">SPOTIFY_CLIENT_ID</code> and{' '}
-              <code className="text-zinc-400">SPOTIFY_CLIENT_SECRET</code> in{' '}
-              <code className="text-zinc-400">.env.local</code> or on your host (e.g. Render → Environment), then
-              redeploy or restart.
-            </p>
-            <div className="rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4 flex items-center gap-3">
-              <span className="w-9 h-9 rounded-full bg-[#1DB954] flex items-center justify-center shrink-0" aria-hidden>
-                <span className="flex gap-[3px] items-center justify-center">
-                  <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
-                  <span className="w-[5px] h-[14px] rounded-[1px] bg-black/90" />
-                </span>
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="block font-medium">Spotify catalog</span>
-                <span className="block text-[11px] text-zinc-500 mt-0.5">Web API — requires client ID and secret</span>
-              </div>
-              <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shrink-0">
-                <Check size={14} className="text-black" strokeWidth={3} />
-              </span>
+          <div className="px-4 py-6 pb-32 max-w-lg mx-auto space-y-6">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Catalog provider</p>
+              <p className="text-sm text-zinc-500 mt-1">
+                Search (tabs) and Home rails use this source. Apple uses the public iTunes Search API (storefront
+                below). Spotify uses the Web API and needs server credentials only when Spotify is selected.
+              </p>
             </div>
-            <div className="mt-6 rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4">
+            <div className="rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4">
+              <Label className="text-xs text-zinc-500">Provider</Label>
+              <Select
+                value={catalogProvider}
+                onValueChange={(v) => setCatalogProvider(v as 'spotify' | 'apple')}
+              >
+                <SelectTrigger className="mt-2 w-full h-11 rounded-xl bg-zinc-900 border-zinc-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                  <SelectItem value="apple">Apple Music (iTunes Search)</SelectItem>
+                  <SelectItem value="spotify">Spotify (Web API)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-[#1c1c1e] px-4 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Catalog region</p>
                   <p className="text-sm text-zinc-500 mt-1">
-                    Spotify <code className="text-zinc-400">market</code> (ISO country code) for Search and Home.
+                    Apple <code className="text-zinc-400">country</code> / Spotify{' '}
+                    <code className="text-zinc-400">market</code> (ISO 3166-1 alpha-2).
                   </p>
                 </div>
                 <Select value={appleStorefront ?? 'US'} onValueChange={(v) => setAppleStorefront(v)}>
@@ -238,7 +237,7 @@ export default function SettingsView() {
                 </Select>
               </div>
             </div>
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -251,7 +250,7 @@ export default function SettingsView() {
                     const res = await fetch(
                       metadataSearchUrl({
                         q,
-                        provider: 'spotify',
+                        provider: catalogProvider,
                         limit: 5,
                         appleCountry: appleStorefront ?? 'US',
                       })
@@ -265,13 +264,13 @@ export default function SettingsView() {
                     if (res.ok && n > 0 && !data.error) {
                       toast({
                         title: 'Connection OK',
-                        description: `Spotify returned ${n} sample tracks.`,
+                        description: `${catalogProvider === 'apple' ? 'Apple' : 'Spotify'} returned ${n} sample tracks.`,
                       });
-                    } else if (data.error === 'missing_spotify_credentials') {
+                    } else if (data.error === 'missing_spotify_credentials' && catalogProvider === 'spotify') {
                       toast({
                         title: 'Spotify not configured',
                         description:
-                          'Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (Render: Environment), then restart.',
+                          'Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET on the server, then restart.',
                         variant: 'destructive',
                       });
                     } else if (data.error === 'spotify_http') {
@@ -286,7 +285,7 @@ export default function SettingsView() {
                         description:
                           data.detail ||
                           data.error ||
-                          (n === 0 ? 'No tracks returned — check credentials or query.' : `HTTP ${res.status}`),
+                          (n === 0 ? 'No tracks returned — try another region or provider.' : `HTTP ${res.status}`),
                         variant: 'destructive',
                       });
                     }
@@ -311,7 +310,7 @@ export default function SettingsView() {
                 )}
               </Button>
               <p className="text-[11px] text-zinc-600">
-                Verifies the selected provider with a sample catalog search (same API as Search).
+                Runs the same catalog search route used by Search and Home.
               </p>
             </div>
           </div>
@@ -731,7 +730,7 @@ export default function SettingsView() {
             <SettingsRow
               icon={ListMusic}
               title="Metadata provider"
-              subtitle="Spotify Web API — set credentials in .env or Render"
+              subtitle="Apple Music or Spotify catalog + region"
               onPress={() => setPage('metadata')}
             />
             <SettingsRow
