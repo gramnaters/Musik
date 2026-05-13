@@ -79,7 +79,11 @@ const DEFAULT_SOURCES: AddonSource[] = [
 interface AddonState {
   addons: InstalledAddon[];
   sources: AddonSource[];
+  /** Built-in or custom catalog rows the user hid from the list (still restorable). */
+  hiddenModuleSourceIds: string[];
   activeAddonId: string | null;
+  /** Try order for stream fallback + optional home feed (search-capable modules only). */
+  playbackPriorityIds: string[];
   isSearching: boolean;
   searchResults: AddonSearchResults;
   error: string | null;
@@ -88,10 +92,18 @@ interface AddonState {
 interface AddonActions {
   addAddon: (
     manifest: AddonManifest,
-    opts?: { sourceId?: string; eightspineInnerCode?: string; eightspineKind?: 'wrapped' | 'bare' }
+    opts?: {
+      sourceId?: string;
+      installSourceUrl?: string;
+      eightspineInnerCode?: string;
+      eightspineKind?: 'wrapped' | 'bare';
+    }
   ) => void;
   addSource: (name: string, registryUrl: string) => void;
   removeSource: (id: string) => void;
+  /** Hide a catalog source from the UI and from bulk fetch (built-in or custom). */
+  dismissModuleSource: (id: string) => void;
+  restoreAllModuleSources: () => void;
   removeAddon: (id: string) => void;
   toggleAddon: (id: string) => void;
   setActiveAddon: (id: string) => void;
@@ -103,8 +115,14 @@ interface AddonActions {
   getAlbumTracks: (albumId: string) => Promise<AddonTrack[]>;
   getArtistDetail: (artistId: string) => Promise<{ artist: any; tracks: AddonTrack[] } | null>;
   getPlaylistTracks: (playlistId: string) => Promise<AddonTrack[]>;
+  getAlbumTracksForAddon: (addonId: string, albumId: string) => Promise<AddonTrack[]>;
+  getPlaylistTracksForAddon: (addonId: string, playlistId: string) => Promise<AddonTrack[]>;
+  getArtistTracksForAddon: (addonId: string, artistId: string) => Promise<AddonTrack[]>;
   clearError: () => void;
   clearAddonSearchCache: () => void;
+  /** Enabled search modules: custom order first, then any not listed. */
+  getPlaybackOrderedSearchAddonIds: () => string[];
+  movePlaybackPriority: (addonId: string, delta: -1 | 1) => void;
 }
 
 export const useAddonStore = create<AddonState & AddonActions>()(
@@ -112,7 +130,9 @@ export const useAddonStore = create<AddonState & AddonActions>()(
     (set, get) => ({
       addons: [],
       sources: DEFAULT_SOURCES,
+      hiddenModuleSourceIds: [],
       activeAddonId: null,
+      playbackPriorityIds: [],
       isSearching: false,
       searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
       error: null,
@@ -131,23 +151,38 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         set({
           sources: sources.filter((s) => s.id !== id),
           addons: addons.map((a) => (a.sourceId === id ? { ...a, sourceId: 'custom' } : a)),
+          hiddenModuleSourceIds: get().hiddenModuleSourceIds.filter((x) => x !== id),
         });
       },
 
+      dismissModuleSource: (id: string) => {
+        const { hiddenModuleSourceIds } = get();
+        if (hiddenModuleSourceIds.includes(id)) return;
+        set({ hiddenModuleSourceIds: [...hiddenModuleSourceIds, id] });
+      },
+
+      restoreAllModuleSources: () => set({ hiddenModuleSourceIds: [] }),
+
       addAddon: (
         manifest: AddonManifest,
-        opts?: { sourceId?: string; eightspineInnerCode?: string; eightspineKind?: 'wrapped' | 'bare' }
+        opts?: {
+          sourceId?: string;
+          installSourceUrl?: string;
+          eightspineInnerCode?: string;
+          eightspineKind?: 'wrapped' | 'bare';
+        }
       ) => {
         const sourceId = opts?.sourceId ?? 'custom';
         const inner = opts?.eightspineInnerCode;
         const kindOpt = opts?.eightspineKind;
+        const installSrc = opts?.installSourceUrl?.trim();
         const { addons, activeAddonId } = get();
         const exists = addons.find((a) => a.manifest.id === manifest.id);
         if (exists) {
           eightspineApiCache.delete(manifest.id);
           // Already installed — just ensure it's enabled
-          set({
-            addons: addons.map((a) => {
+          set((state) => ({
+            addons: state.addons.map((a) => {
               if (a.manifest.id !== manifest.id) return a;
               let nextEight = a.eightspineInnerCode;
               let nextKind = a.eightspineKind;
@@ -163,11 +198,16 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                 enabled: true,
                 manifest,
                 sourceId: opts?.sourceId ?? a.sourceId,
+                ...(installSrc ? { installSourceUrl: installSrc } : {}),
                 eightspineInnerCode: nextEight,
                 eightspineKind: nextKind,
               };
             }),
-          });
+            playbackPriorityIds:
+              manifest.resources?.includes('search') && !state.playbackPriorityIds.includes(manifest.id)
+                ? [...state.playbackPriorityIds, manifest.id]
+                : state.playbackPriorityIds,
+          }));
           return;
         }
         const newAddon: InstalledAddon = {
@@ -175,15 +215,23 @@ export const useAddonStore = create<AddonState & AddonActions>()(
           enabled: true,
           installedAt: Date.now(),
           sourceId,
+          ...(installSrc ? { installSourceUrl: installSrc } : {}),
           ...(inner !== undefined ? { eightspineInnerCode: inner || undefined } : {}),
           ...(kindOpt ? { eightspineKind: kindOpt } : {}),
         };
         const newAddons = [...addons, newAddon];
         // Auto-select first addon if none active
         const newActiveId = activeAddonId || manifest.id;
-        set({
-          addons: newAddons,
-          activeAddonId: newActiveId,
+        set((state) => {
+          const nextPri =
+            manifest.resources?.includes('search') && !state.playbackPriorityIds.includes(manifest.id)
+              ? [...state.playbackPriorityIds, manifest.id]
+              : state.playbackPriorityIds;
+          return {
+            addons: newAddons,
+            activeAddonId: newActiveId,
+            playbackPriorityIds: nextPri,
+          };
         });
       },
 
@@ -199,6 +247,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         set({
           addons: newAddons,
           activeAddonId: newActiveId,
+          playbackPriorityIds: get().playbackPriorityIds.filter((x) => x !== id),
           searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
           isSearching: false,
           error: null,
@@ -666,6 +715,57 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         );
       },
 
+      getAlbumTracksForAddon: async (addonId: string, albumId: string): Promise<AddonTrack[]> => {
+        const prev = get().activeAddonId;
+        set({ activeAddonId: addonId });
+        try {
+          return await get().getAlbumTracks(albumId);
+        } finally {
+          set({ activeAddonId: prev });
+        }
+      },
+
+      getPlaylistTracksForAddon: async (addonId: string, playlistId: string): Promise<AddonTrack[]> => {
+        const prev = get().activeAddonId;
+        set({ activeAddonId: addonId });
+        try {
+          return await get().getPlaylistTracks(playlistId);
+        } finally {
+          set({ activeAddonId: prev });
+        }
+      },
+
+      getArtistTracksForAddon: async (addonId: string, artistId: string): Promise<AddonTrack[]> => {
+        const prev = get().activeAddonId;
+        set({ activeAddonId: addonId });
+        try {
+          const detail = await get().getArtistDetail(artistId);
+          return detail?.tracks ?? [];
+        } finally {
+          set({ activeAddonId: prev });
+        }
+      },
+
+      getPlaybackOrderedSearchAddonIds: () => {
+        const { addons, playbackPriorityIds } = get();
+        const searchable = addons.filter((a) => a.enabled && a.manifest.resources?.includes('search'));
+        const ids = searchable.map((a) => a.manifest.id);
+        const pri = (playbackPriorityIds ?? []).filter((id) => ids.includes(id));
+        const rest = ids.filter((id) => !pri.includes(id));
+        return [...pri, ...rest];
+      },
+
+      movePlaybackPriority: (addonId, delta) => {
+        const ids = get().getPlaybackOrderedSearchAddonIds();
+        const idx = ids.indexOf(addonId);
+        if (idx < 0) return;
+        const j = idx + delta;
+        if (j < 0 || j >= ids.length) return;
+        const next = [...ids];
+        [next[idx], next[j]] = [next[j], next[idx]];
+        set({ playbackPriorityIds: next });
+      },
+
       clearError: () => set({ error: null }),
 
       clearAddonSearchCache: () =>
@@ -677,16 +777,30 @@ export const useAddonStore = create<AddonState & AddonActions>()(
     }),
     {
       name: 'musik-addons',
-      version: 4,
+      version: 6,
       partialize: (state) => ({
         addons: state.addons,
         activeAddonId: state.activeAddonId,
         sources: state.sources,
+        playbackPriorityIds: state.playbackPriorityIds,
+        hiddenModuleSourceIds: state.hiddenModuleSourceIds,
       }),
       migrate: (persisted: any) => {
         const state = persisted as any;
         if (!state || !Array.isArray(state.addons)) {
-          return { addons: [], activeAddonId: null, sources: DEFAULT_SOURCES };
+          return {
+            addons: [],
+            activeAddonId: null,
+            sources: DEFAULT_SOURCES,
+            playbackPriorityIds: [],
+            hiddenModuleSourceIds: [],
+          };
+        }
+        if (!Array.isArray(state.hiddenModuleSourceIds)) {
+          state.hiddenModuleSourceIds = [];
+        }
+        if (!Array.isArray(state.playbackPriorityIds)) {
+          state.playbackPriorityIds = [];
         }
         state.addons = (state.addons || [])
           .filter((a: any) => a?.manifest?.id)

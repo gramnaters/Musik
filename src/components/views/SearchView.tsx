@@ -33,6 +33,8 @@ import { metadataSearchBundleUrl, metadataSearchUrl } from '@/lib/catalog-api';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { addonThumbSrc } from '@/lib/addon-thumb';
+import { buildMergedCatalogBundle, parseAddonHubId } from '@/lib/search-addon-catalog';
+import type { AddonSearchResults } from '@/types/addon';
 
 type CatalogArtist = { id: string; name: string; image?: string };
 type CatalogPlaylistRow = {
@@ -49,6 +51,8 @@ type CatalogBundle = {
   artists: CatalogArtist[];
   playlists: CatalogPlaylistRow[];
   podcasts: CatalogPodcast[];
+  /** When Apple is the catalog provider, playlists may still come from Spotify (iTunes has no playlist search). */
+  playlistResultsSource?: 'spotify' | 'none';
 };
 
 export default function SearchView() {
@@ -67,11 +71,12 @@ export default function SearchView() {
 
   const { play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
-  const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError } = useAddonStore();
+  const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError, getAlbumTracksForAddon, getPlaylistTracksForAddon, getArtistTracksForAddon } = useAddonStore();
   const { navigateTo, searchQuery, setSearchQuery } = useUIStore();
   const catalogProvider = useMetadataStore((s) => s.catalogProvider);
   const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
   const [addonResults, setAddonResults] = useState<Track[]>([]);
+  const [addonSearchSnapshot, setAddonSearchSnapshot] = useState<AddonSearchResults | null>(null);
   const [addonSearchId, setAddonSearchId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [browseHub, setBrowseHub] = useState<{
@@ -88,7 +93,6 @@ export default function SearchView() {
     [addons]
   );
   const hasAddons = enabledAddons.length > 0;
-  const activeAddon = addons.find((a) => a.manifest.id === addonSearchId);
   const catalogLabel = catalogProvider === 'apple' ? 'Apple Music' : 'Spotify';
 
   useEffect(() => {
@@ -118,12 +122,15 @@ export default function SearchView() {
     async (q: string, id: string) => {
       if (!q.trim() || !id) {
         setAddonResults([]);
+        setAddonSearchSnapshot(null);
         return;
       }
       try {
         const results = await searchWithAddon(id, q);
+        setAddonSearchSnapshot(results);
         setAddonResults((results.tracks || []).map(addonTrackToTrack));
       } catch {
+        setAddonSearchSnapshot(null);
         setAddonResults([]);
       }
     },
@@ -143,6 +150,7 @@ export default function SearchView() {
         }
       } else {
         setAddonResults([]);
+        setAddonSearchSnapshot(null);
         setHasSearched(false);
         setCatalogBundle(null);
         setCatalogHub(null);
@@ -197,6 +205,7 @@ export default function SearchView() {
             artists?: CatalogArtist[];
             playlists?: CatalogPlaylistRow[];
             podcasts?: CatalogPodcast[];
+            playlistResultsSource?: 'spotify' | 'none';
           };
           if (ac.signal.aborted) return;
           const tracks = (data.tracks || []).map((x) => mapMetadataSearchTrack(x));
@@ -214,6 +223,7 @@ export default function SearchView() {
             artists: data.artists || [],
             playlists: data.playlists || [],
             podcasts: data.podcasts || [],
+            playlistResultsSource: data.playlistResultsSource,
           });
         } catch {
           if (!ac.signal.aborted) setCatalogBundle(null);
@@ -228,11 +238,30 @@ export default function SearchView() {
     };
   }, [query, hasSearched, catalogProvider, appleStorefront]);
 
+  const displayCatalogBundle = useMemo(() => {
+    if (!catalogBundle) return null;
+    return buildMergedCatalogBundle(
+      catalogBundle,
+      addonSearchId,
+      addonSearchSnapshot,
+      addonResults
+    );
+  }, [catalogBundle, addonSearchId, addonSearchSnapshot, addonResults]);
+
   const trackListResults = useMemo(() => {
     if (!hasSearched || !query.trim()) return [];
-    if (addonSearchId) return addonResults;
+    if (displayCatalogBundle?.tracks?.length) return displayCatalogBundle.tracks;
+    if (addonSearchId && addonResults.length) return addonResults;
     return catalogBundle?.tracks?.length ? catalogBundle.tracks : localLibraryResults;
-  }, [hasSearched, query, addonSearchId, addonResults, catalogBundle, localLibraryResults]);
+  }, [
+    hasSearched,
+    query,
+    addonSearchId,
+    addonResults,
+    catalogBundle,
+    displayCatalogBundle,
+    localLibraryResults,
+  ]);
 
   const showAddonSearching = isSearching && hasSearched && Boolean(addonSearchId);
   const showCatalogBlocking = catalogLoading && !catalogBundle && !addonSearchId;
@@ -240,11 +269,11 @@ export default function SearchView() {
     (addonSearchId && showAddonSearching && trackListResults.length === 0) || showCatalogBlocking;
 
   const catalogCount =
-    (catalogBundle?.tracks.length ?? 0) +
-    (catalogBundle?.albums.length ?? 0) +
-    (catalogBundle?.artists.length ?? 0) +
-    (catalogBundle?.playlists.length ?? 0) +
-    (catalogBundle?.podcasts.length ?? 0);
+    (displayCatalogBundle?.tracks.length ?? 0) +
+    (displayCatalogBundle?.albums.length ?? 0) +
+    (displayCatalogBundle?.artists.length ?? 0) +
+    (displayCatalogBundle?.playlists.length ?? 0) +
+    (displayCatalogBundle?.podcasts.length ?? 0);
 
   const showNoResults =
     hasSearched &&
@@ -290,18 +319,31 @@ export default function SearchView() {
     }
   };
 
-  const openCatalogTracksHub = async (opts: {
-    kind: 'playlist' | 'album' | 'artist';
-    title: string;
-    subtitle?: string;
-    id?: string;
-    artistName?: string;
-  }) => {
+  const openCatalogTracksHub = useCallback(
+    async (opts: {
+      kind: 'playlist' | 'album' | 'artist';
+      title: string;
+      subtitle?: string;
+      id?: string;
+      artistName?: string;
+    }) => {
     setBrowseHub(null);
     setCatalogHub({ kind: opts.kind, title: opts.title, subtitle: opts.subtitle, tracks: [], loading: true });
     try {
       let tracks: Track[] = [];
-      if (opts.kind === 'artist' && opts.artistName) {
+      const parsed = opts.id ? parseAddonHubId(opts.id) : null;
+      if (parsed) {
+        if (parsed.entity === 'artist') {
+          const raw = await getArtistTracksForAddon(parsed.addonId, parsed.remoteId);
+          tracks = raw.map(addonTrackToTrack);
+        } else if (parsed.entity === 'album') {
+          const raw = await getAlbumTracksForAddon(parsed.addonId, parsed.remoteId);
+          tracks = raw.map(addonTrackToTrack);
+        } else if (parsed.entity === 'playlist') {
+          const raw = await getPlaylistTracksForAddon(parsed.addonId, parsed.remoteId);
+          tracks = raw.map(addonTrackToTrack);
+        }
+      } else if (opts.kind === 'artist' && opts.artistName) {
         const res = await fetch(
           metadataSearchUrl({
             q: opts.artistName,
@@ -324,7 +366,15 @@ export default function SearchView() {
     } catch {
       setCatalogHub((h) => (h ? { ...h, tracks: [], loading: false } : null));
     }
-  };
+  },
+  [
+    catalogProvider,
+    appleStorefront,
+    getAlbumTracksForAddon,
+    getPlaylistTracksForAddon,
+    getArtistTracksForAddon,
+  ]
+);
 
   const tabTriggerClass =
     'rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/45 data-[state=active]:text-white pb-2 px-0 text-sm font-medium';
@@ -485,6 +535,7 @@ export default function SearchView() {
                   onClick={() => {
                     handleQueryChange('');
                     setAddonResults([]);
+                    setAddonSearchSnapshot(null);
                     setHasSearched(false);
                     setCatalogBundle(null);
                     if (addonError) clearError();
@@ -568,7 +619,7 @@ export default function SearchView() {
                     </h2>
                     <p className="text-xs text-white/40 mt-1">
                       {addonSearchId
-                        ? `Tracks from your module • ${catalogLabel} for other tabs`
+                        ? `Results merge your module with ${catalogLabel}. Albums, playlists, and artists from the module open as playable lists.`
                         : `${catalogLabel} catalog • storefront ${appleStorefront}`}
                     </p>
                   </div>
@@ -593,11 +644,11 @@ export default function SearchView() {
                     </TabsList>
 
                     <TabsContent value="tracks" className="mt-4">
-                      {addonSearchId && hasSearched && !isSearching && addonResults.length > 0 && (
+                      {addonSearchId && hasSearched && !isSearching && (displayCatalogBundle?.tracks?.length ?? 0) > 0 && (
                         <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
                           <Wifi size={12} className="text-emerald-400" />
                           <span>
-                            {addonResults.length} from {activeAddon?.manifest.name || 'module'}
+                            {displayCatalogBundle?.tracks?.length ?? 0} tracks (module + catalog)
                           </span>
                         </div>
                       )}
@@ -646,13 +697,13 @@ export default function SearchView() {
                     </TabsContent>
 
                     <TabsContent value="albums" className="mt-4">
-                      {catalogLoading && !catalogBundle ? (
+                      {catalogLoading && !(displayCatalogBundle?.albums?.length) ? (
                         <div className="flex justify-center py-12">
                           <Loader2 className="animate-spin text-white/60" size={22} />
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                          {(catalogBundle?.albums || []).map((album) => (
+                          {(displayCatalogBundle?.albums || []).map((album) => (
                             <button
                               key={album.id}
                               type="button"
@@ -686,7 +737,7 @@ export default function SearchView() {
 
                     <TabsContent value="artists" className="mt-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        {(catalogBundle?.artists || []).map((artist) => (
+                        {(displayCatalogBundle?.artists || []).map((artist) => (
                           <button
                             key={artist.id}
                             type="button"
@@ -697,6 +748,7 @@ export default function SearchView() {
                                 title: artist.name,
                                 subtitle: 'Top tracks',
                                 artistName: artist.name,
+                                id: artist.id,
                               })
                             }
                           >
@@ -716,8 +768,24 @@ export default function SearchView() {
                     </TabsContent>
 
                     <TabsContent value="playlists" className="mt-4">
+                      {catalogProvider === 'apple' &&
+                        catalogBundle?.playlistResultsSource === 'spotify' &&
+                        !(addonSearchId && (displayCatalogBundle?.playlists?.length ?? 0) > 0) && (
+                        <p className="text-xs text-white/45 mb-3 max-w-xl">
+                          Playlist search uses Spotify while your catalog region is Apple (the iTunes Search API has no
+                          playlist entity). Albums and songs still use Apple.
+                        </p>
+                      )}
+                      {catalogProvider === 'apple' &&
+                        catalogBundle?.playlistResultsSource === 'none' &&
+                        (displayCatalogBundle?.playlists?.length ?? 0) === 0 && (
+                          <p className="text-xs text-amber-200/80 mb-3 max-w-xl">
+                            No playlists: add Spotify client credentials on the server so we can search Spotify
+                            playlists alongside Apple results.
+                          </p>
+                        )}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {(catalogBundle?.playlists || []).map((pl) => (
+                        {(displayCatalogBundle?.playlists || []).map((pl) => (
                           <button
                             key={pl.id}
                             type="button"
@@ -747,7 +815,7 @@ export default function SearchView() {
 
                     <TabsContent value="podcasts" className="mt-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {(catalogBundle?.podcasts || []).map((p) => (
+                        {(displayCatalogBundle?.podcasts || []).map((p) => (
                           <button
                             key={p.id}
                             type="button"

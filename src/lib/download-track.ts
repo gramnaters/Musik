@@ -3,6 +3,7 @@ import type { AddonTrack } from '@/types/addon';
 import { toast } from '@/hooks/use-toast';
 import { inferFormatFromUrl, classifyAudioDelivery } from '@/lib/audio-quality';
 import { useAddonStore } from '@/stores/addonStore';
+import { resolvePlayableUrlViaAddonChain } from '@/lib/addon-stream-resolve';
 
 function resolveStreamURL(track: Track): string | null {
   const t = track as Track & { url?: string };
@@ -81,8 +82,16 @@ export async function downloadCurrentTrack(track: Track | null): Promise<void> {
     return;
   }
   let upstream = resolveStreamURL(track);
-  if (!upstream) {
+  if (!upstream && track.addonId && track.addonTrackId) {
     upstream = await resolveAddonUpstream(track);
+  }
+  if (!upstream) {
+    upstream = await resolvePlayableUrlViaAddonChain(
+      track,
+      useAddonStore.getState().getPlaybackOrderedSearchAddonIds(),
+      useAddonStore.getState().searchWithAddon,
+      useAddonStore.getState().resolveStreamUrl
+    );
   }
   if (!upstream) {
     toast({
