@@ -36,6 +36,9 @@ import {
   Cloud,
   ChevronRight,
   ExternalLink,
+  ChevronUp,
+  ChevronDown,
+  RotateCcw,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
@@ -104,6 +107,12 @@ export default function AddonsView() {
     search,
     addSource,
     removeSource,
+    dismissModuleSource,
+    restoreAllModuleSources,
+    hiddenModuleSourceIds,
+    getPlaybackOrderedSearchAddonIds,
+    movePlaybackPriority,
+    playbackPriorityIds,
   } = useAddonStore();
 
   const {
@@ -115,10 +124,26 @@ export default function AddonsView() {
     setSearchQuery,
   } = useUIStore();
 
+  const visibleSources = useMemo(
+    () => sources.filter((s) => !hiddenModuleSourceIds.includes(s.id)),
+    [sources, hiddenModuleSourceIds]
+  );
+
+  useEffect(() => {
+    if (connectionsCatalogSourceId && hiddenModuleSourceIds.includes(connectionsCatalogSourceId)) {
+      setConnectionsCatalogSourceId(null);
+    }
+  }, [connectionsCatalogSourceId, hiddenModuleSourceIds, setConnectionsCatalogSourceId]);
+
   const catalogSources = useMemo(() => {
-    if (!connectionsCatalogSourceId) return sources;
-    return sources.filter((s) => s.id === connectionsCatalogSourceId);
-  }, [sources, connectionsCatalogSourceId]);
+    if (!connectionsCatalogSourceId) return visibleSources;
+    return visibleSources.filter((s) => s.id === connectionsCatalogSourceId);
+  }, [visibleSources, connectionsCatalogSourceId]);
+
+  const orderedPlaybackSearchIds = useMemo(
+    () => getPlaybackOrderedSearchAddonIds(),
+    [addons, playbackPriorityIds, getPlaybackOrderedSearchAddonIds]
+  );
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -149,7 +174,7 @@ export default function AddonsView() {
   const fetchAllCatalogs = useCallback(async () => {
     setCatalogBySource((prev) => {
       const next = { ...prev };
-      for (const s of sources) {
+      for (const s of visibleSources) {
         next[s.id] = { addons: next[s.id]?.addons ?? [], loading: true, error: '' };
       }
       return next;
@@ -158,7 +183,7 @@ export default function AddonsView() {
     const results: Record<string, { addons: StoreAddon[]; loading: boolean; error: string }> = {};
 
     await Promise.all(
-      sources.map(async (source) => {
+      visibleSources.map(async (source) => {
         const fetchUrl = source.registryUrl?.trim()
           ? `/api/addons/store?url=${encodeURIComponent(source.registryUrl.trim())}`
           : '/api/addons/store';
@@ -183,7 +208,7 @@ export default function AddonsView() {
     );
 
     setCatalogBySource((prev) => ({ ...prev, ...results }));
-  }, [sources]);
+  }, [visibleSources]);
 
   useEffect(() => {
     void fetchAllCatalogs();
@@ -191,35 +216,37 @@ export default function AddonsView() {
 
   const normalizeCatalogId = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '_');
 
-  const directoryOfFileUrl = (fileUrl: string): string | null => {
-    try {
-      const u = new URL(fileUrl);
-      const path = u.pathname.replace(/\/[^/]+$/, '');
-      return `${u.origin}${path}`.replace(/\/$/, '') || u.origin;
-    } catch {
-      return null;
-    }
-  };
-
-  const storeRowMatchesInstalled = (row: StoreAddon, manifestId: string, baseURL?: string) => {
+  const storeRowMatchesInstalled = (
+    row: StoreAddon,
+    manifestId: string,
+    baseURL?: string,
+    installSourceUrl?: string
+  ) => {
     const mid = manifestId.trim();
     const rid = row.id.trim();
     if (!mid || !rid) return false;
     if (mid === rid) return true;
     if (normalizeCatalogId(mid) === normalizeCatalogId(rid)) return true;
 
-    const instBase = (baseURL || '').replace(/\/$/, '');
-    if (!instBase) return false;
-
     const rowUrls = [row.manifestUrl, row.eightspinePackageUrl, row.setupUrl]
       .map((u) => (typeof u === 'string' ? u.trim() : ''))
       .filter(Boolean);
 
+    const instInstall = (installSourceUrl || '').trim().replace(/\/$/, '');
+    if (instInstall) {
+      const low = instInstall.toLowerCase();
+      for (const raw of rowUrls) {
+        const t = raw.replace(/\/$/, '');
+        if (t && t.toLowerCase() === low) return true;
+      }
+    }
+
+    const instBase = (baseURL || '').replace(/\/$/, '');
+    if (!instBase) return false;
+
     for (const raw of rowUrls) {
       const trimmed = raw.replace(/\/$/, '');
       if (trimmed && trimmed === instBase) return true;
-      const dir = directoryOfFileUrl(raw);
-      if (dir && dir === instBase) return true;
     }
     return false;
   };
@@ -240,7 +267,7 @@ export default function AddonsView() {
     setEclipseSetup(null);
     try {
       const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(installSource);
-      addAddon(manifest, { sourceId, eightspineInnerCode, eightspineKind });
+      addAddon(manifest, { sourceId, installSourceUrl: installSource, eightspineInnerCode, eightspineKind });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install addon';
       setInstallError(message);
@@ -263,7 +290,12 @@ export default function AddonsView() {
     setInstallError('');
     try {
       const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(url);
-      addAddon(manifest, { sourceId: 'custom', eightspineInnerCode, eightspineKind });
+      addAddon(manifest, {
+        sourceId: 'custom',
+        installSourceUrl: url.trim(),
+        eightspineInnerCode,
+        eightspineKind,
+      });
       setInstallUrl('');
       setDialogOpen(false);
     } catch (err: unknown) {
@@ -295,13 +327,15 @@ export default function AddonsView() {
   }, [eclipseTestQuery, search, setSearchQuery, navigateTo]);
 
   const isInstalled = (row: StoreAddon) =>
-    addons.some((a) => storeRowMatchesInstalled(row, a.manifest.id, a.manifest.baseURL));
+    addons.some((a) =>
+      storeRowMatchesInstalled(row, a.manifest.id, a.manifest.baseURL, a.installSourceUrl)
+    );
 
   const isInstallingStoreAddon = (sourceId: string, id: string) => installingId === `${sourceId}:${id}`;
 
   const countCatalogInstallable = () => {
     let n = 0;
-    for (const s of sources) {
+    for (const s of visibleSources) {
       const list = catalogBySource[s.id]?.addons ?? [];
       for (const a of list) {
         if (!isCatalogRowInstallable(a)) continue;
@@ -333,7 +367,7 @@ export default function AddonsView() {
     setInstallError('');
     let ok = 0;
     let fail = 0;
-    for (const s of sources) {
+    for (const s of visibleSources) {
       const list = catalogBySource[s.id]?.addons ?? [];
       for (const a of list) {
         if (!isCatalogRowInstallable(a) || isInstalled(a)) continue;
@@ -342,7 +376,12 @@ export default function AddonsView() {
         setInstallingId(`${s.id}:${a.id}`);
         try {
           const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(src);
-          addAddon(manifest, { sourceId: s.id, eightspineInnerCode, eightspineKind });
+          addAddon(manifest, {
+            sourceId: s.id,
+            installSourceUrl: src,
+            eightspineInnerCode,
+            eightspineKind,
+          });
           ok += 1;
         } catch {
           fail += 1;
@@ -381,45 +420,64 @@ export default function AddonsView() {
         />
         <ScrollArea className="flex-1 min-h-0 custom-scrollbar">
           <div className="pb-32 px-3 pt-2 space-y-3">
-            {sources.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-stretch gap-0 rounded-2xl border border-zinc-800 bg-[#1a1a1a] overflow-hidden"
+            {hiddenModuleSourceIds.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 rounded-2xl border border-zinc-700 bg-[#262626] text-white hover:bg-zinc-800 font-medium gap-2"
+                onClick={() => restoreAllModuleSources()}
               >
-                <button
-                  type="button"
-                  className="flex flex-1 items-center gap-3 p-3.5 text-left min-w-0 hover:bg-white/[0.04] transition-colors"
-                  onClick={() => {
-                    setConnectionsScreen('browse');
-                    setConnectionsCatalogSourceId(s.id);
-                  }}
-                >
-                  <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
-                    <Cloud size={20} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{s.name}</p>
-                    <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                      {s.registryUrl?.trim() ? s.registryUrl : 'Built-in default catalog'}
-                    </p>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-500 shrink-0 self-center" aria-hidden />
-                </button>
-                {!s.builtIn && (
-                  <button
-                    type="button"
-                    className="shrink-0 w-12 flex items-center justify-center border-l border-zinc-800 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSource(s.id);
-                    }}
-                    aria-label={`Remove ${s.name}`}
+                <RotateCcw className="w-4 h-4" />
+                Restore hidden catalogs
+              </Button>
+            )}
+            {visibleSources.length === 0 ? (
+              <p className="text-sm text-zinc-500 text-center py-8 rounded-2xl border border-dashed border-zinc-800">
+                No module sources visible. Restore catalogs above or add a custom registry.
+              </p>
+            ) : (
+              <>
+                {visibleSources.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-stretch gap-0 rounded-2xl border border-zinc-800 bg-[#1a1a1a] overflow-hidden"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center gap-3 p-3.5 text-left min-w-0 hover:bg-white/[0.04] transition-colors"
+                      onClick={() => {
+                        setConnectionsScreen('browse');
+                        setConnectionsCatalogSourceId(s.id);
+                      }}
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
+                        <Cloud size={20} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                        <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                          {s.registryUrl?.trim() ? s.registryUrl : 'Built-in default catalog'}
+                        </p>
+                      </div>
+                      <ChevronRight size={18} className="text-zinc-500 shrink-0 self-center" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="shrink-0 w-12 flex items-center justify-center border-l border-zinc-800 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (s.builtIn) dismissModuleSource(s.id);
+                        else removeSource(s.id);
+                        if (connectionsCatalogSourceId === s.id) setConnectionsCatalogSourceId(null);
+                      }}
+                      aria-label={s.builtIn ? `Hide ${s.name}` : `Remove ${s.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -506,6 +564,51 @@ export default function AddonsView() {
               </p>
             ) : (
               <div className="space-y-3">
+                {orderedPlaybackSearchIds.length >= 2 && (
+                  <div className="rounded-2xl border border-zinc-800 bg-[#141414] p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Playback & search priority</p>
+                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                        When resolving a stream or searching, the app tries modules from top to bottom. If one fails,
+                        the next is used. Home uses this order when “Prefer modules for Home” is on in Settings.
+                      </p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {orderedPlaybackSearchIds.map((id) => {
+                        const addon = addons.find((a) => a.manifest.id === id);
+                        if (!addon) return null;
+                        return (
+                          <li
+                            key={id}
+                            className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#1a1a1a] px-3 py-2"
+                          >
+                            <span className="flex-1 min-w-0 text-sm text-zinc-200 truncate">
+                              {addon.manifest.name}
+                            </span>
+                            <div className="flex flex-col gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                className="h-7 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white"
+                                aria-label={`Move ${addon.manifest.name} up`}
+                                onClick={() => movePlaybackPriority(id, -1)}
+                              >
+                                <ChevronUp className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                className="h-7 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white"
+                                aria-label={`Move ${addon.manifest.name} down`}
+                                onClick={() => movePlaybackPriority(id, 1)}
+                              >
+                                <ChevronDown className="size-4" />
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
                 {addons.map((addon) => {
                   const shortId = addon.manifest.id.split('.').pop() || addon.manifest.id.slice(0, 8);
                   const tagList = (addon.manifest.resources || []).slice(0, 8);
@@ -890,7 +993,7 @@ export default function AddonsView() {
                     {rows.map((addon) => {
                       const installed = isInstalled(addon);
                       const installedAddon = addons.find((a) =>
-                        storeRowMatchesInstalled(addon, a.manifest.id, a.manifest.baseURL)
+                        storeRowMatchesInstalled(addon, a.manifest.id, a.manifest.baseURL, a.installSourceUrl)
                       );
                       const isActive = installedAddon?.manifest.id === activeAddonId;
                       const currentlyInstalling = isInstallingStoreAddon(source.id, addon.id);
@@ -1161,6 +1264,7 @@ export default function AddonsView() {
                   const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(tryUrl);
                   addAddon(manifest, {
                     sourceId: eclipseSetup.sourceId,
+                    installSourceUrl: tryUrl,
                     eightspineInnerCode,
                     eightspineKind,
                   });
