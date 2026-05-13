@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Playlist, Track } from '@/types/music';
 import { demoTracks } from '@/lib/demo-data';
+import { trackListenDedupeKey } from '@/lib/track-identity';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,18 @@ export default function LibraryView() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
+
+  const recentPlayedDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Track[] = [];
+    for (const t of recentlyPlayed) {
+      const k = trackListenDedupeKey(t);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(t);
+    }
+    return out;
+  }, [recentlyPlayed]);
 
   // Build full track objects from favourite IDs
   const favouriteTracks = demoTracks.filter((t) => favourites.includes(t.id));
@@ -303,7 +316,7 @@ export default function LibraryView() {
 
           <TabsContent value="recent" className="mt-4">
             <h2 className="text-2xl font-bold text-foreground mb-6">Recently Played</h2>
-            <TrackList tracks={recentlyPlayed} showAlbumArt={true} showIndex={true} />
+            <TrackList tracks={recentPlayedDeduped} showAlbumArt={true} showIndex={true} />
           </TabsContent>
         </Tabs>
 

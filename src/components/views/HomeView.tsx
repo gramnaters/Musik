@@ -12,8 +12,14 @@ import {
   fetchHomeArtistsDual,
   fetchHomeTracksDual,
   enrichArtistImagesFromTrackSearch,
+  mergeArtistsDedupe,
+  mergeTracksDedupe,
+  filterTracksByArtistName,
+  type HomeArtist,
 } from '@/lib/home-catalog-fetch';
+import { fetchAddonArtistsMerged, fetchAddonArtistsFromTrackSearches, fetchAddonTracksFirstHit } from '@/lib/home-addon-feed';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
+import { trackListenDedupeKey } from '@/lib/track-identity';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
@@ -273,9 +279,11 @@ export default function HomeView() {
   const { play } = usePlayerStore();
   const { playlists, recentlyPlayed } = useLibraryStore();
   const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
-  const { addons, searchWithAddon } = useAddonStore();
+  const { addons, searchWithAddon, getPlaybackOrderedSearchAddonIds, playbackPriorityIds } = useAddonStore();
   const catalogProvider = useMetadataStore((s) => s.catalogProvider);
   const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
+  const catalogLabel =
+    catalogProvider === 'apple' ? 'Apple Music' : 'Spotify';
   const {
     showQuickPicks,
     showDiscover,
@@ -285,9 +293,14 @@ export default function HomeView() {
     showBrowseAll,
   } = useHomeLayoutStore();
 
+  const orderedSearchAddonIds = useMemo(
+    () => getPlaybackOrderedSearchAddonIds(),
+    [addons, playbackPriorityIds, getPlaybackOrderedSearchAddonIds]
+  );
+
   const browseAddonId = useMemo(
-    () => addons.find((a) => a.enabled && a.manifest.resources?.includes('search'))?.manifest.id ?? null,
-    [addons]
+    () => orderedSearchAddonIds[0] ?? null,
+    [orderedSearchAddonIds]
   );
 
   const [mounted, setMounted] = useState(false);
@@ -337,31 +350,82 @@ export default function HomeView() {
 
       try {
         if (browseAddonId) {
-          const rFresh = await searchWithAddon(browseAddonId, 'new music trending');
+          const primary = browseAddonId;
+          const orderedIds =
+            orderedSearchAddonIds.length > 0 ? orderedSearchAddonIds : [primary];
+
+          const rFresh = await searchWithAddon(primary, 'new music trending');
           if (cancelled) return;
-          const freshTracks = rFresh.tracks.slice(0, 16).map(addonTrackToTrack);
+          const addonFresh = rFresh.tracks.map(addonTrackToTrack);
+          const catalogFresh = await fetchHomeTracksDual(
+            'new music trending',
+            appleStorefront,
+            catalogProvider,
+            24
+          );
+          if (cancelled) return;
+          const mergedFresh = mergeTracksDedupe(addonFresh, catalogFresh, 16);
+          const freshTracks =
+            mergedFresh.length > 0 ? mergedFresh : addonFresh.slice(0, 16);
           setFreshTracks(freshTracks);
-          const rPop = await searchWithAddon(browseAddonId, 'popular hits');
+
+          const rPop = await searchWithAddon(primary, 'popular hits');
           if (cancelled) return;
-          const artists = rPop.artists ?? [];
-          let popArtists: { id: string; name: string; image?: string }[];
-          let featuredArtist: { name: string; image?: string } | null;
-          if (artists.length > 0) {
-            popArtists = artists.slice(0, 14).map((a) => ({
+
+          let fromPrimary: HomeArtist[] = [];
+          const listArtists = rPop.artists ?? [];
+          if (listArtists.length > 0) {
+            fromPrimary = listArtists.slice(0, 22).map((a) => ({
               id: String(a.id ?? a.name),
               name: a.name,
-              image: a.image || a.artworkURL,
+              image: (a.image || a.artworkURL)?.trim() || undefined,
             }));
-            featuredArtist = { name: popArtists[0]!.name, image: popArtists[0]!.image };
           } else {
-            const map = new Map<string, { id: string; name: string; image?: string }>();
-            rPop.tracks.forEach((t) => {
-              const k = t.artistId || t.artist;
-              if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.artworkURL || t.cover });
+            const map = new Map<string, HomeArtist>();
+            (rPop.tracks || []).forEach((t) => {
+              const name = String(t.artist || '').trim();
+              if (!name) return;
+              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
+              if (!map.has(k)) {
+                map.set(k, {
+                  id: k,
+                  name,
+                  image: (t.artworkURL || t.cover)?.trim() || undefined,
+                });
+              }
             });
-            popArtists = Array.from(map.values()).slice(0, 14);
-            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
+            fromPrimary = Array.from(map.values());
           }
+
+          let addonMerged = await fetchAddonArtistsMerged(searchWithAddon, orderedIds, 22);
+          if (addonMerged.length < 10) {
+            addonMerged = mergeArtistsDedupe(
+              addonMerged,
+              await fetchAddonArtistsFromTrackSearches(searchWithAddon, orderedIds, 24),
+              26
+            );
+          }
+
+          let metaMerged = mergeArtistsDedupe(
+            await fetchHomeArtistsDual('pop artist', appleStorefront, catalogProvider, 14),
+            await fetchHomeArtistsDual('hip hop artist', appleStorefront, catalogProvider, 14),
+            20
+          );
+          metaMerged = await enrichArtistImagesFromTrackSearch(
+            metaMerged,
+            appleStorefront,
+            catalogProvider
+          );
+          if (cancelled) return;
+
+          let mergedAll = mergeArtistsDedupe(addonMerged, fromPrimary, 26);
+          mergedAll = mergeArtistsDedupe(mergedAll, metaMerged, 30);
+
+          const popArtists = mergedAll.slice(0, 14);
+          const featuredArtist = popArtists[0]
+            ? { name: popArtists[0].name, image: popArtists[0].image }
+            : null;
+
           setPopArtists(popArtists);
           setFeaturedArtist(featuredArtist);
           feedSnapshot = { freshTracks, popArtists, featuredArtist };
@@ -377,11 +441,15 @@ export default function HomeView() {
             mergedFresh.length > 0 ? mergedFresh.slice(0, 16) : demoTracks.slice(0, 12);
           setFreshTracks(freshTracks);
 
-          let mergedArtists = await fetchHomeArtistsDual(
-            'popular music artists',
-            appleStorefront,
-            catalogProvider,
-            20
+          let mergedArtists = mergeArtistsDedupe(
+            await fetchHomeArtistsDual('pop artist', appleStorefront, catalogProvider, 14),
+            await fetchHomeArtistsDual('hip hop artist', appleStorefront, catalogProvider, 14),
+            18
+          );
+          mergedArtists = mergeArtistsDedupe(
+            mergedArtists,
+            await fetchHomeArtistsDual('popular music artists', appleStorefront, catalogProvider, 18),
+            24
           );
           mergedArtists = await enrichArtistImagesFromTrackSearch(
             mergedArtists,
@@ -399,7 +467,9 @@ export default function HomeView() {
           } else if (mergedFresh.length > 0) {
             const map = new Map<string, { id: string; name: string; image?: string }>();
             mergedFresh.forEach((t) => {
-              const k = t.artistId || t.artist;
+              const name = String(t.artist || '').trim();
+              if (!name) return;
+              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
               if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
             });
             popArtists = Array.from(map.values()).slice(0, 14);
@@ -407,7 +477,9 @@ export default function HomeView() {
           } else {
             const map = new Map<string, { id: string; name: string; image?: string }>();
             demoTracks.forEach((t) => {
-              const k = t.artistId || t.artist;
+              const name = String(t.artist || '').trim();
+              if (!name) return;
+              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
               if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
             });
             popArtists = Array.from(map.values()).slice(0, 14);
@@ -428,7 +500,7 @@ export default function HomeView() {
     return () => {
       cancelled = true;
     };
-  }, [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]);
+  }, [browseAddonId, orderedSearchAddonIds, searchWithAddon, catalogProvider, appleStorefront]);
 
   const handlePlayPlaylist = (playlist: (typeof demoPlaylists)[0]) => {
     if (playlist.tracks && playlist.tracks.length > 0) {
@@ -441,7 +513,7 @@ export default function HomeView() {
   };
 
   useEffect(() => {
-    if (browseAddonId || !showDiscover) {
+    if (!showDiscover) {
       setCatalogRails({});
       setCatalogRailsLoading(false);
       return;
@@ -461,12 +533,22 @@ export default function HomeView() {
       await Promise.all(
         HOME_CATALOG_RAILS.map(async (r) => {
           try {
-            next[r.id] = await fetchHomeTracksDual(
+            let rows = await fetchHomeTracksDual(
               r.query,
               appleStorefront,
               catalogProvider,
               16
             );
+            if (orderedSearchAddonIds.length > 0) {
+              const addonRows = await fetchAddonTracksFirstHit(
+                searchWithAddon,
+                orderedSearchAddonIds,
+                r.query,
+                16
+              );
+              rows = mergeTracksDedupe(addonRows, rows, 16);
+            }
+            next[r.id] = rows;
           } catch {
             next[r.id] = [];
           }
@@ -481,19 +563,30 @@ export default function HomeView() {
     return () => {
       cancelled = true;
     };
-  }, [browseAddonId, showDiscover, catalogProvider, appleStorefront]);
+  }, [
+    browseAddonId,
+    showDiscover,
+    catalogProvider,
+    appleStorefront,
+    orderedSearchAddonIds,
+    searchWithAddon,
+  ]);
 
   const loadMood = useCallback(
     async (m: (typeof HOME_MOOD_MIXES)[0]) => {
       setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: true });
       setMoodLoadingId(m.id);
       try {
-        let tracks: Track[] = [];
-        if (browseAddonId) {
-          const r = await searchWithAddon(browseAddonId, m.query);
-          tracks = r.tracks.map(addonTrackToTrack);
-        } else {
-          tracks = await fetchHomeTracksDual(m.query, appleStorefront, catalogProvider, 60);
+        const catalog = await fetchHomeTracksDual(m.query, appleStorefront, catalogProvider, 60);
+        let tracks = catalog;
+        if (orderedSearchAddonIds.length > 0) {
+          const addonRows = await fetchAddonTracksFirstHit(
+            searchWithAddon,
+            orderedSearchAddonIds,
+            m.query,
+            60
+          );
+          tracks = mergeTracksDedupe(addonRows, catalog, 60);
         }
         setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks, loading: false });
       } catch {
@@ -502,49 +595,69 @@ export default function HomeView() {
         setMoodLoadingId(null);
       }
     },
-    [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]
+    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
   );
 
   const openGenreHub = useCallback(
     async (cat: (typeof browseCategories)[number]) => {
       setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks: [], loading: true });
       try {
-        let tracks: Track[] = [];
-        if (browseAddonId) {
-          const r = await searchWithAddon(browseAddonId, cat.hubQuery);
-          tracks = r.tracks.map(addonTrackToTrack);
-        } else {
-          tracks = await fetchHomeTracksDual(cat.hubQuery, appleStorefront, catalogProvider, 60);
+        const catalog = await fetchHomeTracksDual(cat.hubQuery, appleStorefront, catalogProvider, 60);
+        let tracks = catalog;
+        if (orderedSearchAddonIds.length > 0) {
+          const addonRows = await fetchAddonTracksFirstHit(
+            searchWithAddon,
+            orderedSearchAddonIds,
+            cat.hubQuery,
+            60
+          );
+          tracks = mergeTracksDedupe(addonRows, catalog, 60);
         }
         setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks, loading: false });
       } catch {
         setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks: [], loading: false });
       }
     },
-    [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]
+    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
   );
 
   const openArtistHubByName = useCallback(
     async (name: string) => {
+      const hubSub = `Spotify + Apple (${appleStorefront}) · modules first when available`;
       setHubOverlay({
         kind: 'artist',
         title: name,
-        subtitle: 'Songs from catalog',
+        subtitle: hubSub,
         tracks: [],
         loading: true,
       });
       try {
-        let tracks: Track[] = [];
-        if (browseAddonId) {
-          const r = await searchWithAddon(browseAddonId, `${name} top songs`);
-          tracks = r.tracks.map(addonTrackToTrack);
-        } else {
-          tracks = await fetchHomeTracksDual(name, appleStorefront, catalogProvider, 60);
+        const catalogQuery =
+          catalogProvider === 'spotify'
+            ? `artist:"${name.replace(/"/g, '')}"`
+            : `${name} songs`;
+        let catalogTracks = await fetchHomeTracksDual(
+          catalogQuery,
+          appleStorefront,
+          catalogProvider,
+          60
+        );
+        catalogTracks = filterTracksByArtistName(catalogTracks, name);
+        let tracks = catalogTracks;
+        if (orderedSearchAddonIds.length > 0) {
+          const addonRows = await fetchAddonTracksFirstHit(
+            searchWithAddon,
+            orderedSearchAddonIds,
+            `${name} top songs`,
+            60
+          );
+          const addonFiltered = filterTracksByArtistName(addonRows, name);
+          tracks = mergeTracksDedupe(addonFiltered, catalogTracks, 60);
         }
         setHubOverlay({
           kind: 'artist',
           title: name,
-          subtitle: 'Songs from catalog',
+          subtitle: hubSub,
           tracks,
           loading: false,
         });
@@ -552,13 +665,13 @@ export default function HomeView() {
         setHubOverlay({
           kind: 'artist',
           title: name,
-          subtitle: 'Songs from catalog',
+          subtitle: hubSub,
           tracks: [],
           loading: false,
         });
       }
     },
-    [browseAddonId, searchWithAddon, catalogProvider, appleStorefront]
+    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
   );
 
   const openFeaturedArtistHub = useCallback(() => {
@@ -567,7 +680,19 @@ export default function HomeView() {
   }, [featuredArtist, openArtistHubByName]);
 
   const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
-  const quickTracks = useMemo(() => recentlyPlayed.slice(0, 4), [recentlyPlayed]);
+  const recentPlayedDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Track[] = [];
+    for (const t of recentlyPlayed) {
+      const k = trackListenDedupeKey(t);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(t);
+    }
+    return out;
+  }, [recentlyPlayed]);
+
+  const quickTracks = useMemo(() => recentPlayedDeduped.slice(0, 4), [recentPlayedDeduped]);
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black">
@@ -581,33 +706,32 @@ export default function HomeView() {
           <div className="space-y-1">
             <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white">Home</h1>
             <p className="text-sm text-white/55">
-              {greeting} —{' '}
-              {browseAddonId
-                ? 'Rails load from your connected module.'
-                : `Discovery blends Spotify + Apple Music for your region (${appleStorefront}).`}
+              {greeting} — Primary metadata: {catalogLabel} ({appleStorefront}
+              ). Discovery merges Spotify + Apple; when modules are connected, playable rows from
+              modules are listed first.
             </p>
           </div>
 
-          {showRecentlyPlayed && recentlyPlayed.length > 0 && (
+          {showRecentlyPlayed && recentPlayedDeduped.length > 0 && (
             <section>
               <SectionHeader
                 title="Recently played"
                 onSeeAll={
-                  recentlyPlayed.length > RECENT_HOME_PREVIEW
+                  recentPlayedDeduped.length > RECENT_HOME_PREVIEW
                     ? () =>
                         setHubOverlay({
                           kind: 'recent',
                           title: 'Recently played',
-                          subtitle: `${recentlyPlayed.length} tracks`,
-                          tracks: recentlyPlayed,
+                          subtitle: `${recentPlayedDeduped.length} tracks`,
+                          tracks: recentPlayedDeduped,
                           loading: false,
                         })
                     : undefined
                 }
               />
               <div className={cn(homeResponsiveRail)}>
-                {recentlyPlayed.slice(0, RECENT_HOME_PREVIEW).map((track) => (
-                  <HomeRecentCard key={track.id} track={track} />
+                {recentPlayedDeduped.slice(0, RECENT_HOME_PREVIEW).map((track) => (
+                  <HomeRecentCard key={trackListenDedupeKey(track)} track={track} />
                 ))}
               </div>
             </section>
@@ -669,7 +793,7 @@ export default function HomeView() {
           </section>
         )}
 
-        {showDiscover && !browseAddonId && (
+        {showDiscover && (
           <section className="space-y-6">
             {HOME_CATALOG_RAILS.map((r) => {
               const tracks = catalogRails[r.id] ?? [];

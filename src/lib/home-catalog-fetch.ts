@@ -28,6 +28,36 @@ function normName(n: string) {
   return n.trim().toLowerCase();
 }
 
+/** Drop merged noise that is clearly a playlist or compilation title, not a person. */
+export function isLikelyArtistCatalogName(name: string): boolean {
+  const t = name.trim();
+  if (t.length < 2 || t.length > 72) return false;
+  const lower = t.toLowerCase();
+  if (/\b(hits?|songs?|playlist|mixtape|compilation|karaoke|instrumental|charts?|top\s+\d+)\b/.test(lower)) {
+    return false;
+  }
+  if (/\b(best of|greatest hits|full album|deluxe|remastered)\b/.test(lower)) return false;
+  return true;
+}
+
+/** Prefer tracks whose primary artist matches the tapped name (reduces playlist pollution in hubs). */
+export function filterTracksByArtistName(tracks: Track[], artistName: string): Track[] {
+  const needle = normName(artistName);
+  if (!needle || !tracks.length) return tracks;
+  const tokenize = (s: string) =>
+    s
+      .toLowerCase()
+      .split(/\s*(?:,|&|;|\/|\||feat\.|featuring|ft\.|vs\.)\s*/i)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+  const picked = tracks.filter((t) => {
+    const parts = tokenize(t.artist);
+    return parts.some((p) => p === needle || p.startsWith(`${needle} `) || needle.startsWith(`${p} `));
+  });
+  return picked.length >= 4 ? picked : tracks;
+}
+
 /** Merge artist lists by normalized name; prefer rows that already have artwork. */
 export function mergeArtistsDedupe(a: HomeArtist[], b: HomeArtist[], cap: number): HomeArtist[] {
   const map = new Map<string, HomeArtist>();

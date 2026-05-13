@@ -26,7 +26,7 @@ export function homeFeedCacheKey(
   catalogProvider: string,
   appleStorefront: string
 ) {
-  return `${browseAddonId ?? 'metadata'}|${catalogProvider}|${String(appleStorefront).toUpperCase()}`;
+  return `v2|${browseAddonId ?? 'metadata'}|${catalogProvider}|${String(appleStorefront).toUpperCase()}`;
 }
 
 export function homeFeedCacheGet(key: string): CacheEntry | null {
