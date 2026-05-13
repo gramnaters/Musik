@@ -144,15 +144,29 @@ export function TrackContextMenu({
 
 function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'streamURL' | 'explicit'> }) {
   const badge = getQualityBadgeForTrack(track);
-  const tip = getQualityTooltip(track);
+  const qTip = getQualityTooltip(track);
+
   if (!badge && !track.explicit) return null;
 
-  const inner = (
-    <div className="flex gap-1 items-center">
-      {track.explicit && (
-        <span className="text-[8px] font-bold px-1 rounded-[2px] bg-white/20 text-white/70 leading-tight">E</span>
-      )}
-      {badge && (
+  const explicitEl = track.explicit ? (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <span className="text-[8px] font-bold px-1 rounded-[2px] bg-white/20 text-white/90 leading-tight h-3.5 inline-flex items-center cursor-default">
+          E
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5 shadow-lg"
+      >
+        Explicit content
+      </TooltipContent>
+    </Tooltip>
+  ) : null;
+
+  const qualityEl = badge ? (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
         <span
           className={cn(
             'text-[8px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 cursor-default',
@@ -167,24 +181,21 @@ function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'stream
             badge.label
           )}
         </span>
-      )}
-    </div>
-  );
-
-  if (!badge) return inner;
-
-  return (
-    <Tooltip delayDuration={200}>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{inner}</span>
       </TooltipTrigger>
       <TooltipContent
         side="top"
         className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5 shadow-lg"
       >
-        {tip}
+        {qTip}
       </TooltipContent>
     </Tooltip>
+  ) : null;
+
+  return (
+    <div className="flex gap-1 items-center">
+      {explicitEl}
+      {qualityEl}
+    </div>
   );
 }
 

@@ -37,6 +37,17 @@ export interface Playlist {
   createdAt?: number;
 }
 
+/** Podcast / show row from catalog search (Apple or Spotify). */
+export interface CatalogPodcast {
+  id: string;
+  title: string;
+  author?: string;
+  description?: string;
+  cover?: string;
+  episodeCount?: number;
+  externalUrl?: string;
+}
+
 export interface Artist {
   id: string;
   name: string;

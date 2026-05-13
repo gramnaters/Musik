@@ -7,6 +7,25 @@ import type { AddonTrack } from '@/types/addon';
 
 type RepeatMode = 'off' | 'all' | 'one';
 
+let playSession = 0;
+
+function describeMediaError(audio: HTMLAudioElement): string {
+  const code = audio.error?.code;
+  if (code === MediaError.MEDIA_ERR_NETWORK) {
+    return 'Network error while loading the stream. Try again or pick another source.';
+  }
+  if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+    return 'This stream is blocked, expired, or not supported in the browser.';
+  }
+  if (code === MediaError.MEDIA_ERR_DECODE) {
+    return 'The audio could not be decoded.';
+  }
+  if (code === MediaError.MEDIA_ERR_ABORTED) {
+    return 'Loading was interrupted.';
+  }
+  return 'Playback failed — try another track.';
+}
+
 interface PlayerState {
   currentTrack: Track | null;
   queue: Track[];
@@ -15,6 +34,8 @@ interface PlayerState {
   isPlaying: boolean;
   /** True while stream is resolving / audio has not started yet (spinner on play control). */
   isLoadingPlayback: boolean;
+  /** Last element error or resolver failure (cleared on successful play). */
+  playbackError: string | null;
   currentTime: number;
   duration: number;
   volume: number;
@@ -45,6 +66,7 @@ interface PlayerActions {
   setCurrentTime: (time: number) => void;
   setDuration: (time: number) => void;
   setShowNowPlaying: (show: boolean) => void;
+  clearPlaybackError: () => void;
   cleanup: () => void;
 }
 
@@ -83,6 +105,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       queueIndex: -1,
       isPlaying: false,
       isLoadingPlayback: false,
+      playbackError: null,
       currentTime: 0,
       duration: 0,
       volume: 0.7,
@@ -94,24 +117,29 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       audio: null,
 
       play: (track, queue, index) => {
+        const session = ++playSession;
+        const stale = () => session !== playSession;
+
         const state = get();
         const audio = state.audio || new Audio();
 
         stopTimeSync();
+
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
 
         let newQueue = queue || [track];
         let originalQueue = queue ? [...queue] : [track];
         let newIndex = index ?? 0;
 
         if (!queue) {
-          // Single track play
           if (state.queue.length > 0 && state.queueIndex >= 0) {
             newQueue = [...state.queue];
-            const existingIdx = newQueue.findIndex(t => t.id === track.id);
+            const existingIdx = newQueue.findIndex((t) => t.id === track.id);
             if (existingIdx >= 0) {
               newIndex = existingIdx;
             } else {
-              // Replace current track in queue
               newQueue[state.queueIndex] = track;
               newIndex = state.queueIndex;
             }
@@ -119,7 +147,6 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           }
         }
 
-        // Apply shuffle if enabled
         if (state.isShuffle && queue) {
           const shuffled = [...newQueue];
           const [current] = shuffled.splice(newIndex, 1);
@@ -132,12 +159,69 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           newIndex = 0;
         }
 
-        // Resolve stream URL — direct URL or via addon /stream/{id} endpoint
-        const resolveAndPlay = async () => {
+        audio.onplay = () => {
+          if (stale()) return;
+          set({ isPlaying: true, isLoadingPlayback: false, playbackError: null });
+          startTimeSync(set, get);
+        };
+
+        audio.onpause = () => {
+          if (stale()) return;
+          stopTimeSync();
+          const a = get().audio;
+          if (a) set({ currentTime: a.currentTime });
+        };
+
+        audio.onerror = () => {
+          if (stale()) return;
+          stopTimeSync();
+          set({
+            isPlaying: false,
+            isLoadingPlayback: false,
+            playbackError: describeMediaError(audio),
+          });
+        };
+
+        audio.onended = () => {
+          if (stale()) return;
+          const s = get();
+          if (s.repeatMode === 'one') {
+            audio.currentTime = 0;
+            void audio.play().catch(() => {});
+          } else if (s.queueIndex < s.queue.length - 1) {
+            s.nextTrack();
+          } else if (s.repeatMode === 'all' && s.queue.length > 0) {
+            s.play(s.originalQueue[0], s.originalQueue, 0);
+          } else {
+            stopTimeSync();
+            set({ isPlaying: false, isLoadingPlayback: false });
+          }
+        };
+
+        audio.ondurationchange = () => {
+          if (stale()) return;
+          if (audio.duration && isFinite(audio.duration)) {
+            set({ duration: audio.duration });
+          }
+        };
+
+        set({
+          currentTrack: track,
+          queue: newQueue,
+          originalQueue,
+          queueIndex: newIndex,
+          isPlaying: true,
+          isLoadingPlayback: true,
+          playbackError: null,
+          currentTime: 0,
+          duration: 0,
+          audio,
+        });
+
+        void (async () => {
           try {
             let finalStreamUrl = track.streamURL;
 
-            // If no direct URL, resolve via addon store (Eclipse HTTP or in-browser 8SPINE module)
             if (!finalStreamUrl && track.addonId && track.addonTrackId) {
               try {
                 const proxied = await useAddonStore.getState().resolveStreamUrl({
@@ -156,85 +240,53 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
                   }
                 }
               } catch {
-                // Stream resolution failed — try direct URL
+                /* addon resolution failed */
               }
             }
 
-            if (finalStreamUrl) {
-              const inferred = inferFormatFromUrl(finalStreamUrl);
-              const trackToPlay = {
-                ...track,
-                streamURL: finalStreamUrl,
-                url: finalStreamUrl,
-                format: track.format || inferred,
-              };
-              const markReady = () => set({ isLoadingPlayback: false });
-              audio.addEventListener('playing', markReady, { once: true });
-              audio.addEventListener('error', markReady, { once: true });
-              audio.addEventListener('abort', markReady, { once: true });
+            if (stale()) return;
 
-              set({ currentTrack: trackToPlay, isPlaying: true });
-
-              audio.preload = 'auto';
-              audio.src = `/api/stream?url=${encodeURIComponent(finalStreamUrl)}`;
-              audio.load();
-              audio.volume = state.isMuted ? 0 : state.volume;
-              void audio.play().catch(() => {
-                markReady();
+            if (!finalStreamUrl) {
+              set({
+                isLoadingPlayback: false,
+                isPlaying: false,
+                playbackError: 'No playable stream for this track.',
               });
-            } else {
-              set({ isLoadingPlayback: false });
+              return;
             }
+
+            const inferred = inferFormatFromUrl(finalStreamUrl);
+            const trackToPlay = {
+              ...track,
+              streamURL: finalStreamUrl,
+              url: finalStreamUrl,
+              format: track.format || inferred,
+            };
+
+            set({ currentTrack: trackToPlay });
+
+            audio.preload = 'auto';
+            audio.volume = state.isMuted ? 0 : state.volume;
+            audio.src = `/api/stream?url=${encodeURIComponent(finalStreamUrl)}`;
+            audio.load();
+
+            await audio.play().catch(() => {
+              if (stale()) return;
+              set({
+                isLoadingPlayback: false,
+                isPlaying: false,
+                playbackError: 'Could not start playback (autoplay blocked or unsupported).',
+              });
+            });
           } catch {
-            set({ isLoadingPlayback: false });
+            if (stale()) return;
+            set({
+              isLoadingPlayback: false,
+              isPlaying: false,
+              playbackError: 'Failed to resolve stream.',
+            });
           }
-        };
-
-        resolveAndPlay();
-
-        audio.onplay = () => {
-          startTimeSync(set, get);
-        };
-
-        audio.onpause = () => {
-          stopTimeSync();
-          const a = get().audio;
-          if (a) set({ currentTime: a.currentTime });
-        };
-
-        // Handle track end
-        audio.onended = () => {
-          const s = get();
-          if (s.repeatMode === 'one') {
-            audio.currentTime = 0;
-            audio.play().catch(() => {});
-          } else if (s.queueIndex < s.queue.length - 1) {
-            s.nextTrack();
-          } else if (s.repeatMode === 'all' && s.queue.length > 0) {
-            s.play(s.originalQueue[0], s.originalQueue, 0);
-          } else {
-            stopTimeSync();
-            set({ isPlaying: false, isLoadingPlayback: false });
-          }
-        };
-
-        audio.ondurationchange = () => {
-          if (audio.duration && isFinite(audio.duration)) {
-            set({ duration: audio.duration });
-          }
-        };
-
-        set({
-          currentTrack: track,
-          queue: newQueue,
-          originalQueue,
-          queueIndex: newIndex,
-          isPlaying: true,
-          isLoadingPlayback: true,
-          currentTime: 0,
-          duration: audio.duration && isFinite(audio.duration) ? audio.duration : 0,
-          audio,
-        });
+        })();
       },
 
       pause: () => {
@@ -249,7 +301,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         const { audio, currentTrack } = get();
         if (audio && currentTrack) {
           audio.play().catch(() => {});
-          set({ isPlaying: true });
+          set({ isPlaying: true, playbackError: null });
           startTimeSync(set, get);
         }
       },
@@ -399,12 +451,15 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
 
       setShowNowPlaying: (show: boolean) => set({ showNowPlaying: show }),
 
+      clearPlaybackError: () => set({ playbackError: null }),
+
       cleanup: () => {
+        playSession += 1;
         const { audio } = get();
         stopTimeSync();
         audio?.pause();
         audio?.removeAttribute('src');
-        set({ audio: null, isPlaying: false, isLoadingPlayback: false });
+        set({ audio: null, isPlaying: false, isLoadingPlayback: false, playbackError: null });
       },
     }),
     {

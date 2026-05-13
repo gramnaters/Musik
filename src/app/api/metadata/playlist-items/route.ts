@@ -22,6 +22,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     (typeof item.trackPreviewUrl === 'string' && item.trackPreviewUrl) ||
     '';
   const id = String(item.trackId ?? item.collectionId ?? Math.random());
+  const exp = item.trackExplicitness === 'explicit' || item.trackExplicitness === 'explicit_edited';
   return {
     id: `apple_${id}`,
     title: String(item.trackName ?? ''),
@@ -31,6 +32,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
     streamURL: preview || undefined,
     source: 'apple' as const,
+    explicit: Boolean(exp),
   };
 }
 
@@ -49,6 +51,7 @@ function mapSpotifyTrackFromPlaylistItem(tr: Record<string, unknown>) {
     duration: Math.round(((tr.duration_ms as number) || 0) / 1000),
     streamURL: preview || undefined,
     source: 'spotify' as const,
+    explicit: tr.explicit === true,
   };
 }
 
@@ -102,6 +105,39 @@ async function spotifyPlaylistTracks(playlistId: string, market: string) {
   return { tracks, error: undefined as undefined, detail: undefined as undefined };
 }
 
+async function spotifyAlbumTracks(albumId: string, market: string) {
+  const token = await getSpotifyToken();
+  if (!token) {
+    return {
+      error: 'missing_spotify_credentials' as const,
+      detail: undefined as string | undefined,
+      tracks: [] as ReturnType<typeof mapSpotifyTrackFromPlaylistItem>[],
+    };
+  }
+  const m = market.trim() || 'US';
+  const tracks: ReturnType<typeof mapSpotifyTrackFromPlaylistItem>[] = [];
+  let next: string | null = `https://api.spotify.com/v1/albums/${encodeURIComponent(albumId)}/tracks?limit=50&market=${encodeURIComponent(m)}`;
+  let guard = 0;
+  while (next && guard < 10) {
+    guard += 1;
+    const res = await fetch(next, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      return { error: 'spotify_http' as const, detail: t.slice(0, 200), tracks };
+    }
+    const data = (await res.json()) as {
+      items?: Record<string, unknown>[];
+      next?: string | null;
+    };
+    for (const tr of data.items || []) {
+      if (!tr || typeof tr !== 'object') continue;
+      tracks.push(mapSpotifyTrackFromPlaylistItem(tr));
+    }
+    next = data.next || null;
+  }
+  return { tracks, error: undefined as undefined, detail: undefined as undefined };
+}
+
 const ITUNES_UA = 'Mozilla/5.0 (compatible; MusikCatalog/1.0) AppleWebKit/537.36';
 
 async function appleAlbumTracks(collectionId: string, country: string) {
@@ -136,6 +172,8 @@ export async function GET(req: NextRequest) {
   let spotifyPlaylistId = rawId;
   if (rawId.startsWith('spotify_pl_')) {
     spotifyPlaylistId = rawId.slice('spotify_pl_'.length);
+  } else if (rawId.startsWith('spotify_album_')) {
+    spotifyPlaylistId = rawId.slice('spotify_album_'.length);
   } else if (rawId.startsWith('spotify_')) {
     spotifyPlaylistId = rawId.replace(/^spotify_/, '');
   }
@@ -146,6 +184,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    if (provider === 'spotify' && rawId.startsWith('spotify_album_')) {
+      const albumId = rawId.slice('spotify_album_'.length);
+      const { tracks, error, detail } = await spotifyAlbumTracks(albumId, market);
+      if (error) {
+        return NextResponse.json(
+          { tracks: [], error, detail },
+          { status: error === 'missing_spotify_credentials' ? 501 : 502 }
+        );
+      }
+      return NextResponse.json({ tracks, provider: 'spotify' });
+    }
     if (provider === 'spotify') {
       const { tracks, error, detail } = await spotifyPlaylistTracks(spotifyPlaylistId, market);
       if (error) {

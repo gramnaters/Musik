@@ -22,15 +22,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
   Volume2, Volume1, VolumeX, Heart, ListMusic, Maximize2,
-  Mic2, ChevronUp, Disc3, Download,
+  Mic2, ChevronUp, Disc3, Download, X,
 } from 'lucide-react';
 export default function PlayerBar() {
   const {
-    currentTrack, isPlaying, isLoadingPlayback, currentTime, duration,
+    currentTrack, isPlaying, isLoadingPlayback, playbackError, currentTime, duration,
     volume, isMuted, isShuffle, repeatMode,
     togglePlayPause, nextTrack, previousTrack,
     setVolume, toggleMute, toggleShuffle, cycleRepeat,
     setShowNowPlaying,
+    clearPlaybackError,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
   const { rightPanel, setRightPanel, playerTheme, setPlayerTheme } = useUIStore();
@@ -45,7 +46,21 @@ export default function PlayerBar() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <motion.div
+      <>
+        {playbackError && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-950/95 text-red-100 text-xs border-b border-red-900/60 shrink-0">
+            <span className="flex-1 min-w-0 truncate text-center">{playbackError}</span>
+            <button
+              type="button"
+              onClick={() => clearPlaybackError()}
+              className="shrink-0 p-1 rounded-md hover:bg-red-900/60 text-red-100"
+              aria-label="Dismiss error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        <motion.div
         initial={{ y: 100 }}
         animate={{ y: 0 }}
         className={cn(
@@ -631,6 +646,7 @@ export default function PlayerBar() {
           </div>
         )}
       </motion.div>
+      </>
     </TooltipProvider>
   );
 }

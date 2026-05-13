@@ -4,6 +4,11 @@ import { inferFormatFromUrl } from '@/lib/audio-quality';
 /** Map `/api/metadata/search` track JSON into app `Track` with honest codec hints for quality badges. */
 export function mapMetadataSearchTrack(x: Record<string, unknown>): Track {
   const streamURL = x.streamURL ? String(x.streamURL) : undefined;
+  const explicit =
+    x.explicit === true ||
+    x.explicit === 'true' ||
+    x.trackExplicitness === 'explicit' ||
+    x.trackExplicitness === 'explicit_edited';
   return {
     id: String(x.id ?? ''),
     title: String(x.title ?? ''),
@@ -14,5 +19,6 @@ export function mapMetadataSearchTrack(x: Record<string, unknown>): Track {
     streamURL,
     format: inferFormatFromUrl(streamURL),
     quality: typeof x.quality === 'string' ? x.quality : undefined,
+    explicit: Boolean(explicit),
   };
 }

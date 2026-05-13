@@ -31,6 +31,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
     streamURL: preview || undefined,
     source: 'apple' as const,
+    explicit: item.trackExplicitness === 'explicit' || item.trackExplicitness === 'explicit_edited',
   };
 }
 
@@ -106,6 +107,7 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
     duration: Math.round(((item.duration_ms as number) || 0) / 1000),
     streamURL: preview || undefined,
     source: 'spotify' as const,
+    explicit: item.explicit === true,
   };
 }
 

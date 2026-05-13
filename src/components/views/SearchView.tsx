@@ -25,26 +25,53 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Track } from '@/types/music';
+import type { Album, CatalogPodcast, Track } from '@/types/music';
 import { useUIStore } from '@/stores/uiStore';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { SEARCH_CATEGORY_TILES } from '@/lib/search-categories';
-import { metadataSearchUrl } from '@/lib/catalog-api';
+import { metadataSearchBundleUrl, metadataSearchUrl } from '@/lib/catalog-api';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { addonThumbSrc } from '@/lib/addon-thumb';
 
+type CatalogArtist = { id: string; name: string; image?: string };
+type CatalogPlaylistRow = {
+  id: string;
+  name: string;
+  description?: string;
+  cover?: string;
+  trackCount?: number;
+};
+
+type CatalogBundle = {
+  tracks: Track[];
+  albums: Album[];
+  artists: CatalogArtist[];
+  playlists: CatalogPlaylistRow[];
+  podcasts: CatalogPodcast[];
+};
+
 export default function SearchView() {
   const [query, setQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [catalogTab, setCatalogTab] = useState('tracks');
+  const [catalogBundle, setCatalogBundle] = useState<CatalogBundle | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogHub, setCatalogHub] = useState<{
+    kind: 'playlist' | 'album' | 'artist';
+    title: string;
+    subtitle?: string;
+    tracks: Track[];
+    loading: boolean;
+  } | null>(null);
+
   const { play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
   const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError } = useAddonStore();
   const { navigateTo, searchQuery, setSearchQuery } = useUIStore();
-  const { catalogProvider } = useMetadataStore();
+  const catalogProvider = useMetadataStore((s) => s.catalogProvider);
   const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
   const [addonResults, setAddonResults] = useState<Track[]>([]);
-  /** Selected search module; `null` when no search-capable addons are installed. */
   const [addonSearchId, setAddonSearchId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [browseHub, setBrowseHub] = useState<{
@@ -62,6 +89,7 @@ export default function SearchView() {
   );
   const hasAddons = enabledAddons.length > 0;
   const activeAddon = addons.find((a) => a.manifest.id === addonSearchId);
+  const catalogLabel = catalogProvider === 'apple' ? 'Apple Music' : 'Spotify';
 
   useEffect(() => {
     if (!enabledAddons.length) {
@@ -116,6 +144,8 @@ export default function SearchView() {
       } else {
         setAddonResults([]);
         setHasSearched(false);
+        setCatalogBundle(null);
+        setCatalogHub(null);
       }
     },
     [addonSearchId, doAddonSearch, addonError, clearError, setSearchQuery]
@@ -139,17 +169,90 @@ export default function SearchView() {
     void doAddonSearch(query, addonSearchId);
   }, [addonSearchId, query, doAddonSearch]);
 
-  const allResults = useMemo(() => {
+  useEffect(() => {
+    const q = query.trim();
+    if (!hasSearched || !q) {
+      setCatalogBundle(null);
+      setCatalogLoading(false);
+      return;
+    }
+    const ac = new AbortController();
+    const t = setTimeout(() => {
+      void (async () => {
+        setCatalogLoading(true);
+        try {
+          const res = await fetch(
+            metadataSearchBundleUrl({
+              q,
+              provider: catalogProvider,
+              limit: 40,
+              appleCountry: appleStorefront,
+              market: appleStorefront,
+            }),
+            { signal: ac.signal }
+          );
+          const data = (await res.json()) as {
+            tracks?: Record<string, unknown>[];
+            albums?: Record<string, unknown>[];
+            artists?: CatalogArtist[];
+            playlists?: CatalogPlaylistRow[];
+            podcasts?: CatalogPodcast[];
+          };
+          if (ac.signal.aborted) return;
+          const tracks = (data.tracks || []).map((x) => mapMetadataSearchTrack(x));
+          const albums: Album[] = (data.albums || []).map((a) => ({
+            id: String(a.id ?? ''),
+            title: String(a.title ?? ''),
+            artist: String(a.artist ?? ''),
+            cover: typeof a.cover === 'string' ? a.cover : undefined,
+            year: typeof a.year === 'string' ? a.year : undefined,
+            trackCount: typeof a.trackCount === 'number' ? a.trackCount : undefined,
+          }));
+          setCatalogBundle({
+            tracks,
+            albums,
+            artists: data.artists || [],
+            playlists: data.playlists || [],
+            podcasts: data.podcasts || [],
+          });
+        } catch {
+          if (!ac.signal.aborted) setCatalogBundle(null);
+        } finally {
+          if (!ac.signal.aborted) setCatalogLoading(false);
+        }
+      })();
+    }, 400);
+    return () => {
+      ac.abort();
+      clearTimeout(t);
+    };
+  }, [query, hasSearched, catalogProvider, appleStorefront]);
+
+  const trackListResults = useMemo(() => {
     if (!hasSearched || !query.trim()) return [];
     if (addonSearchId) return addonResults;
-    return localLibraryResults;
-  }, [hasSearched, query, addonSearchId, addonResults, localLibraryResults]);
+    return catalogBundle?.tracks?.length ? catalogBundle.tracks : localLibraryResults;
+  }, [hasSearched, query, addonSearchId, addonResults, catalogBundle, localLibraryResults]);
 
   const showAddonSearching = isSearching && hasSearched && Boolean(addonSearchId);
+  const showCatalogBlocking = catalogLoading && !catalogBundle && !addonSearchId;
   const showBlockingLoader =
-    allResults.length === 0 && hasSearched && showAddonSearching;
+    (addonSearchId && showAddonSearching && trackListResults.length === 0) || showCatalogBlocking;
+
+  const catalogCount =
+    (catalogBundle?.tracks.length ?? 0) +
+    (catalogBundle?.albums.length ?? 0) +
+    (catalogBundle?.artists.length ?? 0) +
+    (catalogBundle?.playlists.length ?? 0) +
+    (catalogBundle?.podcasts.length ?? 0);
+
   const showNoResults =
-    hasSearched && !isSearching && allResults.length === 0 && query.trim();
+    hasSearched &&
+    query.trim() &&
+    !catalogLoading &&
+    !(addonSearchId && isSearching) &&
+    trackListResults.length === 0 &&
+    catalogCount === 0;
 
   const searchSourceLabel = useMemo(() => {
     if (addonSearchId) {
@@ -159,6 +262,7 @@ export default function SearchView() {
   }, [addonSearchId, enabledAddons]);
 
   const openBrowseHub = async (tile: (typeof SEARCH_CATEGORY_TILES)[number]) => {
+    setCatalogHub(null);
     setBrowseHub({
       id: tile.id,
       label: tile.label,
@@ -179,70 +283,128 @@ export default function SearchView() {
       const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
       const rows = data.tracks || [];
       setBrowseHub((h) =>
-        h
-          ? { ...h, tracks: rows.map((x) => mapMetadataSearchTrack(x)), loading: false }
-          : null
+        h ? { ...h, tracks: rows.map((x) => mapMetadataSearchTrack(x)), loading: false } : null
       );
     } catch {
       setBrowseHub((h) => (h ? { ...h, tracks: [], loading: false } : null));
     }
   };
 
-  const artistResults = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; image?: string }>();
-    allResults.forEach((t) => {
-      const k = t.artistId || t.artist;
-      if (!map.has(k)) {
-        map.set(k, { id: k, name: t.artist, image: t.albumCover });
+  const openCatalogTracksHub = async (opts: {
+    kind: 'playlist' | 'album' | 'artist';
+    title: string;
+    subtitle?: string;
+    id?: string;
+    artistName?: string;
+  }) => {
+    setBrowseHub(null);
+    setCatalogHub({ kind: opts.kind, title: opts.title, subtitle: opts.subtitle, tracks: [], loading: true });
+    try {
+      let tracks: Track[] = [];
+      if (opts.kind === 'artist' && opts.artistName) {
+        const res = await fetch(
+          metadataSearchUrl({
+            q: opts.artistName,
+            provider: catalogProvider,
+            limit: 60,
+            appleCountry: appleStorefront,
+          })
+        );
+        const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
+        tracks = (data.tracks || []).map((x) => mapMetadataSearchTrack(x));
+      } else if (opts.id) {
+        const params = new URLSearchParams({ id: opts.id, provider: catalogProvider });
+        if (catalogProvider === 'apple') params.set('country', appleStorefront);
+        else params.set('market', appleStorefront);
+        const res = await fetch(`/api/metadata/playlist-items?${params}`);
+        const data = (await res.json()) as { tracks?: Record<string, unknown>[] };
+        tracks = (data.tracks || []).map((x) => mapMetadataSearchTrack(x));
       }
-    });
-    return Array.from(map.values());
-  }, [allResults]);
+      setCatalogHub((h) => (h ? { ...h, tracks, loading: false } : null));
+    } catch {
+      setCatalogHub((h) => (h ? { ...h, tracks: [], loading: false } : null));
+    }
+  };
+
+  const tabTriggerClass =
+    'rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/45 data-[state=active]:text-white pb-2 px-0 text-sm font-medium';
+
+  const hubBack = () => {
+    if (catalogHub) setCatalogHub(null);
+    else setBrowseHub(null);
+  };
+
+  const renderHub = (
+    title: string,
+    subtitle: string | undefined,
+    tracks: Track[],
+    loading: boolean,
+    sourceNote: string,
+    onBack: () => void
+  ) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white"
+          aria-label="Back"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight truncate">{title}</h1>
+          {subtitle && <p className="text-sm text-white/50 truncate">{subtitle}</p>}
+          <p className="text-[11px] text-white/40 mt-0.5">{sourceNote}</p>
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-3 py-16 justify-center text-white/60">
+          <Loader2 size={22} className="animate-spin" />
+          <span className="text-sm">Loading…</span>
+        </div>
+      ) : tracks.length === 0 ? (
+        <p className="text-sm text-white/50 py-12 text-center">Nothing to play here.</p>
+      ) : (
+        <>
+          <Button
+            size="sm"
+            className="rounded-full bg-white text-black hover:bg-white/90"
+            onClick={() => {
+              play(tracks[0], tracks, 0);
+              tracks.forEach((t) => addRecentlyPlayed(t));
+            }}
+          >
+            <Play size={16} fill="currentColor" className="mr-1.5" />
+            Play all ({tracks.length})
+          </Button>
+          <TrackList tracks={tracks} showAlbumArt showIndex />
+        </>
+      )}
+    </div>
+  );
 
   return (
     <ScrollArea className="h-full custom-scrollbar bg-black">
       <div className="p-4 md:p-6 space-y-5 pb-32 text-white">
-        {browseHub ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setBrowseHub(null)}
-                className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white"
-                aria-label="Back"
-              >
-                <ChevronLeft size={22} />
-              </button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold tracking-tight truncate">{browseHub.label}</h1>
-                {browseHub.subtitle && <p className="text-sm text-white/50 truncate">{browseHub.subtitle}</p>}
-                <p className="text-[11px] text-white/40 mt-0.5">From Spotify (Settings → Metadata)</p>
-              </div>
-            </div>
-            {browseHub.loading ? (
-              <div className="flex items-center gap-3 py-16 justify-center text-white/60">
-                <Loader2 size={22} className="animate-spin" />
-                <span className="text-sm">Loading…</span>
-              </div>
-            ) : browseHub.tracks.length === 0 ? (
-              <p className="text-sm text-white/50 py-12 text-center">No tracks for this category.</p>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  className="rounded-full bg-white text-black hover:bg-white/90"
-                  onClick={() => {
-                    play(browseHub.tracks[0], browseHub.tracks, 0);
-                    browseHub.tracks.forEach((t) => addRecentlyPlayed(t));
-                  }}
-                >
-                  <Play size={16} fill="currentColor" className="mr-1.5" />
-                  Play all ({browseHub.tracks.length})
-                </Button>
-                <TrackList tracks={browseHub.tracks} showAlbumArt showIndex />
-              </>
-            )}
-          </div>
+        {catalogHub ? (
+          renderHub(
+            catalogHub.title,
+            catalogHub.subtitle,
+            catalogHub.tracks,
+            catalogHub.loading,
+            `${catalogLabel} • ${catalogHub.kind === 'artist' ? 'Top results' : 'Track list'}`,
+            () => setCatalogHub(null)
+          )
+        ) : browseHub ? (
+          renderHub(
+            browseHub.label,
+            browseHub.subtitle,
+            browseHub.tracks,
+            browseHub.loading,
+            `${catalogLabel} (Settings → Metadata provider)`,
+            () => setBrowseHub(null)
+          )
         ) : (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -305,7 +467,9 @@ export default function SearchView() {
               <Input
                 type="text"
                 placeholder={
-                  addonSearchId ? `Search ${searchSourceLabel}…` : 'Search songs in your library…'
+                  addonSearchId
+                    ? `Search ${searchSourceLabel}…`
+                    : `Search ${catalogLabel} and your library…`
                 }
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
@@ -322,6 +486,7 @@ export default function SearchView() {
                     handleQueryChange('');
                     setAddonResults([]);
                     setHasSearched(false);
+                    setCatalogBundle(null);
                     if (addonError) clearError();
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15"
@@ -336,8 +501,8 @@ export default function SearchView() {
                 <WifiOff size={20} className="text-white/50 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white/70">
-                    No search modules installed. Search matches tracks from the built-in demo library, or install a
-                    search module in Connections.
+                    No search modules installed. Tracks below use {catalogLabel} (Settings → Metadata provider) or
+                    the demo library.
                   </p>
                   <Button
                     className="mt-3 h-9 rounded-full bg-white text-black hover:bg-white/90 text-xs font-semibold"
@@ -395,26 +560,40 @@ export default function SearchView() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="space-y-6"
+                  className="space-y-4"
                 >
-                  <Tabs defaultValue="tracks" className="w-full">
-                    <TabsList className="bg-transparent border-b border-white/10 rounded-none h-auto p-0 w-full justify-start gap-6">
-                      <TabsTrigger
-                        value="tracks"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-white data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/50 data-[state=active]:text-white pb-2 px-0"
-                      >
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                      Search results for &quot;{query.trim() || '…'}&quot;
+                    </h2>
+                    <p className="text-xs text-white/40 mt-1">
+                      {addonSearchId
+                        ? `Tracks from your module • ${catalogLabel} for other tabs`
+                        : `${catalogLabel} catalog • storefront ${appleStorefront}`}
+                    </p>
+                  </div>
+
+                  <Tabs value={catalogTab} onValueChange={setCatalogTab} className="w-full">
+                    <TabsList className="bg-transparent border-b border-white/10 rounded-none h-auto p-0 w-full justify-start gap-5 overflow-x-auto flex-nowrap">
+                      <TabsTrigger value="tracks" className={tabTriggerClass}>
                         Tracks
                       </TabsTrigger>
-                      <TabsTrigger
-                        value="artists"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-white data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/50 data-[state=active]:text-white pb-2 px-0"
-                      >
+                      <TabsTrigger value="albums" className={tabTriggerClass}>
+                        Albums
+                      </TabsTrigger>
+                      <TabsTrigger value="artists" className={tabTriggerClass}>
                         Artists
+                      </TabsTrigger>
+                      <TabsTrigger value="playlists" className={tabTriggerClass}>
+                        Playlists
+                      </TabsTrigger>
+                      <TabsTrigger value="podcasts" className={tabTriggerClass}>
+                        Podcasts
                       </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="tracks" className="mt-4">
-                      {hasSearched && addonSearchId && !isSearching && addonResults.length > 0 && (
+                      {addonSearchId && hasSearched && !isSearching && addonResults.length > 0 && (
                         <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
                           <Wifi size={12} className="text-emerald-400" />
                           <span>
@@ -422,15 +601,20 @@ export default function SearchView() {
                           </span>
                         </div>
                       )}
-                      {hasSearched &&
-                        !isSearching &&
-                        !addonSearchId &&
-                        localLibraryResults.length > 0 && (
-                          <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
-                            <span className="inline-flex size-2 rounded-full bg-emerald-400" />
-                            <span>Demo library matches</span>
-                          </div>
-                        )}
+                      {!addonSearchId && catalogBundle && (
+                        <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
+                          <span className="inline-flex size-2 rounded-full bg-emerald-400" />
+                          <span>
+                            {catalogBundle.tracks.length} from {catalogLabel}
+                          </span>
+                        </div>
+                      )}
+                      {hasSearched && !addonSearchId && localLibraryResults.length > 0 && !catalogBundle?.tracks.length && (
+                        <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
+                          <span className="inline-flex size-2 rounded-full bg-amber-400" />
+                          <span>Demo library</span>
+                        </div>
+                      )}
 
                       {showBlockingLoader && (
                         <div className="flex items-center gap-3 py-8 justify-center">
@@ -439,73 +623,161 @@ export default function SearchView() {
                         </div>
                       )}
 
-                      {!showBlockingLoader && allResults.length > 0 && (
+                      {!showBlockingLoader && trackListResults.length > 0 && (
                         <div className="flex items-center gap-4 mb-4">
-                          <h2 className="text-xl font-bold">Songs</h2>
+                          <h3 className="text-lg font-bold">Songs</h3>
                           <Button
                             size="sm"
                             onClick={() => {
-                              play(allResults[0], allResults, 0);
-                              allResults.forEach((t) => addRecentlyPlayed(t));
+                              play(trackListResults[0], trackListResults, 0);
+                              trackListResults.forEach((t) => addRecentlyPlayed(t));
                             }}
                             className="w-9 h-9 rounded-full bg-white hover:bg-white/90 text-black p-0"
                           >
                             <Play size={16} fill="currentColor" className="ml-0.5" />
                           </Button>
-                          <span className="text-sm text-white/50">{allResults.length} results</span>
+                          <span className="text-sm text-white/50">{trackListResults.length} results</span>
                         </div>
                       )}
 
-                      {!showBlockingLoader && allResults.length > 0 && (
-                        <TrackList tracks={allResults} showAlbumArt showIndex />
+                      {!showBlockingLoader && trackListResults.length > 0 && (
+                        <TrackList tracks={trackListResults} showAlbumArt showIndex />
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="albums" className="mt-4">
+                      {catalogLoading && !catalogBundle ? (
+                        <div className="flex justify-center py-12">
+                          <Loader2 className="animate-spin text-white/60" size={22} />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                          {(catalogBundle?.albums || []).map((album) => (
+                            <button
+                              key={album.id}
+                              type="button"
+                              className="text-left group"
+                              onClick={() =>
+                                void openCatalogTracksHub({
+                                  kind: 'album',
+                                  title: album.title,
+                                  subtitle: `${album.artist}${album.year ? ` • ${album.year}` : ''}`,
+                                  id: album.id,
+                                })
+                              }
+                            >
+                              <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10 shadow-lg">
+                                {album.cover ? (
+                                  <img src={album.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                ) : null}
+                              </div>
+                              <p className="mt-2 text-sm font-semibold line-clamp-2 group-hover:text-red-400 transition-colors">
+                                {album.title}
+                              </p>
+                              <p className="text-xs text-white/45 line-clamp-1">
+                                {album.artist}
+                                {album.year ? ` • ${album.year}` : ''}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </TabsContent>
 
                     <TabsContent value="artists" className="mt-4">
-                      {!showBlockingLoader && artistResults.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                          {artistResults.map((artist) => (
-                            <div
-                              key={artist.id}
-                              role="button"
-                              tabIndex={0}
-                              className="flex flex-col items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors"
-                              onClick={() => {
-                                const artistTracks = allResults.filter(
-                                  (t) => t.artistId === artist.id || t.artist === artist.name
-                                );
-                                if (artistTracks.length > 0) play(artistTracks[0], artistTracks, 0);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  const artistTracks = allResults.filter(
-                                    (t) => t.artistId === artist.id || t.artist === artist.name
-                                  );
-                                  if (artistTracks.length > 0) play(artistTracks[0], artistTracks, 0);
-                                }
-                              }}
-                            >
-                              <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-white/10 shadow-lg shadow-black/40">
-                                {artist.image ? (
-                                  <img
-                                    src={artist.image}
-                                    alt={artist.name}
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <span className="text-2xl font-bold text-white/40">{artist.name.charAt(0)}</span>
-                                  </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {(catalogBundle?.artists || []).map((artist) => (
+                          <button
+                            key={artist.id}
+                            type="button"
+                            className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/10 hover:bg-white/5 text-left min-w-0"
+                            onClick={() =>
+                              void openCatalogTracksHub({
+                                kind: 'artist',
+                                title: artist.name,
+                                subtitle: 'Top tracks',
+                                artistName: artist.name,
+                              })
+                            }
+                          >
+                            <div className="w-14 h-14 rounded-full overflow-hidden bg-white/10 shrink-0">
+                              {artist.image ? (
+                                <img src={artist.image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white/35">
+                                  {artist.name.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-sm font-medium truncate">{artist.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="playlists" className="mt-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {(catalogBundle?.playlists || []).map((pl) => (
+                          <button
+                            key={pl.id}
+                            type="button"
+                            className="text-left group"
+                            onClick={() =>
+                              void openCatalogTracksHub({
+                                kind: 'playlist',
+                                title: pl.name,
+                                subtitle: pl.description,
+                                id: pl.id,
+                              })
+                            }
+                          >
+                            <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10">
+                              {pl.cover ? (
+                                <img src={pl.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                              ) : null}
+                            </div>
+                            <p className="mt-2 text-sm font-semibold line-clamp-2">{pl.name}</p>
+                            <p className="text-xs text-white/45">
+                              {typeof pl.trackCount === 'number' ? `${pl.trackCount} tracks` : pl.description || ''}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="podcasts" className="mt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(catalogBundle?.podcasts || []).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="text-left rounded-2xl border border-white/10 bg-[#141414] p-4 hover:bg-white/5 transition-colors"
+                            onClick={() => {
+                              if (p.externalUrl) {
+                                window.open(p.externalUrl, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            <div className="flex gap-3">
+                              <div className="w-20 h-20 rounded-lg overflow-hidden bg-white/10 shrink-0">
+                                {p.cover ? (
+                                  <img src={p.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold line-clamp-2">{p.title}</p>
+                                <p className="text-xs text-white/45 mt-1 line-clamp-1">{p.author}</p>
+                                {typeof p.episodeCount === 'number' && (
+                                  <p className="text-[11px] text-white/35 mt-2">{p.episodeCount} episodes</p>
                                 )}
                               </div>
-                              <span className="text-sm font-medium text-center">{artist.name}</span>
-                              <span className="text-xs text-white/45">Artist</span>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            {p.description ? (
+                              <p className="text-xs text-white/40 mt-3 line-clamp-3">{p.description}</p>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </motion.div>
@@ -515,7 +787,9 @@ export default function SearchView() {
             {showNoResults && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
                 <p className="text-xl font-bold mb-2">No results found for &quot;{query}&quot;</p>
-                <p className="text-sm text-white/50">Try another keyword, or connect a search module in Connections.</p>
+                <p className="text-sm text-white/50">
+                  Try another keyword, switch metadata provider in Settings, or connect a search module.
+                </p>
               </motion.div>
             )}
           </>
