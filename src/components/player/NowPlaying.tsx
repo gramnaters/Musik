@@ -21,7 +21,7 @@ import {
   Heart, ListMusic, ChevronDown, Download,
   MoreHorizontal, Star, Sparkles,
 } from 'lucide-react';
-import { downloadCurrentTrack } from '@/lib/download-track';
+import { useDownloadStore } from '@/stores/downloadStore';
 import { seekbarWrapperClass } from '@/lib/seekbar-styles';
 import { PlaybackSeekSlider } from '@/components/player/PlaybackSeekSlider';
 import {
@@ -32,12 +32,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
+import LyricsView from './LyricsView';
 
 export default function NowPlaying() {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
   const [isHovering, setIsHovering] = useState(false);
-  /** Subtle CSS motion on cover — not Spotify Canvas (that URL isn’t in Web API). */
+  const [view, setView] = useState<'artwork' | 'lyrics'>('artwork');
   const [spotifyLivingArt, setSpotifyLivingArt] = useState(true);
   const tidalAlbumRef = useRef<HTMLDivElement>(null);
 
@@ -166,31 +167,46 @@ export default function NowPlaying() {
                   </button>
                 </div>
 
-                 {/* Album Art — Apple Music web: flat hero art (3D reserved for Tidal) */}
-                 <div className="flex-1 flex items-center justify-center py-4">
-                   <motion.div
-                     key={currentTrack.id}
-                     initial={{ opacity: 0, scale: 0.98 }}
-                     animate={{ opacity: 1, scale: 1 }}
-                     transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-                     className="relative w-full max-w-[min(80vw,400px)] aspect-square rounded-[10px] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
-                   >
-                     {currentTrack.albumCover ? (
-                       <img
-                         src={currentTrack.albumCover}
-                         alt={currentTrack.album}
-                         className="w-full h-full object-cover"
-                       />
+                 {/* Content Area */}
+                 <div className="flex-1 flex items-center justify-center py-4 overflow-hidden">
+                   <AnimatePresence mode="wait">
+                     {view === 'artwork' ? (
+                       <motion.div
+                         key="artwork"
+                         initial={{ opacity: 0, scale: 0.98 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.95 }}
+                         transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+                         className="relative w-full max-w-[min(80vw,400px)] aspect-square rounded-[10px] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
+                       >
+                         {currentTrack.albumCover ? (
+                           <img
+                             src={currentTrack.albumCover}
+                             alt={currentTrack.album}
+                             className="w-full h-full object-cover"
+                           />
+                         ) : (
+                           <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                             <svg className="w-24 h-24 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                               <path d="M9 18V5l12-2v13" />
+                               <circle cx="6" cy="18" r="3" />
+                               <circle cx="18" cy="16" r="3" />
+                             </svg>
+                           </div>
+                         )}
+                       </motion.div>
                      ) : (
-                       <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                         <svg className="w-24 h-24 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                           <path d="M9 18V5l12-2v13" />
-                           <circle cx="6" cy="18" r="3" />
-                           <circle cx="18" cy="16" r="3" />
-                         </svg>
-                       </div>
+                       <motion.div
+                         key="lyrics"
+                         initial={{ opacity: 0, y: 20 }}
+                         animate={{ opacity: 1, y: 0 }}
+                         exit={{ opacity: 0, y: -20 }}
+                         className="w-full h-full"
+                       >
+                         <LyricsView />
+                       </motion.div>
                      )}
-                   </motion.div>
+                   </AnimatePresence>
                  </div>
 
                 {/* Track info — Apple Music web: title row + star / more; subtitle line */}
@@ -208,7 +224,13 @@ export default function NowPlaying() {
                       {qualityBadge && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wide bg-black/80 text-white border border-white/20 leading-none cursor-default">
+                            <span className={cn(
+                              "shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wide border leading-none cursor-default",
+                              qualityBadge.label === 'HD' ? 'bg-[#E5D283] text-black border-[#E5D283] shadow-[0_0_8px_rgba(229,210,131,0.4)]' :
+                              qualityBadge.label === 'HIFI' ? 'bg-[#45b7d1] text-black border-[#45b7d1] shadow-[0_0_8px_rgba(69,183,209,0.4)]' :
+                              qualityBadge.label === 'HIGH' ? 'bg-white/15 text-white/90 border-white/25' :
+                              'bg-black/80 text-white border-white/20'
+                            )}>
                               {qualityBadge.label}
                             </span>
                           </TooltipTrigger>
@@ -243,7 +265,7 @@ export default function NowPlaying() {
                         <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-neutral-950 text-white">
                           <DropdownMenuItem
                             className="focus:bg-white/10"
-                            onClick={() => void downloadCurrentTrack(currentTrack)}
+                            onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
                           >
                             Download
                           </DropdownMenuItem>
@@ -346,7 +368,7 @@ export default function NowPlaying() {
                 <div className="flex items-center justify-center gap-10 px-1">
                   <button
                     type="button"
-                    onClick={() => void downloadCurrentTrack(currentTrack)}
+                    onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
                     className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
                     aria-label="Download"
                   >
@@ -441,7 +463,7 @@ export default function NowPlaying() {
                       <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-zinc-950 text-white">
                         <DropdownMenuItem
                           className="focus:bg-white/10"
-                          onClick={() => void downloadCurrentTrack(currentTrack)}
+                          onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
                         >
                           Download
                         </DropdownMenuItem>
@@ -466,54 +488,69 @@ export default function NowPlaying() {
                   </div>
                 </div>
 
-                {/* Album Art — Spotify: large, subtle shadow, 8px radius */}
-                <div className="flex items-center justify-center py-6 flex-1">
-                  <motion.div
-                    key={currentTrack.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className="w-full aspect-square max-w-[min(75vw,360px)] rounded-[8px] overflow-hidden"
-                    style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}
-                  >
-                    {currentTrack.albumCover ? (
+                {/* Content Area */}
+                <div className="flex items-center justify-center py-6 flex-1 overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    {view === 'artwork' ? (
                       <motion.div
-                        className="relative w-full h-full"
-                        animate={
-                          spotifyLivingArt && isPlaying
-                            ? { scale: [1, 1.035, 1] }
-                            : { scale: 1 }
-                        }
-                        transition={
-                          spotifyLivingArt && isPlaying
-                            ? { duration: 14, repeat: Infinity, ease: 'easeInOut' }
-                            : { duration: 0.3 }
-                        }
+                        key="artwork"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+                        className="w-full aspect-square max-w-[min(75vw,360px)] rounded-[8px] overflow-hidden"
+                        style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}
                       >
-                        <motion.img
-                          src={currentTrack.albumCover}
-                          alt={currentTrack.album || ''}
-                          className="w-full h-full object-cover"
-                          animate={
-                            spotifyLivingArt && isPlaying
-                              ? { scale: [1, 1.08, 1] }
-                              : { scale: 1 }
-                          }
-                          transition={
-                            spotifyLivingArt && isPlaying
-                              ? { duration: 18, repeat: Infinity, ease: 'easeInOut' }
-                              : { duration: 0.3 }
-                          }
-                        />
+                        {currentTrack.albumCover ? (
+                          <motion.div
+                            className="relative w-full h-full"
+                            animate={
+                              spotifyLivingArt && isPlaying
+                                ? { scale: [1, 1.035, 1] }
+                                : { scale: 1 }
+                            }
+                            transition={
+                              spotifyLivingArt && isPlaying
+                                ? { duration: 14, repeat: Infinity, ease: 'easeInOut' }
+                                : { duration: 0.3 }
+                            }
+                          >
+                            <motion.img
+                              src={currentTrack.albumCover}
+                              alt={currentTrack.album || ''}
+                              className="w-full h-full object-cover"
+                              animate={
+                                spotifyLivingArt && isPlaying
+                                  ? { scale: [1, 1.08, 1] }
+                                  : { scale: 1 }
+                              }
+                              transition={
+                                spotifyLivingArt && isPlaying
+                                  ? { duration: 18, repeat: Infinity, ease: 'easeInOut' }
+                                  : { duration: 0.3 }
+                              }
+                            />
+                          </motion.div>
+                        ) : (
+                          <div className="w-full h-full bg-[#282828] flex items-center justify-center">
+                            <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                            </svg>
+                          </div>
+                        )}
                       </motion.div>
                     ) : (
-                      <div className="w-full h-full bg-[#282828] flex items-center justify-center">
-                        <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                        </svg>
-                      </div>
+                      <motion.div
+                        key="lyrics"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="w-full h-full"
+                      >
+                        <LyricsView />
+                      </motion.div>
                     )}
-                  </motion.div>
+                  </AnimatePresence>
                 </div>
 
                 {/* Track info + heart — Spotify: left-aligned, heart right */}
@@ -590,13 +627,25 @@ export default function NowPlaying() {
 
                 {/* Bottom row — Spotify: devices left, queue right */}
                 <div className="flex items-center justify-between px-1">
-                  <button
-                    onClick={() => void downloadCurrentTrack(currentTrack)}
-                    className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors"
-                    aria-label="Download"
-                  >
-                    <Download size={18} />
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setView(view === 'artwork' ? 'lyrics' : 'artwork')}
+                      className={cn(
+                        "h-8 w-8 flex items-center justify-center transition-colors",
+                        view === 'lyrics' ? "text-[#1DB954]" : "text-white/50 hover:text-white/80"
+                      )}
+                      aria-label="Lyrics"
+                    >
+                      <Sparkles size={18} />
+                    </button>
+                    <button
+                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
+                      className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors"
+                      aria-label="Download"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
                   <button
                     onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
                     className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors"
@@ -657,61 +706,76 @@ export default function NowPlaying() {
                   </button>
                 </div>
 
-                {/* Album Art — Tidal: 3D tilt + shine on hover (web-style hero) */}
-                <div className="flex items-center justify-center flex-1 py-4">
-                  <motion.div
-                    key={currentTrack.id}
-                    initial={{ opacity: 0, scale: 0.94 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className="relative flex flex-col items-center"
-                  >
-                    <div
-                      ref={tidalAlbumRef}
-                      onMouseMove={handleTidalAlbumMove}
-                      onMouseEnter={handleTidalAlbumEnter}
-                      onMouseLeave={handleTidalAlbumLeave}
-                      className="relative cursor-pointer"
-                      style={{ perspective: '900px', transformStyle: 'preserve-3d' }}
-                    >
-                      <div
-                        className="relative w-full max-w-[min(88vw,520px)] aspect-square rounded-xl overflow-hidden"
-                        style={{
-                          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovering ? 1.03 : 1})`,
-                          transition: isHovering
-                            ? 'transform 0.08s ease-out, box-shadow 0.2s'
-                            : 'transform 0.55s cubic-bezier(0.23,1,0.32,1), box-shadow 0.45s',
-                          boxShadow: isHovering
-                            ? `${-tilt.y * 1.2}px ${tilt.x * 1.2}px 56px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12), 0 40px 90px rgba(0,0,0,0.65)`
-                            : '0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)',
-                          transformStyle: 'preserve-3d',
-                        }}
+                {/* Content Area */}
+                <div className="flex items-center justify-center flex-1 py-4 overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    {view === 'artwork' ? (
+                      <motion.div
+                        key="artwork"
+                        initial={{ opacity: 0, scale: 0.94 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
+                        className="relative flex flex-col items-center"
                       >
-                        {currentTrack.albumCover ? (
-                          <img src={currentTrack.albumCover} alt={currentTrack.album} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                            </svg>
+                        <div
+                          ref={tidalAlbumRef}
+                          onMouseMove={handleTidalAlbumMove}
+                          onMouseEnter={handleTidalAlbumEnter}
+                          onMouseLeave={handleTidalAlbumLeave}
+                          className="relative cursor-pointer"
+                          style={{ perspective: '900px', transformStyle: 'preserve-3d' }}
+                        >
+                          <div
+                            className="relative w-full max-w-[min(88vw,520px)] aspect-square rounded-xl overflow-hidden"
+                            style={{
+                              transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovering ? 1.03 : 1})`,
+                              transition: isHovering
+                                ? 'transform 0.08s ease-out, box-shadow 0.2s'
+                                : 'transform 0.55s cubic-bezier(0.23,1,0.32,1), box-shadow 0.45s',
+                              boxShadow: isHovering
+                                ? `${-tilt.y * 1.2}px ${tilt.x * 1.2}px 56px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12), 0 40px 90px rgba(0,0,0,0.65)`
+                                : '0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)',
+                              transformStyle: 'preserve-3d',
+                            }}
+                          >
+                            {currentTrack.albumCover ? (
+                              <img src={currentTrack.albumCover} alt={currentTrack.album} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                                <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                                </svg>
+                              </div>
+                            )}
+                            <div
+                              className="absolute inset-0 pointer-events-none"
+                              style={{
+                                background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,${shine.opacity}) 0%, rgba(255,255,255,0.04) 42%, transparent 72%)`,
+                                mixBlendMode: 'overlay',
+                              }}
+                            />
+                            <div
+                              className="absolute inset-0 pointer-events-none rounded-xl"
+                              style={{
+                                background: `linear-gradient(${128 + tilt.y * 3}deg, rgba(255,255,255,${isHovering ? 0.14 : 0.03}) 0%, transparent 42%, rgba(0,0,0,${isHovering ? 0.2 : 0.08}) 100%)`,
+                              }}
+                            />
                           </div>
-                        )}
-                        <div
-                          className="absolute inset-0 pointer-events-none"
-                          style={{
-                            background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,${shine.opacity}) 0%, rgba(255,255,255,0.04) 42%, transparent 72%)`,
-                            mixBlendMode: 'overlay',
-                          }}
-                        />
-                        <div
-                          className="absolute inset-0 pointer-events-none rounded-xl"
-                          style={{
-                            background: `linear-gradient(${128 + tilt.y * 3}deg, rgba(255,255,255,${isHovering ? 0.14 : 0.03}) 0%, transparent 42%, rgba(0,0,0,${isHovering ? 0.2 : 0.08}) 100%)`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="lyrics"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="w-full h-full"
+                      >
+                        <LyricsView />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Track info — Tidal: title left bold, heart right */}
@@ -729,7 +793,13 @@ export default function NowPlaying() {
                     {qualityBadge && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wide bg-cyan-500 text-black leading-none cursor-default">
+                          <span className={cn(
+                            "text-[9px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wide leading-none cursor-default border",
+                            qualityBadge.label === 'HD' ? 'bg-[#E5D283] text-black border-[#E5D283] shadow-[0_0_8px_rgba(229,210,131,0.4)]' :
+                            qualityBadge.label === 'HIFI' ? 'bg-[#45b7d1] text-black border-[#45b7d1] shadow-[0_0_8px_rgba(69,183,209,0.4)]' :
+                            qualityBadge.label === 'HIGH' ? 'bg-white/15 text-white/90 border-white/25' :
+                            'bg-cyan-500 text-black border-cyan-500'
+                          )}>
                             {qualityBadge.label}
                           </span>
                         </TooltipTrigger>
@@ -811,13 +881,25 @@ export default function NowPlaying() {
 
                 {/* Bottom extras */}
                 <div className="flex items-center justify-between px-1">
-                  <button
-                    onClick={() => void downloadCurrentTrack(currentTrack)}
-                    className="h-8 w-8 flex items-center justify-center text-white/35 hover:text-white/70 transition-colors"
-                    aria-label="Download"
-                  >
-                    <Download size={17} />
-                  </button>
+                  <div className="flex items-center gap-5">
+                    <button
+                      onClick={() => setView(view === 'artwork' ? 'lyrics' : 'artwork')}
+                      className={cn(
+                        "h-8 w-8 flex items-center justify-center transition-colors",
+                        view === 'lyrics' ? "text-cyan-400" : "text-white/35 hover:text-white/70"
+                      )}
+                      aria-label="Lyrics"
+                    >
+                      <Sparkles size={17} />
+                    </button>
+                    <button
+                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
+                      className="h-8 w-8 flex items-center justify-center text-white/35 hover:text-white/70 transition-colors"
+                      aria-label="Download"
+                    >
+                      <Download size={17} />
+                    </button>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -831,7 +913,7 @@ export default function NowPlaying() {
                     <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-zinc-950 text-white">
                       <DropdownMenuItem
                         className="focus:bg-white/10"
-                        onClick={() => void downloadCurrentTrack(currentTrack)}
+                        onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
                       >
                         Download
                       </DropdownMenuItem>

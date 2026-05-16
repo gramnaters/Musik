@@ -1,8 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-type Provider = 'spotify' | 'apple';
+import { initTidal, TidalClient } from '@/lib/tidal/client';
+
+type Provider = 'spotify' | 'apple' | 'tidal';
 
 let spotifyTokenCache: { token: string; expiresAtMs: number } | null = null;
+
+// Initialize Tidal client on the server
+const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim();
+const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim();
+if (tidalClientId && tidalClientSecret) {
+  try {
+    initTidal(tidalClientId, tidalClientSecret);
+  } catch (e) {
+    console.error('Tidal initialization failed:', e);
+  }
+}
+
+async function searchTidal(q: string, limit: number) {
+  try {
+    const client = TidalClient.getInstance();
+    const results = await client.search(q, limit);
+    return results;
+  } catch (e) {
+    console.error('Tidal search failed:', e);
+    return null;
+  }
+}
+
+function mapTidalTrack(item: any) {
+  return {
+    id: `tidal_${item.id}`,
+    title: String(item.title ?? ''),
+    artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+    album: String(item.album?.title ?? ''),
+    albumCover: item.album?.cover ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    duration: typeof item.duration === 'number' ? item.duration : 0,
+    source: 'tidal' as const,
+    explicit: Boolean(item.explicit),
+    audioQuality: item.audioQuality || 'LOSSLESS',
+  };
+}
+
+function mapTidalAlbum(item: any) {
+  return {
+    id: `tidal_album_${item.id}`,
+    title: String(item.title ?? ''),
+    artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    year: item.releaseDate?.slice(0, 4),
+    trackCount: item.numberOfTracks,
+    source: 'tidal' as const,
+    explicit: Boolean(item.explicit),
+  };
+}
+
+function mapTidalArtist(item: any) {
+  return {
+    id: `tidal_${item.id}`,
+    name: String(item.name ?? ''),
+    image: item.picture ? `https://resources.tidal.com/images/${item.picture.replace(/-/g, '/')}/640x640.jpg` : '',
+  };
+}
+
+function mapTidalPlaylist(item: any) {
+  return {
+    id: `tidal_pl_${item.id}`,
+    name: String(item.title ?? ''),
+    description: 'Tidal Playlist',
+    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    source: 'tidal' as const,
+  };
+}
 
 type TokenResult =
   | { ok: true; token: string }
@@ -176,15 +245,23 @@ function mapApplePodcast(item: Record<string, unknown>) {
 }
 
 async function searchApple(q: string, entity: string, limit: number, country: string) {
-  const cc = country.length === 2 ? country.toUpperCase() : 'US';
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=${limit}&country=${encodeURIComponent(cc)}`;
-  const res = await fetch(url, {
-    next: { revalidate: 0 },
-    headers: { Accept: 'application/json', 'User-Agent': 'MusikCatalog/1.0' },
-  });
-  if (!res.ok) throw new Error(`Apple search HTTP ${res.status}`);
-  const data = (await res.json()) as { results?: Record<string, unknown>[] };
-  return data.results || [];
+  try {
+    const cc = country.length === 2 ? country.toUpperCase() : 'US';
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=${limit}&country=${encodeURIComponent(cc)}`;
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      headers: { Accept: 'application/json', 'User-Agent': 'MusikCatalog/1.0' },
+    });
+    if (!res.ok) {
+      console.warn(`Apple search HTTP ${res.status} for ${entity}`);
+      return [];
+    }
+    const data = (await res.json()) as { results?: Record<string, unknown>[] };
+    return data.results || [];
+  } catch (e) {
+    console.error(`Apple search failed for ${entity}:`, e);
+    return [];
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -212,6 +289,23 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    if (provider === 'tidal') {
+      const tidalData = await searchTidal(q, per);
+      if (!tidalData) {
+        return NextResponse.json({ tracks: [], albums: [], artists: [], playlists: [], podcasts: [], error: 'tidal_failed' });
+      }
+
+      return NextResponse.json({
+        tracks: (tidalData.tracks?.items ?? []).map(mapTidalTrack),
+        albums: (tidalData.albums?.items ?? []).map(mapTidalAlbum),
+        artists: (tidalData.artists?.items ?? []).map(mapTidalArtist),
+        playlists: (tidalData.playlists?.items ?? []).map(mapTidalPlaylist),
+        podcasts: [],
+        provider: 'tidal',
+        country: 'US',
+      });
+    }
+
     if (provider === 'apple') {
       const [songRows, albumRows, artistRows, podcastRows] = await Promise.all([
         searchApple(q, 'song', appleCap, appleCountry),

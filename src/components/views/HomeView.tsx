@@ -3,1016 +3,496 @@
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useHomeLayoutStore } from '@/stores/homeLayoutStore';
 import { useAddonStore } from '@/stores/addonStore';
 import { useMetadataStore } from '@/stores/metadataStore';
-import { demoPlaylists, browseCategories, demoTracks } from '@/lib/demo-data';
-import { HOME_MOOD_MIXES, HOME_CATALOG_RAILS } from '@/lib/home-feed';
-import {
-  fetchHomeArtistsDual,
-  fetchHomeTracksDual,
-  enrichArtistImagesFromTrackSearch,
-  mergeArtistsDedupe,
-  mergeTracksDedupe,
-  filterTracksByArtistName,
-  type HomeArtist,
-} from '@/lib/home-catalog-fetch';
-import { fetchAddonArtistsMerged, fetchAddonArtistsFromTrackSearches, fetchAddonTracksFirstHit } from '@/lib/home-addon-feed';
-import { addonTrackToTrack } from '@/lib/addon-track-map';
-import { trackListenDedupeKey } from '@/lib/track-identity';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PlayButton from '@/components/shared/PlayButton';
 import TrackList from '@/components/shared/TrackList';
-import { motion } from 'framer-motion';
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import { ChevronRight, ChevronLeft, Loader2, MoreHorizontal } from 'lucide-react';
-import type { Track } from '@/types/music';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ChevronRight, ChevronLeft, Loader2, Play, Music, Disc, Users, ListMusic, Globe } from 'lucide-react';
+import type { Track, Album } from '@/types/music';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { downloadCurrentTrack } from '@/lib/download-track';
-import {
-  homeFeedCacheGet,
-  homeFeedCacheKey,
-  homeFeedCachePutFeed,
-  homeFeedCachePutRails,
-} from '@/lib/home-feed-cache';
+import { addonTrackToTrack } from '@/lib/addon-track-map';
+import { trackListenDedupeKey } from '@/lib/track-identity';
+import { toast } from '@/hooks/use-toast';
 
-/** Home row preview count; full list opens in the side hub via See all. */
-const RECENT_HOME_PREVIEW = 5;
+/** Monochrome Genres */
+const GENRES = [
+  { id: 'hip_hop', name: 'Hip-Hop' },
+  { id: 'rnb', name: 'R&B / Soul' },
+  { id: 'blues', name: 'Blues' },
+  { id: 'classical', name: 'Classical' },
+  { id: 'country', name: 'Country' },
+  { id: 'dance_electronic', name: 'Dance & Electronic' },
+  { id: 'americana', name: 'Folk / Americana' },
+  { id: 'world', name: 'Global' },
+  { id: 'gospel', name: 'Gospel / Christian' },
+  { id: 'jazz', name: 'Jazz' },
+  { id: 'kpop', name: 'K-Pop' },
+  { id: 'kids', name: 'Kids' },
+  { id: 'latin', name: 'Latin' },
+  { id: 'metal', name: 'Metal' },
+  { id: 'pop', name: 'Pop' },
+  { id: 'reggae', name: 'Reggae / Dancehall' },
+  { id: 'retro', name: 'Legacy' },
+  { id: 'indierock', name: 'Rock / Indie' },
+];
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
-/** Mobile: horizontal scroll. Desktop: auto-fill grid so rows span full width without a trailing gap. */
-const homeResponsiveRail =
-  'flex gap-4 pb-2 -mx-4 px-4 pr-7 md:-mx-8 md:px-8 md:pr-8 max-md:overflow-x-auto max-md:flex-nowrap max-md:custom-scrollbar-x md:grid md:overflow-x-visible md:[grid-template-columns:repeat(auto-fill,minmax(min(172px,100%),1fr))]';
-
-function AllInOneBadge() {
+function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-sky-500/35 bg-sky-950/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
-      All in one
-    </span>
-  );
-}
-
-function PlaylistCard({
-  playlist,
-  onClick,
-  playerTheme,
-}: {
-  playlist: (typeof demoPlaylists)[0];
-  onClick: () => void;
-  playerTheme: string;
-}) {
-  return (
-    <motion.div
-      whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-      className={cn(
-        'flex items-center rounded-xl overflow-hidden cursor-pointer group transition-colors border border-white/5',
-        playerTheme === 'tidal' ? 'bg-white/5 hover:bg-white/10' : 'bg-white/5 hover:bg-white/10'
-      )}
-      onClick={onClick}
-    >
-      <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
-        {playlist.cover ? (
-          <img src={playlist.cover} alt={playlist.name} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-white/10" />
-        )}
-      </div>
-      <div className="flex-1 px-3 py-2 min-w-0">
-        <p className="text-sm font-bold text-white truncate">{playlist.name}</p>
-        <p className="text-xs text-white/50 truncate hidden sm:block">
-          Playlist • {playlist.tracks?.length || 0} songs
-        </p>
-      </div>
-      <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <PlayButton size="sm" onClick={onClick} />
-      </div>
-    </motion.div>
-  );
-}
-
-function FreshDropCard({
-  title,
-  subtitle,
-  cover,
-  onClick,
-}: {
-  title: string;
-  subtitle?: string;
-  cover?: string;
-  onClick: () => void;
-}) {
-  return (
-    <motion.div
-      whileHover={{ y: -3 }}
-      className="max-md:flex-shrink-0 w-[min(42vw,168px)] md:min-w-0 md:w-full p-1.5 rounded-xl bg-transparent hover:bg-white/5 cursor-pointer group"
-      onClick={onClick}
-    >
-      <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-2.5 shadow-lg shadow-black/50 border border-white/5">
-        {cover ? (
-          <img src={cover} alt={title} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-white/10" />
-        )}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-          <PlayButton size="md" onClick={onClick} />
-        </div>
-      </div>
-      <p className="text-sm font-bold text-white truncate">{title}</p>
-      {subtitle && <p className="text-xs text-white/50 mt-0.5 truncate">{subtitle}</p>}
-    </motion.div>
-  );
-}
-
-function HomeTrackCardMenu({ track }: { track: Track }) {
-  const { play, addToQueue } = usePlayerStore();
-  const { toggleFavourite, isFavourite, playlists, addToPlaylist, removeFromRecentlyPlayed } = useLibraryStore();
-  const fav = isFavourite(track.id);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          className="absolute top-1 right-1 h-8 w-8 rounded-full bg-black/55 text-white border-0 hover:bg-black/75 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 z-10"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label="Track options"
-        >
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem onClick={() => play(track)}>Play</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => addToQueue(track)}>Add to queue</DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Add to playlist</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-56 overflow-y-auto custom-scrollbar">
-            {playlists.map((pl) => (
-              <DropdownMenuItem key={pl.id} onClick={() => addToPlaylist(pl.id, track)}>
-                {pl.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => toggleFavourite(track)}>
-          {fav ? 'Remove from Liked Songs' : 'Save to Liked Songs'}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => removeFromRecentlyPlayed(track.id)}>Remove from Recently played</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void downloadCurrentTrack(track)}>Download</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function HomeTrackCard({ track, playerTheme }: { track: Track; playerTheme: string }) {
-  const { play } = usePlayerStore();
-
-  return (
-    <motion.div
-      whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-      className={cn(
-        'relative flex items-center rounded-xl overflow-hidden cursor-pointer group transition-colors text-left border border-white/5',
-        playerTheme === 'tidal' ? 'bg-white/5 hover:bg-white/10' : 'bg-white/5 hover:bg-white/10'
-      )}
-      onClick={() => play(track)}
-    >
-      <HomeTrackCardMenu track={track} />
-      <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
-        {track.albumCover ? (
-          <img src={track.albumCover} alt={track.title} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-white/10" />
-        )}
-      </div>
-      <div className="flex-1 px-3 py-2 min-w-0">
-        <p className="text-sm font-bold text-white truncate">{track.title}</p>
-        <p className="text-xs text-white/50 truncate hidden sm:block">{track.artist}</p>
-      </div>
-      <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <PlayButton size="sm" onClick={() => play(track)} />
-      </div>
-    </motion.div>
-  );
-}
-
-function HomeRecentCard({ track }: { track: Track }) {
-  const { play } = usePlayerStore();
-
-  return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      className="relative max-md:flex-shrink-0 w-[min(45vw,180px)] md:min-w-0 md:w-full p-2 rounded-xl bg-transparent hover:bg-white/5 cursor-pointer group"
-      onClick={() => play(track)}
-    >
-      <HomeTrackCardMenu track={track} />
-      <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3 shadow-lg shadow-black/40 border border-white/5">
-        {track.albumCover ? (
-          <img src={track.albumCover} alt={track.title} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-white/10" />
-        )}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-          <PlayButton size="md" onClick={() => play(track)} />
-        </div>
-      </div>
-      <p className="text-sm font-bold text-white truncate">{track.title}</p>
-      <p className="text-xs text-white/50 mt-1 truncate">{track.artist}</p>
-    </motion.div>
-  );
-}
-
-function SectionHeader({
-  title,
-  subtitle,
-  badge,
-  onSeeAll,
-}: {
-  title: string;
-  subtitle?: string;
-  badge?: ReactNode;
-  onSeeAll?: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3 gap-2">
-      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">{title}</h2>
-          {badge}
-        </div>
-        {subtitle && <p className="text-xs text-white/45 truncate">{subtitle}</p>}
-      </div>
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="text-xl font-bold text-white tracking-tight">{title}</h2>
       {onSeeAll && (
         <button
-          type="button"
           onClick={onSeeAll}
-          className="text-xs font-semibold text-white/50 hover:text-white inline-flex items-center gap-1 shrink-0 self-start mt-1"
+          className="text-xs font-semibold text-white/50 hover:text-white transition-colors"
         >
-          See all <ChevronRight size={14} />
+          See all
         </button>
       )}
     </div>
   );
 }
 
-export default function HomeView() {
-  const { play } = usePlayerStore();
-  const { playlists, recentlyPlayed } = useLibraryStore();
-  const { setSelectedPlaylistId, setActiveView, playerTheme, setSearchQuery } = useUIStore();
-  const { addons, searchWithAddon, getPlaybackOrderedSearchAddonIds, playbackPriorityIds } = useAddonStore();
-  const catalogProvider = useMetadataStore((s) => s.catalogProvider);
-  const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
-  const catalogLabel =
-    catalogProvider === 'apple' ? 'Apple Music' : 'Spotify';
-  const {
-    showQuickPicks,
-    showDiscover,
-    showTopTen,
-    showRecentlyPlayed,
-    showRecommendedArtists,
-    showBrowseAll,
-  } = useHomeLayoutStore();
-
-  const orderedSearchAddonIds = useMemo(
-    () => getPlaybackOrderedSearchAddonIds(),
-    [addons, playbackPriorityIds, getPlaybackOrderedSearchAddonIds]
-  );
-
-  const browseAddonId = useMemo(
-    () => orderedSearchAddonIds[0] ?? null,
-    [orderedSearchAddonIds]
-  );
-
-  const [mounted, setMounted] = useState(false);
-  const [freshTracks, setFreshTracks] = useState<Track[]>([]);
-  const [popArtists, setPopArtists] = useState<{ id: string; name: string; image?: string }[]>([]);
-  const [featuredArtist, setFeaturedArtist] = useState<{ name: string; image?: string } | null>(null);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [moodLoadingId, setMoodLoadingId] = useState<string | null>(null);
-  const [hubOverlay, setHubOverlay] = useState<{
-    kind: 'genre' | 'mood' | 'fresh' | 'artist' | 'recent';
-    title: string;
-    subtitle?: string;
-    tracks: Track[];
-    loading: boolean;
-  } | null>(null);
-  const [catalogRails, setCatalogRails] = useState<Record<string, Track[]>>({});
-  const [catalogRailsLoading, setCatalogRailsLoading] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  const greeting = useMemo(() => {
-    if (!mounted) return 'Welcome';
-    return getGreeting();
-  }, [mounted]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const cacheKey = homeFeedCacheKey(browseAddonId, catalogProvider, appleStorefront);
-    const snap = homeFeedCacheGet(cacheKey);
-    if (snap?.feed) {
-      setFreshTracks(snap.feed.freshTracks);
-      setPopArtists(snap.feed.popArtists);
-      setFeaturedArtist(snap.feed.featuredArtist);
-      setFeedLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void (async () => {
-      setFeedLoading(true);
-      let feedSnapshot: {
-        freshTracks: Track[];
-        popArtists: { id: string; name: string; image?: string }[];
-        featuredArtist: { name: string; image?: string } | null;
-      } | null = null;
-
-      try {
-        if (browseAddonId) {
-          const primary = browseAddonId;
-          const orderedIds =
-            orderedSearchAddonIds.length > 0 ? orderedSearchAddonIds : [primary];
-
-          const rFresh = await searchWithAddon(primary, 'new music trending');
-          if (cancelled) return;
-          const addonFresh = rFresh.tracks.map(addonTrackToTrack);
-          const catalogFresh = await fetchHomeTracksDual(
-            'new music trending',
-            appleStorefront,
-            catalogProvider,
-            24
-          );
-          if (cancelled) return;
-          const mergedFresh = mergeTracksDedupe(addonFresh, catalogFresh, 16);
-          const freshTracks =
-            mergedFresh.length > 0 ? mergedFresh : addonFresh.slice(0, 16);
-          setFreshTracks(freshTracks);
-
-          const rPop = await searchWithAddon(primary, 'popular hits');
-          if (cancelled) return;
-
-          let fromPrimary: HomeArtist[] = [];
-          const listArtists = rPop.artists ?? [];
-          if (listArtists.length > 0) {
-            fromPrimary = listArtists.slice(0, 22).map((a) => ({
-              id: String(a.id ?? a.name),
-              name: a.name,
-              image: (a.image || a.artworkURL)?.trim() || undefined,
-            }));
-          } else {
-            const map = new Map<string, HomeArtist>();
-            (rPop.tracks || []).forEach((t) => {
-              const name = String(t.artist || '').trim();
-              if (!name) return;
-              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
-              if (!map.has(k)) {
-                map.set(k, {
-                  id: k,
-                  name,
-                  image: (t.artworkURL || t.cover)?.trim() || undefined,
-                });
-              }
-            });
-            fromPrimary = Array.from(map.values());
-          }
-
-          let addonMerged = await fetchAddonArtistsMerged(searchWithAddon, orderedIds, 22);
-          if (addonMerged.length < 10) {
-            addonMerged = mergeArtistsDedupe(
-              addonMerged,
-              await fetchAddonArtistsFromTrackSearches(searchWithAddon, orderedIds, 24),
-              26
-            );
-          }
-
-          let metaMerged = mergeArtistsDedupe(
-            await fetchHomeArtistsDual('pop artist', appleStorefront, catalogProvider, 14),
-            await fetchHomeArtistsDual('hip hop artist', appleStorefront, catalogProvider, 14),
-            20
-          );
-          metaMerged = await enrichArtistImagesFromTrackSearch(
-            metaMerged,
-            appleStorefront,
-            catalogProvider
-          );
-          if (cancelled) return;
-
-          let mergedAll = mergeArtistsDedupe(addonMerged, fromPrimary, 26);
-          mergedAll = mergeArtistsDedupe(mergedAll, metaMerged, 30);
-
-          const popArtists = mergedAll.slice(0, 14);
-          const featuredArtist = popArtists[0]
-            ? { name: popArtists[0].name, image: popArtists[0].image }
-            : null;
-
-          setPopArtists(popArtists);
-          setFeaturedArtist(featuredArtist);
-          feedSnapshot = { freshTracks, popArtists, featuredArtist };
-        } else {
-          const mergedFresh = await fetchHomeTracksDual(
-            'new music trending',
-            appleStorefront,
-            catalogProvider,
-            24
-          );
-          if (cancelled) return;
-          const freshTracks =
-            mergedFresh.length > 0 ? mergedFresh.slice(0, 16) : demoTracks.slice(0, 12);
-          setFreshTracks(freshTracks);
-
-          let mergedArtists = mergeArtistsDedupe(
-            await fetchHomeArtistsDual('pop artist', appleStorefront, catalogProvider, 14),
-            await fetchHomeArtistsDual('hip hop artist', appleStorefront, catalogProvider, 14),
-            18
-          );
-          mergedArtists = mergeArtistsDedupe(
-            mergedArtists,
-            await fetchHomeArtistsDual('popular music artists', appleStorefront, catalogProvider, 18),
-            24
-          );
-          mergedArtists = await enrichArtistImagesFromTrackSearch(
-            mergedArtists,
-            appleStorefront,
-            catalogProvider
-          );
-          if (cancelled) return;
-
-          let popArtists: { id: string; name: string; image?: string }[];
-          let featuredArtist: { name: string; image?: string } | null;
-
-          if (mergedArtists.length > 0) {
-            popArtists = mergedArtists.slice(0, 14);
-            featuredArtist = { name: popArtists[0]!.name, image: popArtists[0]!.image };
-          } else if (mergedFresh.length > 0) {
-            const map = new Map<string, { id: string; name: string; image?: string }>();
-            mergedFresh.forEach((t) => {
-              const name = String(t.artist || '').trim();
-              if (!name) return;
-              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
-              if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
-            });
-            popArtists = Array.from(map.values()).slice(0, 14);
-            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
-          } else {
-            const map = new Map<string, { id: string; name: string; image?: string }>();
-            demoTracks.forEach((t) => {
-              const name = String(t.artist || '').trim();
-              if (!name) return;
-              const k = String(t.artistId || '').trim() || `n:${name.toLowerCase()}`;
-              if (!map.has(k)) map.set(k, { id: k, name: t.artist, image: t.albumCover });
-            });
-            popArtists = Array.from(map.values()).slice(0, 14);
-            featuredArtist = popArtists[0] ? { name: popArtists[0].name, image: popArtists[0].image } : null;
-          }
-          setPopArtists(popArtists);
-          setFeaturedArtist(featuredArtist);
-          feedSnapshot = { freshTracks, popArtists, featuredArtist };
-        }
-      } finally {
-        if (!cancelled && feedSnapshot) {
-          homeFeedCachePutFeed(cacheKey, feedSnapshot);
-        }
-        if (!cancelled) setFeedLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [browseAddonId, orderedSearchAddonIds, searchWithAddon, catalogProvider, appleStorefront]);
-
-  const handlePlayPlaylist = (playlist: (typeof demoPlaylists)[0]) => {
-    if (playlist.tracks && playlist.tracks.length > 0) {
-      play(playlist.tracks[0], playlist.tracks, 0);
-    }
-  };
-
-  const handleOpenPlaylist = (id: string) => {
-    setSelectedPlaylistId(id);
-  };
-
-  useEffect(() => {
-    if (!showDiscover) {
-      setCatalogRails({});
-      setCatalogRailsLoading(false);
-      return;
-    }
-    const cacheKey = homeFeedCacheKey(browseAddonId, catalogProvider, appleStorefront);
-    const snap = homeFeedCacheGet(cacheKey);
-    if (snap?.rails) {
-      setCatalogRails(snap.rails);
-      setCatalogRailsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setCatalogRailsLoading(true);
-    void (async () => {
-      const next: Record<string, Track[]> = {};
-      await Promise.all(
-        HOME_CATALOG_RAILS.map(async (r) => {
-          try {
-            let rows = await fetchHomeTracksDual(
-              r.query,
-              appleStorefront,
-              catalogProvider,
-              16
-            );
-            if (orderedSearchAddonIds.length > 0) {
-              const addonRows = await fetchAddonTracksFirstHit(
-                searchWithAddon,
-                orderedSearchAddonIds,
-                r.query,
-                16
-              );
-              rows = mergeTracksDedupe(addonRows, rows, 16);
-            }
-            next[r.id] = rows;
-          } catch {
-            next[r.id] = [];
-          }
-        })
-      );
-      if (!cancelled) {
-        setCatalogRails(next);
-        setCatalogRailsLoading(false);
-        homeFeedCachePutRails(cacheKey, next);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    browseAddonId,
-    showDiscover,
-    catalogProvider,
-    appleStorefront,
-    orderedSearchAddonIds,
-    searchWithAddon,
-  ]);
-
-  const loadMood = useCallback(
-    async (m: (typeof HOME_MOOD_MIXES)[0]) => {
-      setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: true });
-      setMoodLoadingId(m.id);
-      try {
-        const catalog = await fetchHomeTracksDual(m.query, appleStorefront, catalogProvider, 60);
-        let tracks = catalog;
-        if (orderedSearchAddonIds.length > 0) {
-          const addonRows = await fetchAddonTracksFirstHit(
-            searchWithAddon,
-            orderedSearchAddonIds,
-            m.query,
-            60
-          );
-          tracks = mergeTracksDedupe(addonRows, catalog, 60);
-        }
-        setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks, loading: false });
-      } catch {
-        setHubOverlay({ kind: 'mood', title: m.label, subtitle: m.subtitle, tracks: [], loading: false });
-      } finally {
-        setMoodLoadingId(null);
-      }
-    },
-    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
-  );
-
-  const openGenreHub = useCallback(
-    async (cat: (typeof browseCategories)[number]) => {
-      setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks: [], loading: true });
-      try {
-        const catalog = await fetchHomeTracksDual(cat.hubQuery, appleStorefront, catalogProvider, 60);
-        let tracks = catalog;
-        if (orderedSearchAddonIds.length > 0) {
-          const addonRows = await fetchAddonTracksFirstHit(
-            searchWithAddon,
-            orderedSearchAddonIds,
-            cat.hubQuery,
-            60
-          );
-          tracks = mergeTracksDedupe(addonRows, catalog, 60);
-        }
-        setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks, loading: false });
-      } catch {
-        setHubOverlay({ kind: 'genre', title: cat.name, subtitle: cat.hubSubtitle, tracks: [], loading: false });
-      }
-    },
-    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
-  );
-
-  const openArtistHubByName = useCallback(
-    async (name: string) => {
-      const hubSub = `Spotify + Apple (${appleStorefront}) · modules first when available`;
-      setHubOverlay({
-        kind: 'artist',
-        title: name,
-        subtitle: hubSub,
-        tracks: [],
-        loading: true,
-      });
-      try {
-        const catalogQuery =
-          catalogProvider === 'spotify'
-            ? `artist:"${name.replace(/"/g, '')}"`
-            : `${name} songs`;
-        let catalogTracks = await fetchHomeTracksDual(
-          catalogQuery,
-          appleStorefront,
-          catalogProvider,
-          60
-        );
-        catalogTracks = filterTracksByArtistName(catalogTracks, name);
-        let tracks = catalogTracks;
-        if (orderedSearchAddonIds.length > 0) {
-          const addonRows = await fetchAddonTracksFirstHit(
-            searchWithAddon,
-            orderedSearchAddonIds,
-            `${name} top songs`,
-            60
-          );
-          const addonFiltered = filterTracksByArtistName(addonRows, name);
-          tracks = mergeTracksDedupe(addonFiltered, catalogTracks, 60);
-        }
-        setHubOverlay({
-          kind: 'artist',
-          title: name,
-          subtitle: hubSub,
-          tracks,
-          loading: false,
-        });
-      } catch {
-        setHubOverlay({
-          kind: 'artist',
-          title: name,
-          subtitle: hubSub,
-          tracks: [],
-          loading: false,
-        });
-      }
-    },
-    [searchWithAddon, catalogProvider, appleStorefront, orderedSearchAddonIds]
-  );
-
-  const openFeaturedArtistHub = useCallback(() => {
-    if (!featuredArtist) return;
-    void openArtistHubByName(featuredArtist.name);
-  }, [featuredArtist, openArtistHubByName]);
-
-  const quickAccess = useMemo(() => playlists.slice(0, 6), [playlists]);
-  const recentPlayedDeduped = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Track[] = [];
-    for (const t of recentlyPlayed) {
-      const k = trackListenDedupeKey(t);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(t);
-    }
-    return out;
-  }, [recentlyPlayed]);
-
-  const quickTracks = useMemo(() => recentPlayedDeduped.slice(0, 4), [recentPlayedDeduped]);
-
+function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black">
-      <ScrollArea
-        className={cn(
-          'h-full min-h-0 min-w-0 flex-1 custom-scrollbar bg-black',
-          hubOverlay && 'hidden'
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      {children}
+    </div>
+  );
+}
+
+function Card({ 
+  title, 
+  subtitle, 
+  image, 
+  onClick, 
+  type = 'album' 
+}: { 
+  title: string; 
+  subtitle?: string; 
+  image?: string; 
+  onClick: () => void;
+  type?: 'album' | 'playlist' | 'artist' | 'track';
+}) {
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className="group cursor-pointer"
+      onClick={onClick}
+    >
+      <div className={cn(
+        "relative aspect-square mb-3 overflow-hidden shadow-lg border border-white/5",
+        type === 'artist' ? "rounded-full" : "rounded-xl"
+      )}>
+        {image ? (
+          <img src={image} alt={title} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+            {type === 'artist' ? <Users className="text-white/20" size={32} /> : 
+             type === 'album' ? <Disc className="text-white/20" size={32} /> :
+             <Music className="text-white/20" size={32} />}
+          </div>
         )}
-      >
-        <div className="p-4 md:p-8 space-y-8 pb-32">
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white">Home</h1>
-            <p className="text-sm text-white/55">
-              {greeting} — Primary metadata: {catalogLabel} ({appleStorefront}
-              ). Discovery merges Spotify + Apple; when modules are connected, playable rows from
-              modules are listed first.
-            </p>
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <PlayButton size="md" onClick={onClick} />
+        </div>
+      </div>
+      <p className={cn(
+        "text-sm font-bold text-white truncate",
+        type === 'artist' && "text-center"
+      )}>{title}</p>
+      {subtitle && (
+        <p className={cn(
+          "text-xs text-white/50 truncate mt-0.5",
+          type === 'artist' && "text-center"
+        )}>{subtitle}</p>
+      )}
+    </motion.div>
+  );
+}
+
+export default function HomeView() {
+  const [activeTab, setActiveTab] = useState<'home' | 'explore'>('explore');
+  const [exploreData, setExploreData] = useState<any>(null);
+  const [exploreLoading, setExploreLoading] = useState(true);
+  const [genreHub, setGenreHub] = useState<{ id: string; name: string; data?: any; loading: boolean } | null>(null);
+  
+  const { play } = usePlayerStore();
+  const { recentlyPlayed, playlists: myPlaylists } = useLibraryStore();
+  const { playerTheme, setSelectedPlaylistId } = useUIStore();
+
+  const fetchExplore = useCallback(async () => {
+    setExploreLoading(true);
+    try {
+      const res = await fetch('/api/hot');
+      const data = await res.json();
+      setExploreData(data);
+    } catch (e) {
+      console.error('Failed to fetch explore data', e);
+    } finally {
+      setExploreLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'explore' && !exploreData) {
+      fetchExplore();
+    }
+  }, [activeTab, exploreData, fetchExplore]);
+
+  const loadGenre = async (id: string, name: string) => {
+    setGenreHub({ id, name, loading: true });
+    try {
+      const res = await fetch(`/api/explore/genre?id=${id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data || !data.sections) throw new Error('No data returned');
+      setGenreHub({ id, name, data, loading: false });
+    } catch (e) {
+      console.error('Failed to load genre', e);
+      toast({
+        title: 'Failed to load genre',
+        description: 'The music provider might be down. Please try again later.',
+        variant: 'destructive',
+      });
+      setGenreHub(null);
+    }
+  };
+
+  const getImageUrl = (item: any) => {
+    if (!item) return '';
+    const uuid = item.squareImage || item.image || item.picture || item.album?.cover || item.cover;
+    if (typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
+      return `https://resources.tidal.com/images/${uuid.replace(/-/g, '/')}/640x640.jpg`;
+    }
+    return item.artworkURL || (typeof uuid === 'string' ? uuid : '');
+  };
+
+  const mapItemToTrack = (item: any): Track => {
+    // If it's already a Track object, return it
+    if (item.source && item.id && !item.uuid) return item;
+    
+    return {
+      id: item.id || item.uuid,
+      title: item.title || item.name || 'Unknown Track',
+      artist: item.artist?.name || item.artists?.[0]?.name || item.artist || 'Unknown Artist',
+      album: item.album?.title || item.album || '',
+      albumCover: getImageUrl(item),
+      duration: item.duration || 0,
+      source: item.source || 'tidal',
+    };
+  };
+
+  const renderHome = () => {
+    const recentDeduped = recentlyPlayed.slice(0, 12);
+    
+    return (
+      <div className="space-y-10 animate-in fade-in duration-500">
+        {recentDeduped.length > 0 && (
+          <section>
+            <SectionHeader title="Recently Played" />
+            <Grid>
+              {recentDeduped.map((track) => (
+                <Card 
+                  key={trackListenDedupeKey(track)}
+                  title={track.title}
+                  subtitle={track.artist}
+                  image={track.albumCover}
+                  onClick={() => play(track)}
+                  type="track"
+                />
+              ))}
+            </Grid>
+          </section>
+        )}
+
+        {myPlaylists.length > 0 && (
+          <section>
+            <SectionHeader title="Your Playlists" />
+            <Grid>
+              {myPlaylists.map((pl) => (
+                <Card 
+                  key={pl.id}
+                  title={pl.name}
+                  subtitle={`${pl.tracks?.length || 0} tracks`}
+                  image={pl.cover}
+                  onClick={() => setSelectedPlaylistId(pl.id)}
+                  type="playlist"
+                />
+              ))}
+            </Grid>
+          </section>
+        )}
+
+        <section>
+          <SectionHeader title="Recommendations" />
+          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 rounded-3xl border border-white/5 group hover:border-white/10 transition-colors">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <ListMusic className="text-white/20" size={32} />
+            </div>
+            <p className="text-white font-semibold mb-1">Personalized Mixes</p>
+            <p className="text-white/40 text-sm max-w-xs text-center">Connect your accounts in Settings to see your daily mixes and picks.</p>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderExplore = () => {
+    if (genreHub) {
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="rounded-full bg-white/5 hover:bg-white/10 shrink-0"
+              onClick={() => setGenreHub(null)}
+            >
+              <ChevronLeft size={20} />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-bold truncate">{genreHub.name}</h1>
+              <p className="text-sm text-white/40">Genre Hub</p>
+            </div>
           </div>
 
-          {showRecentlyPlayed && recentPlayedDeduped.length > 0 && (
-            <section>
-              <SectionHeader
-                title="Recently played"
-                onSeeAll={
-                  recentPlayedDeduped.length > RECENT_HOME_PREVIEW
-                    ? () =>
-                        setHubOverlay({
-                          kind: 'recent',
-                          title: 'Recently played',
-                          subtitle: `${recentPlayedDeduped.length} tracks`,
-                          tracks: recentPlayedDeduped,
-                          loading: false,
-                        })
-                    : undefined
-                }
-              />
-              <div className={cn(homeResponsiveRail)}>
-                {recentPlayedDeduped.slice(0, RECENT_HOME_PREVIEW).map((track) => (
-                  <HomeRecentCard key={trackListenDedupeKey(track)} track={track} />
-                ))}
-              </div>
-            </section>
-          )}
-
-        {showQuickPicks && (
-          <section className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-            {quickAccess.map((playlist) => (
-              <PlaylistCard
-                key={playlist.id}
-                playlist={playlist}
-                onClick={() => {
-                  handlePlayPlaylist(playlist);
-                  handleOpenPlaylist(playlist.id);
-                }}
-                playerTheme={playerTheme}
-              />
-            ))}
-            {quickTracks.map((track) => (
-              <HomeTrackCard key={track.id} track={track} playerTheme={playerTheme} />
-            ))}
-          </section>
-        )}
-
-        {showTopTen && (
-          <section>
-            <SectionHeader
-              title="Fresh Drops"
-              badge={<AllInOneBadge />}
-              onSeeAll={() => {
-                if (freshTracks.length === 0) return;
-                setHubOverlay({
-                  kind: 'fresh',
-                  title: 'Fresh Drops',
-                  subtitle: 'From your latest home feed',
-                  tracks: freshTracks,
-                  loading: false,
-                });
-              }}
-            />
-            {feedLoading ? (
-              <div className="flex items-center gap-2 py-8 text-white/50 text-sm">
-                <Loader2 className="size-5 animate-spin" />
-                Loading picks…
-              </div>
-            ) : (
-              <div className={homeResponsiveRail}>
-                {freshTracks.map((t) => (
-                  <FreshDropCard
-                    key={t.id}
-                    title={t.title}
-                    subtitle={t.artist}
-                    cover={t.albumCover}
-                    onClick={() => play(t)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {showDiscover && (
-          <section className="space-y-6">
-            {HOME_CATALOG_RAILS.map((r) => {
-              const tracks = catalogRails[r.id] ?? [];
-              return (
-                <div key={r.id}>
-                  <SectionHeader title={r.title} subtitle={r.subtitle} />
-                  {catalogRailsLoading ? (
-                    <div className="flex items-center gap-2 py-6 text-white/45 text-sm">
-                      <Loader2 className="size-5 animate-spin" />
-                      Loading…
+          {genreHub.loading ? (
+            <div className="flex flex-col items-center justify-center py-32 space-y-4">
+              <Loader2 className="animate-spin text-white/20" size={40} />
+              <p className="text-white/20 text-sm font-medium">Curating tracks...</p>
+            </div>
+          ) : (
+            <div className="space-y-12">
+              {!genreHub.data?.sections?.length && (
+                <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 rounded-3xl border border-white/5">
+                  <Music className="text-white/10 mb-4" size={48} />
+                  <p className="text-white/50 font-medium">No content found for this genre</p>
+                  <Button variant="ghost" className="mt-4 text-white/40" onClick={() => loadGenre(genreHub.id, genreHub.name)}>
+                    Retry
+                  </Button>
+                </div>
+              )}
+              {genreHub.data?.sections?.map((section: any, idx: number) => (
+                <section key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[100ms]">
+                  <SectionHeader title={section.title} />
+                  {section.type === 'TRACK_LIST' ? (
+                    <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                      <TrackList 
+                        tracks={section.items.map(mapItemToTrack)} 
+                        showAlbumArt 
+                        showIndex 
+                      />
                     </div>
-                  ) : tracks.length === 0 ? (
-                    <p className="text-xs text-white/40 py-2">No results for this rail.</p>
                   ) : (
-                    <div className={homeResponsiveRail}>
-                      {tracks.map((t) => (
-                        <FreshDropCard
-                          key={`${r.id}-${t.id}`}
-                          title={t.title}
-                          subtitle={t.artist}
-                          cover={t.albumCover}
-                          onClick={() => play(t)}
+                    <Grid>
+                      {section.items.map((item: any, i: number) => (
+                        <Card
+                          key={i}
+                          title={item.title || item.name}
+                          subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
+                          image={getImageUrl(item)}
+                          onClick={() => {
+                            if (section.type === 'TRACK' || !section.type) {
+                              play(mapItemToTrack(item));
+                            } else {
+                              // Handle other types if needed
+                            }
+                          }}
+                          type={section.type === 'ARTIST' ? 'artist' : 'album'}
                         />
                       ))}
-                    </div>
+                    </Grid>
                   )}
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {showDiscover && (
-          <section>
-            <SectionHeader title="Mood Mixes" badge={<AllInOneBadge />} />
-            <div className={homeResponsiveRail}>
-              {HOME_MOOD_MIXES.map((m) => (
-                <motion.button
-                  key={m.id}
-                  type="button"
-                  whileHover={{ y: -2 }}
-                  disabled={moodLoadingId === m.id}
-                  className="relative max-md:flex-shrink-0 w-[min(64vw,320px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 disabled:opacity-60"
-                  style={{ background: m.gradient }}
-                  onClick={() => void loadMood(m)}
-                >
-                  <span className="absolute inset-0 bg-black/25" />
-                  {moodLoadingId === m.id && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <Loader2 className="size-7 animate-spin text-white" />
-                    </span>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                    <p className="text-lg font-bold text-white drop-shadow-md">{m.label}</p>
-                    <p className="text-xs text-white/80 mt-0.5">{m.subtitle}</p>
-                  </div>
-                </motion.button>
+                </section>
               ))}
             </div>
-          </section>
-        )}
+          )}
+        </div>
+      );
+    }
 
-        {showRecommendedArtists && (
-          <section>
-            <SectionHeader title="Popular Artists" badge={<AllInOneBadge />} />
-            <div className={homeResponsiveRail}>
-              {(popArtists.length > 0 ? popArtists : []).map((a) => (
-                <motion.button
-                  key={a.id}
-                  type="button"
-                  whileHover={{ y: -3 }}
-                  className="max-md:flex-shrink-0 w-[min(44vw,176px)] md:min-w-0 md:w-full p-2 rounded-2xl text-left bg-white/5 hover:bg-white/10 border border-white/10"
-                  onClick={() => void openArtistHubByName(a.name)}
-                >
-                  <div className="w-full aspect-square rounded-full overflow-hidden bg-white/10 shadow-lg mb-2.5 border border-white/10">
-                    {a.image ? (
-                      <img src={a.image} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl font-black text-white/35">
-                        {a.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-sm font-bold text-white truncate px-0.5">{a.name}</div>
-                  <div className="text-[11px] text-white/45 px-0.5">Artist</div>
-                </motion.button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {showBrowseAll && featuredArtist && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-2xl min-h-[180px] border border-white/10"
-          >
-            {featuredArtist.image ? (
-              <img
-                src={featuredArtist.image}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div
-                className="absolute inset-0 bg-gradient-to-br from-sky-900 via-violet-900 to-black"
-                aria-hidden
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/20" />
-            <div className="relative z-10 p-6 md:p-8 flex flex-col justify-end min-h-[180px]">
-              <span className="text-sky-400 text-xs font-semibold uppercase tracking-wide">Featured Artist</span>
-              <h2 className="text-3xl md:text-4xl font-black text-white mt-1">{featuredArtist.name}</h2>
+    return (
+      <div className="space-y-12 animate-in fade-in duration-700">
+        <section>
+          <SectionHeader title="Genres" />
+          <div className="flex flex-wrap gap-2">
+            {GENRES.map((g) => (
               <Button
-                type="button"
+                key={g.id}
                 variant="secondary"
-                className="mt-4 w-fit rounded-full bg-white text-black hover:bg-white/90"
-                onClick={() => openFeaturedArtistHub()}
+                className="bg-zinc-900/40 border border-white/5 hover:bg-zinc-800 hover:border-white/10 transition-all rounded-full h-10 px-5 text-sm font-semibold"
+                onClick={() => loadGenre(g.id, g.name)}
               >
-                Explore
+                {g.name}
               </Button>
-            </div>
-          </motion.section>
-        )}
-
-        {showBrowseAll && (
-          <section>
-            <SectionHeader
-              title="Browse all"
-              onSeeAll={() => {
-                setSearchQuery('');
-                setActiveView('search');
-              }}
-            />
-            <div className={homeResponsiveRail}>
-              {browseCategories.map((cat) => (
-                <motion.button
-                  key={cat.id}
-                  type="button"
-                  whileHover={{ y: -2 }}
-                  className="relative max-md:flex-shrink-0 w-[min(64vw,320px)] md:min-w-0 md:w-full aspect-[4/3] rounded-2xl overflow-hidden text-left border border-white/10 group"
-                  onClick={() => void openGenreHub(cat)}
-                >
-                  <img
-                    src={cat.coverImage}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <span className="absolute inset-0" style={{ backgroundColor: cat.color, opacity: 0.4 }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                    <h3 className="text-lg font-bold text-white drop-shadow-md leading-tight">{cat.name}</h3>
-                    {cat.hubSubtitle && (
-                      <p className="text-xs text-white/80 mt-0.5 line-clamp-2">{cat.hubSubtitle}</p>
-                    )}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </ScrollArea>
-
-    {hubOverlay && (
-      <div
-        className={cn(
-          'absolute inset-0 z-[70] flex min-h-0 flex-1 flex-col bg-[#050505] animate-in fade-in duration-200 border-0'
-        )}
-        role="dialog"
-        aria-modal
-        aria-labelledby="home-hub-title"
-      >
-        <header className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-white/10 shrink-0">
-          <button
-            type="button"
-            onClick={() => setHubOverlay(null)}
-            className="h-10 w-10 flex items-center justify-center rounded-full text-white hover:bg-white/10 shrink-0"
-            aria-label="Back"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h2 id="home-hub-title" className="text-lg font-bold text-white truncate">
-              {hubOverlay.title}
-            </h2>
-            {hubOverlay.subtitle && (
-              <p className="text-xs text-white/45 truncate mt-0.5">{hubOverlay.subtitle}</p>
-            )}
+            ))}
           </div>
-        </header>
-        <ScrollArea className="flex-1 min-h-0 custom-scrollbar">
-          <div className="p-4 pb-32 space-y-4">
-            {hubOverlay.loading ? (
-              <div className="flex items-center gap-2 py-16 text-white/50 text-sm justify-center">
-                <Loader2 className="size-6 animate-spin" />
-                Loading…
+        </section>
+
+        {exploreLoading ? (
+          <div className="space-y-12">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="space-y-6">
+                <div className="h-7 w-48 bg-zinc-900 rounded animate-pulse" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <div key={j} className="space-y-3">
+                      <div className="aspect-square bg-zinc-900 rounded-2xl animate-pulse" />
+                      <div className="h-4 w-3/4 bg-zinc-900 rounded animate-pulse" />
+                      <div className="h-3 w-1/2 bg-zinc-900 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : hubOverlay.tracks.length === 0 ? (
-              <p className="text-sm text-white/50 text-center py-12">No tracks found. Try another tile.</p>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="rounded-full bg-white text-black hover:bg-white/90"
-                  onClick={() => play(hubOverlay.tracks[0], hubOverlay.tracks, 0)}
-                >
-                  Play all ({hubOverlay.tracks.length})
-                </Button>
-                <TrackList tracks={hubOverlay.tracks.slice(0, 60)} showAlbumArt showIndex />
-              </>
-            )}
+            ))}
           </div>
-        </ScrollArea>
+        ) : !exploreData || (!exploreData.top_tracks?.length && !exploreData.top_albums?.length) ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-6 bg-zinc-900/20 rounded-3xl border border-dashed border-white/5">
+            <Globe className="text-white/10" size={48} />
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-white mb-2">Feed currently unavailable</h3>
+              <p className="text-white/40 text-sm max-w-xs">We couldn't load the trending music. Please check your connection.</p>
+            </div>
+            <Button variant="outline" className="rounded-full border-white/10 hover:bg-white/5" onClick={fetchExplore}>
+              Try Again
+            </Button>
+          </div>
+        ) : (
+          <>
+            {exploreData?.top_albums && (
+              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <SectionHeader title="Trending Albums" />
+                <Grid>
+                  {exploreData.top_albums.map((item: any) => (
+                    <Card 
+                      key={item.id}
+                      title={item.title}
+                      subtitle={item.artist?.name}
+                      image={getImageUrl(item)}
+                      onClick={() => {}}
+                    />
+                  ))}
+                </Grid>
+              </section>
+            )}
+
+            {exploreData?.top_tracks && (
+              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[100ms]">
+                <SectionHeader title="Trending Tracks" />
+                <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                  <TrackList 
+                    tracks={exploreData.top_tracks.map(mapItemToTrack)} 
+                    showAlbumArt 
+                    showIndex 
+                  />
+                </div>
+              </section>
+            )}
+
+            {exploreData?.featured_playlists && exploreData.featured_playlists.length > 0 && (
+              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[150ms]">
+                <SectionHeader title="Featured Playlists" />
+                <Grid>
+                  {exploreData.featured_playlists.map((item: any) => (
+                    <Card 
+                      key={item.uuid || item.id}
+                      title={item.title}
+                      subtitle={item.description || `${item.numberOfTracks || 0} tracks`}
+                      image={getImageUrl(item)}
+                      onClick={() => {}}
+                      type="playlist"
+                    />
+                  ))}
+                </Grid>
+              </section>
+            )}
+
+            {exploreData?.sections?.map((section: any, idx: number) => (
+              <section key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[200ms]">
+                <SectionHeader title={section.title} />
+                <Grid>
+                  {section.items.map((item: any, i: number) => (
+                    <Card 
+                      key={item.id || item.uuid || i}
+                      title={item.title || item.name}
+                      subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
+                      image={getImageUrl(item)}
+                      onClick={() => {
+                        if (section.type === 'TRACK') {
+                          play(mapItemToTrack(item));
+                        }
+                      }}
+                      type={section.type === 'ARTIST_LIST' ? 'artist' : 'album'}
+                    />
+                  ))}
+                </Grid>
+              </section>
+            ))}
+          </>
+        )}
       </div>
-    )}
+    );
+  };
+
+  return (
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black text-white">
+      {/* Fixed Header Tabs */}
+      <div className="flex items-center gap-10 px-10 py-8 border-b border-white/5 bg-black/80 backdrop-blur-xl z-20 sticky top-0">
+        <div className="relative">
+          <button
+            className={cn(
+              "text-3xl font-black tracking-tight transition-all duration-300",
+              activeTab === 'home' ? "text-white scale-100" : "text-white/20 hover:text-white/40 scale-95"
+            )}
+            onClick={() => setActiveTab('home')}
+          >
+            Home
+          </button>
+          {activeTab === 'home' && (
+            <motion.div 
+              layoutId="homeTabUnderline"
+              className="absolute -bottom-2 left-0 right-0 h-1.5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]" 
+            />
+          )}
+        </div>
+        <div className="relative">
+          <button
+            className={cn(
+              "text-3xl font-black tracking-tight transition-all duration-300",
+              activeTab === 'explore' ? "text-white scale-100" : "text-white/20 hover:text-white/40 scale-95"
+            )}
+            onClick={() => setActiveTab('explore')}
+          >
+            Explore
+          </button>
+          {activeTab === 'explore' && (
+            <motion.div 
+              layoutId="homeTabUnderline"
+              className="absolute -bottom-2 left-0 right-0 h-1.5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]" 
+            />
+          )}
+        </div>
+      </div>
+
+      <ScrollArea className="h-full custom-scrollbar">
+        <div className="p-8 pb-32">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: activeTab === 'explore' ? -20 : 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: activeTab === 'explore' ? 20 : -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {activeTab === 'home' ? renderHome() : renderExplore()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

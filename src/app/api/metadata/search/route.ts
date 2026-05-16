@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-type Provider = 'spotify' | 'apple';
+type Provider = 'spotify' | 'apple' | 'tidal';
 
 function appleArtworkUrl(item: Record<string, unknown>): string {
   const raw =
@@ -39,16 +39,24 @@ const ITUNES_UA =
   'Mozilla/5.0 (compatible; BeatBossPlayer/1.0; +https://example.invalid) AppleWebKit/537.36';
 
 async function searchApple(q: string, limit: number, country: string) {
-  const cc = country.length === 2 ? country.toUpperCase() : 'US';
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=${limit}&country=${encodeURIComponent(cc)}`;
-  const res = await fetch(url, {
-    next: { revalidate: 0 },
-    headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
-  });
-  if (!res.ok) throw new Error(`Apple search HTTP ${res.status}`);
-  const data = (await res.json()) as { results?: Record<string, unknown>[] };
-  const results = data.results || [];
-  return results.map(mapAppleTrack).filter((t) => t.title);
+  try {
+    const cc = country.length === 2 ? country.toUpperCase() : 'US';
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=${limit}&country=${encodeURIComponent(cc)}`;
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
+    });
+    if (!res.ok) {
+      console.warn(`Apple search HTTP ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as { results?: Record<string, unknown>[] };
+    const results = data.results || [];
+    return results.map(mapAppleTrack).filter((t) => t.title);
+  } catch (e) {
+    console.error('Apple search failed:', e);
+    return [];
+  }
 }
 
 type TokenResult =
@@ -124,8 +132,10 @@ async function searchSpotify(q: string, limit: number, market: string) {
   const token = tokenRes.token;
   const cap = Math.min(limit, 50);
   const m = market.trim() || 'US';
+  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${cap}&market=${encodeURIComponent(m)}`;
+  console.log('Spotify URL:', url, 'limit passed:', limit);
   const res = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${cap}&market=${encodeURIComponent(m)}`,
+    url,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -190,6 +200,72 @@ async function searchSpotifyArtists(q: string, limit: number, market: string) {
   return { artists, error: undefined as undefined, detail: undefined as undefined };
 }
 
+async function getTidalToken(): Promise<TokenResult> {
+  const id = process.env.TIDAL_CLIENT_ID?.trim();
+  const secret = process.env.TIDAL_CLIENT_SECRET?.trim();
+  if (!id || !secret) return { ok: false, error: 'missing_spotify_credentials' }; // Reuse error for simplicity or add missing_tidal
+  
+  const auth = Buffer.from(`${id}:${secret}`).toString('base64');
+  const res = await fetch('https://auth.tidal.com/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ grant_type: 'client_credentials' }),
+  });
+  if (!res.ok) return { ok: false, error: 'spotify_token_http', detail: `Tidal HTTP ${res.status}` };
+  const data = await res.json();
+  if (!data.access_token) return { ok: false, error: 'spotify_token_http', detail: 'No Tidal access_token' };
+  return { ok: true, token: data.access_token };
+}
+
+function mapTidalTrack(item: any) {
+  return {
+    id: `tidal_${item.id}`,
+    title: item.title,
+    artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
+    album: item.album?.title || '',
+    albumCover: item.album?.cover 
+      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` 
+      : '',
+    duration: item.duration || 0,
+    streamURL: undefined,
+    source: 'tidal' as const,
+    explicit: item.explicit === true,
+  };
+}
+
+async function searchTidal(q: string, limit: number) {
+  const tokenRes = await getTidalToken();
+  if (!tokenRes.ok) return { tracks: [], artists: [], error: tokenRes.error, detail: tokenRes.detail };
+  
+  const res = await fetch(`https://api.tidal.com/v1/search?q=${encodeURIComponent(q)}&types=TRACKS&limit=${limit}&countryCode=US`, {
+    headers: { 'Authorization': `Bearer ${tokenRes.token}`, 'Accept': 'application/json' }
+  });
+  if (!res.ok) return { tracks: [], artists: [], error: 'spotify_http', detail: `Tidal HTTP ${res.status}` };
+  const data = await res.json();
+  const tracks = (data.tracks?.items || []).map(mapTidalTrack);
+  return { tracks, artists: [], error: undefined, detail: undefined };
+}
+
+async function searchTidalArtists(q: string, limit: number) {
+  const tokenRes = await getTidalToken();
+  if (!tokenRes.ok) return { artists: [], error: tokenRes.error, detail: tokenRes.detail };
+  
+  const res = await fetch(`https://api.tidal.com/v1/search?q=${encodeURIComponent(q)}&types=ARTISTS&limit=${limit}&countryCode=US`, {
+    headers: { 'Authorization': `Bearer ${tokenRes.token}`, 'Accept': 'application/json' }
+  });
+  if (!res.ok) return { artists: [], error: 'spotify_http', detail: `Tidal HTTP ${res.status}` };
+  const data = await res.json();
+  const artists = (data.artists?.items || []).map((a: any) => ({
+    id: `tidal_${a.id}`,
+    name: a.name,
+    image: a.picture ? `https://resources.tidal.com/images/${a.picture.replace(/-/g, '/')}/640x640.jpg` : '',
+  }));
+  return { artists, error: undefined, detail: undefined };
+}
+
 function mapAppleArtist(item: Record<string, unknown>) {
   const id = String(item.artistId ?? item.amgArtistId ?? Math.random());
   return {
@@ -200,16 +276,24 @@ function mapAppleArtist(item: Record<string, unknown>) {
 }
 
 async function searchAppleArtists(q: string, limit: number, country: string) {
-  const cc = country.length === 2 ? country.toUpperCase() : 'US';
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=musicArtist&limit=${limit}&country=${encodeURIComponent(cc)}`;
-  const res = await fetch(url, {
-    next: { revalidate: 0 },
-    headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
-  });
-  if (!res.ok) throw new Error(`Apple artist search HTTP ${res.status}`);
-  const data = (await res.json()) as { results?: Record<string, unknown>[] };
-  const results = data.results || [];
-  return results.map(mapAppleArtist).filter((a) => a.name);
+  try {
+    const cc = country.length === 2 ? country.toUpperCase() : 'US';
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=musicArtist&limit=${limit}&country=${encodeURIComponent(cc)}`;
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
+    });
+    if (!res.ok) {
+      console.warn(`Apple artist search HTTP ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as { results?: Record<string, unknown>[] };
+    const results = data.results || [];
+    return results.map(mapAppleArtist).filter((a) => a.name);
+  } catch (e) {
+    console.error('Apple artist search failed:', e);
+    return [];
+  }
 }
 
 /** iTunes artist rows often omit artwork; use the first matching track’s art as a portrait fallback. */
@@ -313,20 +397,28 @@ async function searchSpotifyPlaylists(q: string, limit: number, market: string) 
 }
 
 async function searchAppleAlbumPlaylists(q: string, limit: number, country: string) {
-  const cc = country.length === 2 ? country.toUpperCase() : 'US';
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=${limit}&country=${encodeURIComponent(cc)}`;
-  const res = await fetch(url, {
-    next: { revalidate: 0 },
-    headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
-  });
-  if (!res.ok) throw new Error(`Apple album search HTTP ${res.status}`);
-  const data = (await res.json()) as { results?: Record<string, unknown>[] };
-  const results = data.results || [];
-  const playlists = results
-    .filter((r) => r.wrapperType === 'collection')
-    .map(mapAppleAlbumAsPlaylistRow)
-    .filter((p): p is CatalogPlaylistRow => p != null && !!p.name);
-  return playlists;
+  try {
+    const cc = country.length === 2 ? country.toUpperCase() : 'US';
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=${limit}&country=${encodeURIComponent(cc)}`;
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      headers: { Accept: 'application/json', 'User-Agent': ITUNES_UA },
+    });
+    if (!res.ok) {
+      console.warn(`Apple album search HTTP ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as { results?: Record<string, unknown>[] };
+    const results = data.results || [];
+    const playlists = results
+      .filter((r) => r.wrapperType === 'collection')
+      .map(mapAppleAlbumAsPlaylistRow)
+      .filter((p): p is CatalogPlaylistRow => p != null && !!p.name);
+    return playlists;
+  } catch (e) {
+    console.error('Apple album search failed:', e);
+    return [];
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -337,7 +429,7 @@ export async function GET(req: NextRequest) {
   const parsed = Number.parseInt(limitRaw || '25', 10);
   const limit = Number.isFinite(parsed) ? Math.min(200, Math.max(1, parsed)) : 25;
   const appleLimit = Math.min(200, limit);
-  const spotifyLimit = Math.min(50, limit);
+  const spotifyLimit = Math.min(10, limit);
   const countryParam = req.nextUrl.searchParams.get('country')?.trim() || 'US';
   const appleCountry = /^[a-z]{2}$/i.test(countryParam) ? countryParam.toUpperCase() : 'US';
   const marketParam = req.nextUrl.searchParams.get('market')?.trim() || '';
@@ -360,6 +452,10 @@ export async function GET(req: NextRequest) {
           country: appleCountry,
         });
       }
+      if (provider === 'tidal') {
+        const { artists, error, detail } = await searchTidalArtists(q, limit);
+        return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'tidal', error, detail });
+      }
       const { artists, error, detail } = await searchSpotifyArtists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'spotify', error, detail });
     }
@@ -375,6 +471,10 @@ export async function GET(req: NextRequest) {
           country: appleCountry,
         });
       }
+      if (provider === 'tidal') {
+         // Tidal playlist search not implemented here for simplicity, fallback to empty
+         return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'tidal' });
+      }
       const { playlists, error, detail } = await searchSpotifyPlaylists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists: [], playlists, provider: 'spotify', error, detail });
     }
@@ -382,6 +482,10 @@ export async function GET(req: NextRequest) {
     if (provider === 'apple') {
       const tracks = await searchApple(q, appleLimit, appleCountry);
       return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'apple', country: appleCountry });
+    }
+    if (provider === 'tidal') {
+      const { tracks, error, detail } = await searchTidal(q, limit);
+      return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'tidal', error, detail });
     }
     const { tracks, error, detail } = await searchSpotify(q, spotifyLimit, market);
     return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'spotify', error, detail });

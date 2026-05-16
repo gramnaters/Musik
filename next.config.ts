@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  transpilePackages: ['@dantheman827/taglib-ts'],
 };
 
 export default nextConfig;

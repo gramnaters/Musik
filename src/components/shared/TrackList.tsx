@@ -7,7 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
-import { downloadCurrentTrack } from '@/lib/download-track';
+import { useDownloadStore } from '@/stores/downloadStore';
 import { MoreHorizontal, Play, Pause, Heart, Plus, Volume2, CircleArrowUp } from 'lucide-react';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { Button } from '@/components/ui/button';
@@ -122,7 +122,7 @@ export function TrackContextMenu({
         )}
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => void downloadCurrentTrack(track)}
+          onClick={() => useDownloadStore.getState().openDownload(track)}
           className="text-foreground focus:bg-accent focus:text-foreground"
         >
           Download
@@ -169,12 +169,16 @@ function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'stream
       <TooltipTrigger asChild>
         <span
           className={cn(
-            'text-[8px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 cursor-default',
-            badge.label === 'ATMOS' ? 'text-white/80' : 'bg-white/10 text-white/70'
+            'text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 cursor-default tracking-tighter',
+            badge.label === 'HD' 
+              ? 'bg-[#E0A82E]/15 text-[#E0A82E] border border-[#E0A82E]/30' 
+              : badge.label === 'HIFI'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                : 'bg-white/10 text-white/70 border border-white/5'
           )}
         >
           {badge.label === 'ATMOS' ? (
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-white/80">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
             </svg>
           ) : (
@@ -262,7 +266,7 @@ function TrackRowMenu({
           {isFav ? 'Remove from Liked Songs' : 'Save to Liked Songs'}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void downloadCurrentTrack(track)}>Download</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => useDownloadStore.getState().openDownload(track)}>Download</DropdownMenuItem>
         {track.streamURL && (
           <DropdownMenuItem onClick={() => void navigator.clipboard?.writeText(track.streamURL || '')}>
             Copy stream link

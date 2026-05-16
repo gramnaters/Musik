@@ -133,3 +133,63 @@ export async function fetchAddonArtistsFromTrackSearches(
   }
   return out;
 }
+
+/** Fetch playlists from addons (e.g. "top playlists", "featured") */
+export async function fetchAddonPlaylists(
+  searchWithAddon: (addonId: string, query: string) => Promise<AddonSearchResults>,
+  orderedAddonIds: string[],
+  cap: number
+): Promise<any[]> {
+  if (!orderedAddonIds.length) return [];
+  const queries = ['top playlists', 'featured playlists', 'curated playlists', 'popular playlists'];
+  const out: any[] = [];
+  const seen = new Set<string>();
+
+  for (const q of queries) {
+    for (const addonId of orderedAddonIds) {
+      try {
+        const r = await searchWithAddon(addonId, q);
+        for (const p of r.playlists || []) {
+          const id = String(p.id || '').trim();
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          out.push({
+            id,
+            name: p.name || p.title || 'Untitled Playlist',
+            cover: p.artworkURL || p.cover || p.image,
+            tracks: p.tracks?.map(addonTrackToTrack) || [],
+            addonId,
+          });
+          if (out.length >= cap) return out;
+        }
+      } catch {
+        /* next */
+      }
+    }
+  }
+  return out;
+}
+
+/** Fetch categories/genres from addons */
+export async function fetchAddonCategories(
+  searchWithAddon: (addonId: string, query: string) => Promise<AddonSearchResults>,
+  orderedAddonIds: string[]
+): Promise<any[]> {
+  if (!orderedAddonIds.length) return [];
+  const out: any[] = [];
+  const seen = new Set<string>();
+
+  // Most addons don't have a direct categories API, so we infer from common genres
+  const genres = ['Pop', 'Hip-Hop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'R&B', 'Country'];
+  
+  for (const g of genres) {
+    out.push({
+      id: g.toLowerCase(),
+      name: g,
+      hubQuery: g,
+      hubSubtitle: `Trending ${g} from modules`,
+    });
+  }
+
+  return out;
+}

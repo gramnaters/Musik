@@ -31,6 +31,7 @@ export interface AddonTrack {
   addonName?: string;
   quality?: string; // Accept any quality token from addons
   explicit?: boolean;
+  isFallback?: boolean;
 }
 
 /** Pull quality / tier / bitrate from common addon and API shapes. */
