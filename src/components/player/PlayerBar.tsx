@@ -66,13 +66,14 @@ export default function PlayerBar() {
         animate={{ y: 0 }}
         className={cn(
           'flex-shrink-0 flex flex-col transition-all duration-500',
+          'bg-black/40 backdrop-blur-3xl border-t border-white/5',
           playerTheme === 'spotify' &&
-            'h-[90px] bg-black border-t border-[#282828] px-2 sm:px-4 items-center justify-center text-white',
+            'h-[90px] px-2 sm:px-4 items-center justify-center text-white',
           playerTheme === 'tidal' &&
-            'min-h-[100px] h-auto py-2.5 md:py-0 md:h-[100px] tidal-player-bar w-full relative justify-center max-md:rounded-t-2xl max-md:mx-2 max-md:border max-md:border-white/15 max-md:border-b-0 max-md:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]',
+            'min-h-[100px] h-auto py-2.5 md:py-0 md:h-[100px] tidal-player-bar w-full relative justify-center max-md:rounded-t-2xl max-md:mx-2 max-md:border-white/15 max-md:border-b-0 max-md:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]',
           playerTheme === 'apple' &&
-            'h-[90px] w-full rounded-none m-0 px-2 sm:px-4 items-center justify-center border-t border-white/[0.08] bg-black/65 backdrop-blur-2xl supports-[backdrop-filter]:bg-black/45 text-white',
-          'z-10 md:z-50'
+            'h-[90px] w-full rounded-none m-0 px-2 sm:px-4 items-center justify-center bg-black/65 backdrop-blur-2xl text-white',
+          'z-10 md:z-50 sticky bottom-0'
         )}
       >
         {playerTheme === 'tidal' ? (
