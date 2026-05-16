@@ -4,7 +4,8 @@
  * Settings: general controls first, then home layout, seek bar presets, EQ, storage.
  */
 
-import { useState, type ElementType } from 'react';
+import { useState, useEffect, useMemo, type ElementType } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { useAddonStore } from '@/stores/addonStore';
 import {
