@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { DownloadNotifications } from "@/components/shared/DownloadNotifications";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -42,6 +44,7 @@ export default function RootLayout({
           <main className="h-screen overflow-hidden relative">
             {children}
           </main>
+          <DownloadNotifications />
           <Toaster />
         </ThemeProvider>
       </body>

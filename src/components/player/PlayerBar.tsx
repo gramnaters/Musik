@@ -6,7 +6,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useAudioSettingsStore } from '@/stores/audioSettingsStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
-import { downloadCurrentTrack } from '@/lib/download-track';
+import { useDownloadStore } from '@/stores/downloadStore';
 import { seekbarWrapperClass } from '@/lib/seekbar-styles';
 import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
 import { Slider } from '@/components/ui/slider';
@@ -35,6 +35,7 @@ export default function PlayerBar() {
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
   const { rightPanel, setRightPanel, playerTheme, setPlayerTheme } = useUIStore();
+  const { openDownload } = useDownloadStore();
   const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
@@ -203,7 +204,7 @@ export default function PlayerBar() {
 
             {/* Queue, theme, volume */}
             <div className="pb-right tidal-pb-icons-row justify-end items-center min-w-0 gap-1 sm:gap-2 md:gap-3 shrink-0">
-              <button className="icon-btn" title="Download" aria-label="Download track" type="button" onClick={() => void downloadCurrentTrack(currentTrack)}>
+              <button className="icon-btn" title="Download" aria-label="Download track" type="button" onClick={() => currentTrack && openDownload(currentTrack)}>
                 <Download width={18} height={18} />
               </button>
               <button className="icon-btn" onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')} title="Queue">
@@ -265,7 +266,8 @@ export default function PlayerBar() {
                                <span
                                  className={cn(
                                    'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center cursor-default',
-                                   qualityBadge.label === 'MAX' && 'bg-gradient-to-r from-cyan-400 to-purple-400 text-black',
+                                   qualityBadge.label === 'HD' && 'bg-[#E5D283] text-black shadow-[0_0_8px_rgba(229,210,131,0.4)]',
+                                   qualityBadge.label === 'HIFI' && 'bg-[#45b7d1] text-black shadow-[0_0_8px_rgba(69,183,209,0.4)]',
                                    qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
                                    qualityBadge.label === 'MP3' && 'bg-white/12 text-white/85 border border-white/20',
                                    qualityBadge.label === 'AAC' && 'bg-white/12 text-white/85 border border-white/20',
@@ -534,7 +536,7 @@ export default function PlayerBar() {
                       variant="ghost"
                       size="icon"
                       disabled={!currentTrack}
-                      onClick={() => void downloadCurrentTrack(currentTrack)}
+                      onClick={() => currentTrack && openDownload(currentTrack)}
                       className="h-8 w-8 text-white/50 hover:text-white hidden md:flex"
                       aria-label="Download track"
                       title="Download"

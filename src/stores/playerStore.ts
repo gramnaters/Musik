@@ -4,6 +4,7 @@ import { Track } from '@/types/music';
 import { inferFormatFromUrl } from '@/lib/audio-quality';
 import { useAddonStore } from '@/stores/addonStore';
 import type { AddonTrack } from '@/types/addon';
+import { Loader2 } from 'lucide-react';
 
 type RepeatMode = 'off' | 'all' | 'one';
 
@@ -222,15 +223,17 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           try {
             let finalStreamUrl = track.streamURL;
 
-            if (!finalStreamUrl && track.addonId && track.addonTrackId) {
+            if (!finalStreamUrl && (track.addonId || track.addonTrackId || track.source === 'tidal')) {
               try {
                 const proxied = await useAddonStore.getState().resolveStreamUrl({
-                  id: track.addonTrackId,
+                  id: track.addonTrackId || track.id,
                   title: track.title,
                   artist: track.artist,
                   addonId: track.addonId,
                   streamURL: track.streamURL,
-                } as AddonTrack);
+                  source: track.source,
+                } as any);
+                
                 const m = proxied.match(/^\/api\/stream\?url=(.+)$/);
                 if (m) {
                   try {
@@ -238,6 +241,9 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
                   } catch {
                     finalStreamUrl = m[1];
                   }
+                } else {
+                  // Might be a direct URL returned if not using proxy wrapper
+                  finalStreamUrl = proxied;
                 }
               } catch {
                 /* addon resolution failed */

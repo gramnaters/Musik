@@ -113,7 +113,9 @@ export default function AddonsView() {
     getPlaybackOrderedSearchAddonIds,
     movePlaybackPriority,
     playbackPriorityIds,
+    cleanupBrokenAddons,
   } = useAddonStore();
+
 
   const {
     connectionsCatalogSourceId,
@@ -146,7 +148,11 @@ export default function AddonsView() {
   );
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    cleanupBrokenAddons();
+  }, [cleanupBrokenAddons]);
+
 
   const [installUrl, setInstallUrl] = useState('');
   const [installing, setInstalling] = useState(false);
@@ -355,6 +361,7 @@ export default function AddonsView() {
       });
       return;
     }
+    
     if (
       typeof window !== 'undefined' &&
       !window.confirm(
@@ -363,32 +370,50 @@ export default function AddonsView() {
     ) {
       return;
     }
+
     setBulkInstalling(true);
     setInstallError('');
     let ok = 0;
     let fail = 0;
+
+    const toInstall: Array<{ sourceId: string; addon: StoreAddon; src: string }> = [];
     for (const s of visibleSources) {
       const list = catalogBySource[s.id]?.addons ?? [];
       for (const a of list) {
         if (!isCatalogRowInstallable(a) || isInstalled(a)) continue;
         const src = rowInstallUrl(a);
-        if (!src) continue;
-        setInstallingId(`${s.id}:${a.id}`);
-        try {
-          const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(src);
-          addAddon(manifest, {
-            sourceId: s.id,
-            installSourceUrl: src,
-            eightspineInnerCode,
-            eightspineKind,
-          });
-          ok += 1;
-        } catch {
-          fail += 1;
-        }
-        await new Promise((r) => setTimeout(r, 400));
+        if (src) toInstall.push({ sourceId: s.id, addon: a, src });
       }
     }
+
+    // Process in parallel batches of 3
+    const batchSize = 3;
+    for (let i = 0; i < toInstall.length; i += batchSize) {
+      const batch = toInstall.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async ({ sourceId, addon, src }) => {
+          setInstallingId(`${sourceId}:${addon.id}`);
+          try {
+            const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(src);
+            addAddon(manifest, {
+              sourceId,
+              installSourceUrl: src,
+              eightspineInnerCode,
+              eightspineKind,
+            });
+            ok += 1;
+          } catch (e) {
+            console.error(`Failed to install ${addon.name}`, e);
+            fail += 1;
+          }
+        })
+      );
+      // Small pause between batches
+      if (i + batchSize < toInstall.length) {
+        await new Promise((r) => setTimeout(r, 600));
+      }
+    }
+
     setInstallingId(null);
     setBulkInstalling(false);
     toast({

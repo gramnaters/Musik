@@ -95,20 +95,65 @@ async function parseArtists(res: Response): Promise<HomeArtist[]> {
   }));
 }
 
+const FETCH_TIMEOUT_MS = 6000;
+
+async function fetchWithTimeout(url: string, ms = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (e) {
+    clearTimeout(id);
+    throw e;
+  }
+}
+
 export async function fetchHomeTracksDual(
   q: string,
   appleCountry: string,
   primary: CatalogMetadataProvider,
   limit: number
 ): Promise<Track[]> {
-  const secondary: CatalogMetadataProvider = primary === 'spotify' ? 'apple' : 'spotify';
+  const providers: CatalogMetadataProvider[] = ['apple', 'spotify', 'tidal'];
+  const secondary = providers.find((p) => p !== primary) || 'apple';
   const cap = Math.min(50, limit);
+
+  // Always fetch both in parallel; if either fails individually, still use the other
   const [rP, rS] = await Promise.all([
-    fetch(metadataSearchUrl({ q, provider: primary, limit: cap, appleCountry })),
-    fetch(metadataSearchUrl({ q, provider: secondary, limit: cap, appleCountry })),
+    fetchWithTimeout(metadataSearchUrl({ q, provider: primary, limit: cap, appleCountry })).catch(() => null),
+    fetchWithTimeout(metadataSearchUrl({ q, provider: secondary, limit: cap, appleCountry })).catch(() => null),
   ]);
-  const [primaryTracks, secondaryTracks] = await Promise.all([parseTracks(rP), parseTracks(rS)]);
-  return mergeTracksDedupe(primaryTracks, secondaryTracks, cap);
+
+  const [primaryTracks, secondaryTracks] = await Promise.all([
+    rP ? parseTracks(rP).catch(() => [] as Track[]) : Promise.resolve([] as Track[]),
+    rS ? parseTracks(rS).catch(() => [] as Track[]) : Promise.resolve([] as Track[]),
+  ]);
+
+  const merged = mergeTracksDedupe(primaryTracks, secondaryTracks, cap);
+
+  if (merged.length === 0) {
+    if (primaryTracks.length > 0) return primaryTracks.slice(0, cap);
+    if (secondaryTracks.length > 0) return secondaryTracks.slice(0, cap);
+  }
+
+  return merged;
+}
+
+/** Fetch tracks from Apple only (no Spotify dependency) — reliable fallback. */
+export async function fetchHomeTracksAppleOnly(
+  q: string,
+  appleCountry: string,
+  limit: number
+): Promise<Track[]> {
+  const cap = Math.min(50, limit);
+  try {
+    const r = await fetchWithTimeout(metadataSearchUrl({ q, provider: 'apple', limit: cap, appleCountry }));
+    return await parseTracks(r);
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchHomeArtistsDual(
@@ -117,17 +162,21 @@ export async function fetchHomeArtistsDual(
   primary: CatalogMetadataProvider,
   limit: number
 ): Promise<HomeArtist[]> {
-  const secondary: CatalogMetadataProvider = primary === 'spotify' ? 'apple' : 'spotify';
+  const providers: CatalogMetadataProvider[] = ['apple', 'spotify', 'tidal'];
+  const secondary = providers.find((p) => p !== primary) || 'apple';
   const cap = Math.min(50, limit);
   const [rP, rS] = await Promise.all([
-    fetch(
+    fetchWithTimeout(
       metadataSearchUrl({ q, provider: primary, entity: 'artist', limit: cap, appleCountry })
-    ),
-    fetch(
+    ).catch(() => null),
+    fetchWithTimeout(
       metadataSearchUrl({ q, provider: secondary, entity: 'artist', limit: cap, appleCountry })
-    ),
+    ).catch(() => null),
   ]);
-  const [aP, aS] = await Promise.all([parseArtists(rP), parseArtists(rS)]);
+  const [aP, aS] = await Promise.all([
+    rP ? parseArtists(rP).catch(() => []) : Promise.resolve([]),
+    rS ? parseArtists(rS).catch(() => []) : Promise.resolve([]),
+  ]);
   return mergeArtistsDedupe(aP, aS, cap);
 }
 

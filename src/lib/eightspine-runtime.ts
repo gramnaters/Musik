@@ -50,22 +50,44 @@ export type EightspinePackageKind = 'wrapped' | 'bare';
 
 export function detectEightspinePackageKind(fullSource: string): EightspinePackageKind {
   const t = fullSource.trim();
-  if (/^\s*export\s+const\s+[A-Za-z0-9_]+\s*=\s*`/m.test(t)) return 'wrapped';
+  // Check for wrapped module (export const NAME = ` ... `;)
+  // Using a more robust check that doesn't rely on multiline anchors for the whole string
+  if (/\bexport\s+const\s+[A-Za-z0-9_]+\s*=\s*`/.test(t)) return 'wrapped';
   return 'bare';
 }
 
 export function extractEightspineInner(fullSource: string): string {
   const trimmed = fullSource.trim();
-  const m = trimmed.match(/export const\s+[A-Za-z0-9_]+\s*=\s*`([\s\S]*)`\s*;?\s*$/m);
-  if (!m) {
-    throw new Error(
-      'Unrecognized wrapped 8SPINE module: expected export const <NAME> = ` ... `;'
-    );
+  
+  // Outer backtick extraction using regex to handle internal backticks
+  // We look for export const <NAME> = ` ... `; and capture everything inside the outer backticks
+  const wrappedMatch = trimmed.match(/^export\s+const\s+[A-Za-z0-9_]+\s*=\s*`([\s\S]*)`\s*;?\s*$/);
+  
+  if (wrappedMatch) {
+    return wrappedMatch[1]
+      .replace(/\\`/g, '`')
+      .replace(/\\\$\{/g, '${')
+      .replace(/\\\\/g, '\\');
   }
-  let inner = m[1];
-  inner = inner.replace(/\\`/g, '`').replace(/\\\$\{/g, '${');
-  return inner;
+
+  // Fallback: search for first and last backticks if the export line is unusual
+  const firstBacktick = trimmed.indexOf('`');
+  const lastBacktick = trimmed.lastIndexOf('`');
+
+  if (firstBacktick !== -1 && lastBacktick !== -1 && firstBacktick !== lastBacktick) {
+    const inner = trimmed.slice(firstBacktick + 1, lastBacktick);
+    return inner
+      .replace(/\\`/g, '`')
+      .replace(/\\\$\{/g, '${')
+      .replace(/\\\\/g, '\\');
+  }
+
+  throw new Error(
+    'Unrecognized wrapped 8SPINE module: expected export const <NAME> = ` ... `;'
+  );
 }
+
+
 
 async function withProxiedFetch<T>(fn: () => Promise<T>): Promise<T> {
   if (typeof window === 'undefined') {
@@ -150,25 +172,50 @@ export async function runEightspinePackage(
  * so `.8spine` modules can install from Connections. Uses normal `fetch` (no CORS limits on server).
  */
 export async function runEightspineModuleOnServer(inner: string): Promise<Record<string, unknown>> {
-  const runner = new AsyncFunctionConstructor(inner);
-  const out = await runner();
-  if (!out || typeof out !== 'object') {
-    throw new Error('8SPINE module did not return an API object');
+  // Use a wrapper to ensure we always get the return value even if the inner code is an IIFE
+  const code = `return await (async () => {\n${ASYNC_STORAGE_SHIM}\n${REQUIRE_SHIM}\n${inner}\n})();`;
+  try {
+    const runner = new AsyncFunctionConstructor(code);
+    console.log('[8SPINE Server] Attempting bootstrap with code starting with:', code.slice(0, 150));
+    const out = await runner();
+
+    if (!out || typeof out !== 'object') {
+      throw new Error('8SPINE module did not return an API object');
+    }
+    return out as Record<string, unknown>;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[8SPINE Server] Bootstrap failed for wrapped module:', msg);
+    if (err instanceof Error && err.stack) {
+      console.error('[8SPINE Server] Stack:', err.stack);
+    }
+    throw err;
   }
-  return out as Record<string, unknown>;
 }
+
 
 export async function runBareEightspineModuleOnServer(fullSource: string): Promise<Record<string, unknown>> {
   const trimmed = fullSource.trim();
   const body = `${ASYNC_STORAGE_SHIM}\n${REQUIRE_SHIM}\n${trimmed}`;
-  const code = `return await (async () => {\n${body}\n})();`;
-  const runner = new AsyncFunctionConstructor(code);
-  const out = await runner();
-  if (!out || typeof out !== 'object') {
-    throw new Error('8SPINE bare module did not return an API object');
+  // Ensure we have explicit newlines before closing the IIFE to handle trailing comments
+  const code = `return await (async () => {\n${body}\n\n})();`;
+  try {
+    const runner = new AsyncFunctionConstructor(code);
+    const out = await runner();
+    if (!out || typeof out !== 'object') {
+      throw new Error('8SPINE bare module did not return an API object');
+    }
+    return out as Record<string, unknown>;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[8SPINE Server] Bootstrap failed:', msg);
+    if (err instanceof Error && err.stack) {
+      console.error('[8SPINE Server] Stack:', err.stack);
+    }
+    throw err;
   }
-  return out as Record<string, unknown>;
 }
+
 
 export async function runEightspinePackageOnServer(
   source: string,

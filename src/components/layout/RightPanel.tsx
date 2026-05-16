@@ -3,14 +3,16 @@
 import { useUIStore } from '@/stores/uiStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
+import { useLyricsStore } from '@/stores/lyricsStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, GripVertical, Play, Pause, Music } from 'lucide-react';
+import { X, GripVertical, Play, Pause, Music, Loader2 } from 'lucide-react';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -263,7 +265,27 @@ function SortableTrackItem({
 
 export default function RightPanel() {
   const { rightPanel, setRightPanel, playerTheme } = useUIStore();
-  const { queue, currentTrack, isPlaying, reorderQueue } = usePlayerStore();
+  const { queue, currentTrack, isPlaying, reorderQueue, currentTime } = usePlayerStore();
+  const { lyrics, syncedLyrics, isLoading, fetchLyrics } = useLyricsStore();
+
+  useEffect(() => {
+    if (rightPanel === 'lyrics' && currentTrack) {
+      fetchLyrics(currentTrack.id, currentTrack.title, currentTrack.artist);
+    }
+  }, [rightPanel, currentTrack, fetchLyrics]);
+
+  const activeLyricIndex = useMemo(() => {
+    if (!syncedLyrics) return -1;
+    let index = -1;
+    for (let i = 0; i < syncedLyrics.length; i++) {
+      if (currentTime >= syncedLyrics[i].time) {
+        index = i;
+      } else {
+        break;
+      }
+    }
+    return index;
+  }, [syncedLyrics, currentTime]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -390,15 +412,50 @@ export default function RightPanel() {
             )}
 
             {rightPanel === 'lyrics' && (
-              <div className="p-6 flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
-                  <Music size={48} className="text-muted-foreground/30 mx-auto" />
-                  <p className="text-sm text-muted-foreground">
-                    {currentTrack
-                      ? `Lyrics for "${currentTrack.title}" are not available`
-                      : 'Play a song to see its lyrics'}
-                  </p>
-                </div>
+              <div className="h-full flex flex-col p-6 overflow-hidden">
+                {!currentTrack ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                    <Music size={48} className="text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">Play a song to see its lyrics</p>
+                  </div>
+                ) : isLoading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                  </div>
+                ) : syncedLyrics && syncedLyrics.length > 0 ? (
+                  <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2">
+                    {syncedLyrics.map((line, idx) => (
+                      <motion.p
+                        key={idx}
+                        initial={false}
+                        animate={{
+                          opacity: activeLyricIndex === idx ? 1 : 0.4,
+                          scale: activeLyricIndex === idx ? 1.05 : 1,
+                          color: activeLyricIndex === idx ? 'var(--foreground)' : 'var(--muted-foreground)',
+                        }}
+                        className={cn(
+                          "text-lg font-bold leading-tight cursor-default transition-all duration-300 origin-left",
+                          activeLyricIndex === idx && "text-white"
+                        )}
+                      >
+                        {line.text}
+                      </motion.p>
+                    ))}
+                  </div>
+                ) : lyrics ? (
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                    <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap font-medium">
+                      {lyrics}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                    <Music size={48} className="text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">
+                      Lyrics for "{currentTrack.title}" are not available
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>

@@ -41,8 +41,9 @@ export async function POST(req: NextRequest) {
     const res = await fetch(url, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (compatible; BeatBoss-Player/1.0; +https://github.com) AppleWebKit/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
         Accept: 'text/plain, application/javascript, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(25000),
@@ -64,8 +65,13 @@ export async function POST(req: NextRequest) {
       api = await runEightspinePackageOnServer(text.trim(), kind);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to run 8SPINE bootstrap';
+      console.error('[8SPINE Install Error]:', e);
       return NextResponse.json(
-        { error: msg, hint: 'If this mentions CSP or Function, server bootstrap failed unexpectedly.' },
+        { 
+          error: msg, 
+          hint: 'This usually indicates a syntax error or an invalid regex in the module code.',
+          detail: e instanceof Error ? e.stack : undefined 
+        },
         { status: 422 }
       );
     }

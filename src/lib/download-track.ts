@@ -1,184 +1,141 @@
-import type { Track } from '@/types/music';
-import type { AddonTrack } from '@/types/addon';
-import { toast } from '@/hooks/use-toast';
-import { inferFormatFromUrl, classifyAudioDelivery } from '@/lib/audio-quality';
+import { Track } from '@/types/music';
 import { useAddonStore } from '@/stores/addonStore';
-import { resolvePlayableUrlViaAddonChain } from '@/lib/addon-stream-resolve';
+import { useDownloadStore } from '@/stores/downloadStore';
+import { inferFormatFromUrl } from '@/lib/audio-quality';
+import { applyMetadataToAudio } from '@/lib/audio-tagger';
 
-function resolveStreamURL(track: Track): string | null {
-  const t = track as Track & { url?: string };
-  return (t.streamURL || t.url || null)?.trim() || null;
-}
+/**
+ * Ported from Monochrome's api.js and downloads.js
+ * Handles one-click download with metadata.
+ */
+export async function downloadTrackOneClick(track: Track) {
+  const { resolveStreamUrl } = useAddonStore.getState();
+  const { updateTask, removeTask } = useDownloadStore.getState();
+  const id = track.id;
 
-async function resolveAddonUpstream(track: Track): Promise<string | null> {
-  if (!track.addonId || !track.addonTrackId) return null;
   try {
-    const proxied = await useAddonStore.getState().resolveStreamUrl({
-      id: track.addonTrackId,
-      title: track.title,
-      artist: track.artist,
-      addonId: track.addonId,
-      streamURL: track.streamURL,
-    } as AddonTrack);
-    const m = proxied.match(/^\/api\/stream\?url=(.+)$/);
-    if (!m) return null;
+    updateTask(id, { progress: 0, status: 'resolving' });
+
+    // 1. Resolve Stream URL
+    let streamUrl = track.streamURL;
+    if (!streamUrl && track.addonId && track.addonTrackId) {
+      streamUrl = await resolveStreamUrl({
+        id: track.addonTrackId,
+        title: track.title,
+        artist: track.artist,
+        addonId: track.addonId,
+      } as any);
+    }
+
+    if (!streamUrl) throw new Error('Could not resolve stream URL');
+
+    updateTask(id, { progress: 10, status: 'fetching' });
+
+    // 2. Fetch the audio file
+    const response = await fetch(streamUrl);
+    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+    
+    const reader = response.body?.getReader();
+    const contentLength = +(response.headers.get('Content-Length') ?? 0);
+    let receivedLength = 0;
+    const chunks: Uint8Array[] = [];
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedLength += value.length;
+        if (contentLength) {
+          const p = 10 + (receivedLength / contentLength) * 70;
+          updateTask(id, { progress: Math.round(p) });
+        }
+      }
+    } else {
+      const blob = await response.blob();
+      chunks.push(new Uint8Array(await blob.arrayBuffer()));
+      receivedLength = chunks[0].length;
+    }
+
+    const audioBuffer = new Uint8Array(receivedLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      audioBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    updateTask(id, { progress: 85, status: 'tagging' });
+
+    // 3. Fetch Lyrics (matches monochrome.tf premium tagging)
+    let lyricsText = '';
     try {
-      return decodeURIComponent(m[1]);
-    } catch {
-      return m[1];
+      const lyricsUrl = new URL('/api/lyrics', window.location.origin);
+      lyricsUrl.searchParams.append('track', track.title);
+      lyricsUrl.searchParams.append('artist', track.artist);
+      if (track.duration) lyricsUrl.searchParams.append('duration', track.duration.toString());
+      
+      const lyricsRes = await fetch(lyricsUrl.toString());
+      if (lyricsRes.ok) {
+        const lyricsData = await lyricsRes.json();
+        lyricsText = lyricsData.syncedLyrics || lyricsData.plainLyrics || '';
+      }
+    } catch (err) {
+      console.warn('Failed to fetch lyrics for tagging:', err);
     }
-  } catch {
-    return null;
-  }
-}
 
-function extensionFromContentType(ct: string | null | undefined): string | undefined {
-  if (!ct) return undefined;
-  const base = ct.split(';')[0].trim().toLowerCase();
-  if (base.includes('flac') || base === 'audio/x-flac') return 'flac';
-  if (base.includes('wav')) return 'wav';
-  if (base.includes('ogg')) return 'ogg';
-  if (base.includes('opus')) return 'opus';
-  if (base.includes('mpeg') || base === 'audio/mp3') return 'mp3';
-  if (base.includes('aac') || base.includes('mp4') || base === 'audio/x-m4a') return 'm4a';
-  if (base === 'application/octet-stream') return undefined;
-  return undefined;
-}
+    // 4. Add Metadata using TagLib (Premium experience like Monochrome)
+    const format = track.format || inferFormatFromUrl(streamUrl) || 'mp3';
+    
+    let coverBuffer: ArrayBuffer | undefined;
+    if (track.albumCover) {
+      try {
+        const imgRes = await fetch(track.albumCover);
+        if (imgRes.ok) {
+          coverBuffer = await imgRes.arrayBuffer();
+        }
+      } catch (err) {
+        console.warn('Failed to fetch cover for tagging:', err);
+      }
+    }
 
-function safeFilename(track: Track, ext: string): string {
-  const base = `${track.title}`.replace(/[<>:"/\\|?*]+/g, '').trim().slice(0, 120) || 'track';
-  const cleanExt = ext.replace(/^\./, '').toLowerCase() || 'mp3';
-  return `${base}.${cleanExt}`;
-}
+    const taggedBuffer = await applyMetadataToAudio(
+      audioBuffer.buffer,
+      {
+        title: track.title,
+        artist: track.artist,
+        album: track.album || '',
+        year: track.year ? parseInt(track.year) : undefined,
+        trackNumber: track.trackNumber,
+        lyrics: lyricsText,
+      },
+      format,
+      coverBuffer
+    );
 
-function pickExtension(track: Track, contentType: string | null): string {
-  const fromMime = extensionFromContentType(contentType);
-  if (fromMime) return fromMime;
-  const fromUrl = inferFormatFromUrl(resolveStreamURL(track) || track.streamURL);
-  if (fromUrl) return fromUrl;
-  const fromPath = /\.(mp3|m4a|aac|opus|wav|ogg|flac)(\?|$)/i.exec(track.streamURL || '')?.[1];
-  if (fromPath) return fromPath.toLowerCase();
-  return 'mp3';
-}
 
-function humanFormat(ext: string, contentType: string | null): string {
-  const e = ext.toLowerCase();
-  if (e === 'flac') return 'FLAC (lossless)';
-  if (e === 'wav') return 'WAV (lossless PCM)';
-  if (e === 'mp3') return 'MP3 (lossy)';
-  if (e === 'm4a' || e === 'aac') return 'AAC (typically lossy)';
-  if (contentType) return contentType.split(';')[0].trim();
-  return e.toUpperCase();
-}
+    updateTask(id, { progress: 95 });
 
-function deliveryRank(track: Track, url: string): number {
-  const d = classifyAudioDelivery({ ...track, streamURL: url, format: inferFormatFromUrl(url) });
-  if (d === 'lossless_hint') return 3;
-  if (d === 'unknown') return 1;
-  return 0;
-}
-
-async function pickBestDownloadUrl(track: Track): Promise<string | null> {
-  const direct = resolveStreamURL(track);
-  const addonUp = await resolveAddonUpstream(track);
-  const ordered = useAddonStore.getState().getPlaybackOrderedSearchAddonIds();
-  const chain =
-    ordered.length > 0
-      ? await resolvePlayableUrlViaAddonChain(
-          track,
-          ordered,
-          useAddonStore.getState().searchWithAddon,
-          useAddonStore.getState().resolveStreamUrl
-        )
-      : null;
-
-  const candidates: { url: string; rank: number }[] = [];
-  const push = (url: string | null | undefined) => {
-    if (!url?.trim()) return;
-    const u = url.trim();
-    candidates.push({ url: u, rank: deliveryRank(track, u) });
-  };
-
-  push(direct);
-  push(addonUp);
-  push(chain);
-
-  if (candidates.length === 0) return null;
-
-  let best = candidates[0]!;
-  for (const c of candidates) {
-    if (c.rank > best.rank) best = c;
-  }
-
-  const catalogHi =
-    classifyAudioDelivery(track) === 'lossless_hint' ||
-    /lossless|flac|alac|hi[\s-]?res|hires|master|mqaa|studio/i.test(track.quality || '');
-  if (catalogHi && best.rank < 3) {
-    const losslessHit = candidates.find((c) => c.rank >= 3);
-    if (losslessHit) return losslessHit.url;
-  }
-
-  return best.url;
-}
-
-export async function downloadCurrentTrack(track: Track | null): Promise<void> {
-  if (!track) {
-    toast({ title: 'Nothing playing', variant: 'destructive' });
-    return;
-  }
-
-  const upstream = await pickBestDownloadUrl(track);
-  if (!upstream) {
-    toast({
-      title: 'No stream URL',
-      description: 'Install a streaming module, or pick a row that resolves from your addon.',
-      variant: 'destructive',
+    // 4. Trigger Download
+    const finalBlob = new Blob([taggedBuffer], { 
+      type: format === 'flac' ? 'audio/flac' : format === 'm4a' ? 'audio/mp4' : 'audio/mpeg' 
     });
-    return;
-  }
-
-  const proxyURL = `/api/stream?url=${encodeURIComponent(upstream)}`;
-  toast({ title: 'Starting download…' });
-
-  try {
-    const res = await fetch(proxyURL);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const ct = res.headers.get('Content-Type');
-    const trackForExt = { ...track, streamURL: upstream };
-    const ext = pickExtension(trackForExt, ct);
-    const losslessFile = ext === 'flac' || ext === 'wav';
-
-    const blob = await res.blob();
-    const href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(finalBlob);
     const a = document.createElement('a');
-    a.href = href;
-    a.download = safeFilename(track, ext);
-    a.rel = 'noopener';
+    const safeTitle = track.title.replace(/[<>:"/\\|?*]/g, '');
+    const safeArtist = track.artist.replace(/[<>:"/\\|?*]/g, '');
+    a.href = url;
+    a.download = `${safeArtist} - ${safeTitle}.${format}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(href);
+    URL.revokeObjectURL(url);
 
-    const fmt = humanFormat(ext, ct);
-    let description = `Saved as ${fmt}.`;
-    const catalogHi =
-      classifyAudioDelivery(track) === 'lossless_hint' ||
-      /lossless|flac|alac|hi[\s-]?res|hires|master/i.test(track.quality || '');
-    if (!losslessFile && catalogHi) {
-      description +=
-        ' Catalog lists a lossless tier, but every resolved URL was compressed (preview or CDN). Use a module that exposes FLAC for this track if you need a lossless file.';
-    } else if (!losslessFile) {
-      description += ' File matches the stream the player used.';
-    }
+    updateTask(id, { progress: 100, status: 'done' });
+    setTimeout(() => removeTask(id), 3000);
 
-    toast({ title: 'Download saved', description });
-  } catch {
-    toast({
-      title: 'Download failed',
-      description: 'The source may block saving or timed out.',
-      variant: 'destructive',
-    });
+  } catch (error: any) {
+    console.error('Download failed:', error);
+    updateTask(id, { status: 'error', error: error.message || 'Download failed' });
+    setTimeout(() => removeTask(id), 5000);
   }
 }

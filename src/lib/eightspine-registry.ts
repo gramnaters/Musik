@@ -25,6 +25,10 @@ export type EightspineStoreRow = {
 const CATEGORY_KEYS = [
   'category:modules',
   'category:debrid_modules',
+  'category:music_modules',
+  'category:music',
+  'category:video_modules',
+  'category:provider_modules',
   'category:artworks',
   'category:testing',
 ] as const;
@@ -77,7 +81,7 @@ export function eightspineRegistryToStoreRows(registryUrl: string, data: Record<
     for (const raw of list) {
       if (!raw || typeof raw !== 'object') continue;
       const m = raw as Record<string, unknown>;
-      const download = String(m.download || m.file || '').trim();
+      const download = String(m.download || m.file || m.download_url || m.url || '').trim();
       if (!download) continue;
 
       const pkgUrl = joinPackageUrl(base, download);

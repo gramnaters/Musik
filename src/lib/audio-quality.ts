@@ -163,10 +163,22 @@ export function inferFormatFromUrl(url: string | undefined | null): string | und
 export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): QualityBadge | null {
   if (!track) return null;
   const raw = track.quality?.trim();
-  if (!raw) return null;
-  const normalized = normalizeQualityToken(raw);
-  if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS' };
-  if (normalized === 'HI_RES_LOSSLESS') return { label: 'HD' };
+  
+  if (raw) {
+    const normalized = normalizeQualityToken(raw);
+    if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS' };
+    if (normalized === 'HI_RES_LOSSLESS') return { label: 'HD' };
+    if (normalized === 'LOSSLESS') return { label: 'HIFI' };
+    // We don't show HIGH (320) or LOW badges in the list, just like Monochrome
+  }
+
+  // Fallback to inferred from delivery
+  const delivery = classifyAudioDelivery(track);
+  if (delivery === 'lossless_hint') {
+    // If it's lossless but not marked as Hi-Res in catalog, it's HIFI (CD quality)
+    return { label: 'HIFI' };
+  }
+
   return null;
 }
 

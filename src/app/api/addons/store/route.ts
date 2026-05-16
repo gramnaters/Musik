@@ -95,7 +95,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let data = (await res.json()) as Record<string, unknown> & { addons?: unknown[] };
+    let data: Record<string, unknown> & { addons?: unknown[] };
+    try {
+      data = (await res.json()) as Record<string, unknown> & { addons?: unknown[] };
+    } catch {
+      return NextResponse.json(
+        { error: 'Registry returned invalid JSON (possibly an HTML page)' },
+        { status: 502 }
+      );
+    }
 
     const hasEclipseList = Array.isArray(data.addons) && data.addons.length > 0;
     if (!hasEclipseList && isEightspineRegistryShape(data)) {
