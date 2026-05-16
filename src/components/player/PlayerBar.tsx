@@ -76,7 +76,26 @@ export default function PlayerBar() {
         )}
       >
         {playerTheme === 'tidal' ? (
-          <div className="tidal-player-grid w-full max-w-full min-w-0 relative z-10 box-border px-1.5 sm:px-0">
+          <>
+            {currentTrack?.albumCover ? (
+              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none rounded-[inherit] transition-opacity duration-500">
+                <div 
+                  className="absolute inset-[-20%] transition-all duration-700 ease-out bg-no-repeat bg-cover bg-center"
+                  style={{
+                    backgroundImage: `url(${currentTrack.albumCover})`,
+                    filter: 'blur(40px) saturate(2) brightness(0.6)',
+                    opacity: 0.9,
+                    transform: 'scale(1.2)'
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/50 supports-[backdrop-filter]:backdrop-blur-xl" />
+                {/* Subtle top light border for glass effect */}
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 z-0 bg-[#0c0c0c] pointer-events-none rounded-[inherit]" />
+            )}
+            <div className="tidal-player-grid w-full max-w-full min-w-0 relative z-10 box-border px-1.5 sm:px-0">
             {/* Track info */}
             <div className="pb-track tidal-pb-track min-w-0 items-center">
               {currentTrack ? (
@@ -226,6 +245,7 @@ export default function PlayerBar() {
               <input type="range" className="vol-slider hidden md:block" min="0" max="100" value={isMuted ? 0 : volume * 100} onChange={(e) => setVolume(Number(e.target.value) / 100)} style={{ background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.15) ${isMuted ? 0 : volume * 100}%)` }} aria-label="Volume" />
             </div>
           </div>
+          </>
         ) : (
           <div className="flex items-center justify-between w-full h-full relative">
             {/* Left column - Track info */}

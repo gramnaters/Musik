@@ -657,7 +657,14 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         const canFallback = !track.isFallback && track.title && track.artist;
         if (canFallback) {
           const query = `${track.title} ${track.artist}`.trim();
-          const enabledAddons = addons.filter(a => a.enabled && a.manifest.id !== track.addonId);
+          const activeAddonId = get().activeAddonId;
+          const enabledAddons = addons
+            .filter(a => a.enabled && a.manifest.id !== track.addonId)
+            .sort((a, b) => {
+              if (a.manifest.id === activeAddonId) return -1;
+              if (b.manifest.id === activeAddonId) return 1;
+              return 0;
+            });
           
           for (const fallbackAddon of enabledAddons) {
             try {
