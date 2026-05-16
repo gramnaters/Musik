@@ -36,3 +36,6 @@ next-env.d.ts
 # local verification screenshots
 /verify-player-ui/
 /_internal-storage-extract/
+
+monochrome-ref/
+monochrome-source/
