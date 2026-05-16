@@ -4,30 +4,23 @@ import { useEffect, useCallback } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useMetadataStore } from '@/stores/metadataStore';
-import { useDownloadStore } from '@/stores/downloadStore';
 import Sidebar from '@/components/layout/Sidebar';
 import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
 import PlayerBar from '@/components/player/PlayerBar';
 import NowPlaying from '@/components/player/NowPlaying';
-import { EqualizerOutlet } from '@/components/audio/EqualizerOutlet';
 import HomeView from '@/components/views/HomeView';
 import SearchView from '@/components/views/SearchView';
 import LibraryView from '@/components/views/LibraryView';
 import AddonsView from '@/components/views/AddonsView';
-import SettingsView from '@/components/views/SettingsView';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function MainContent() {
-  const { activeView, selectedPlaylistId, playerTheme } = useUIStore();
+  const { activeView, selectedPlaylistId } = useUIStore();
 
   return (
-    <div className={cn(
-      "flex-1 h-full min-h-0 overflow-hidden flex flex-col transition-colors",
-      playerTheme === 'tidal' ? "bg-transparent" : "bg-background"
-    )}>
+    <div className="flex-1 h-full overflow-hidden bg-background">
       <AnimatePresence mode="wait">
         <motion.div
           key={`${activeView}-${selectedPlaylistId || ''}`}
@@ -35,13 +28,12 @@ function MainContent() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="h-full min-h-0 flex flex-col overflow-hidden"
+          className="h-full"
         >
           {activeView === 'home' && <HomeView />}
           {activeView === 'search' && <SearchView />}
           {(activeView === 'library' || activeView === 'playlist') && <LibraryView />}
-          {activeView === 'connections' && <AddonsView />}
-          {activeView === 'settings' && <SettingsView />}
+          {activeView === 'addons' && <AddonsView />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -63,12 +55,6 @@ export default function AppPage() {
       cleanup();
     };
   }, [cleanup]);
-
-  // Migrate persisted catalog choice away from removed Apple catalog option
-  useEffect(() => {
-    const { catalogProvider, setCatalogProvider } = useMetadataStore.getState();
-    if (catalogProvider === 'apple') setCatalogProvider('spotify');
-  }, []);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -125,44 +111,23 @@ export default function AppPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const { playerTheme } = useUIStore();
-
   return (
-    <div className={cn(
-      "h-screen w-screen flex flex-col overflow-hidden text-foreground relative transition-colors duration-500",
-      playerTheme === 'tidal' ? "bg-black" : "bg-background"
-    )}>
-      {/* Main Layout */}
-      <div
-        className={cn(
-          'flex-1 flex flex-row overflow-hidden relative z-10',
-          'max-md:pb-[calc(12rem+env(safe-area-inset-bottom,0px))] md:pb-0'
-        )}
-      >
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground">
+      {/* Top section: sidebar + main + right panel */}
+      <div className="flex-1 flex flex-row overflow-hidden">
         <Sidebar />
         <MainContent />
         <RightPanel />
       </div>
 
-      {/* Player sits above mobile tab bar; tab bar is pinned to the bottom (see MobileNav) */}
-      <div
-        className={cn(
-          'flex-shrink-0 w-full z-20',
-          'max-md:fixed max-md:left-0 max-md:right-0',
-          /* Pinned above bottom tab bar (nav row ~4.5rem + same safe-area inset) */
-          'max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))]',
-          'md:relative'
-        )}
-      >
-        <PlayerBar />
-      </div>
+      {/* Bottom Player Bar */}
+      <PlayerBar />
 
+      {/* Mobile Navigation */}
       <MobileNav />
 
       {/* Now Playing Overlay */}
       <NowPlaying />
-
-      <EqualizerOutlet />
     </div>
   );
 }
