@@ -64,6 +64,8 @@ import {
   ListMusic,
   Plus,
   Check,
+  Cloud,
+  RotateCcw,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 
@@ -157,8 +159,16 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 export default function SettingsView() {
-  const { setActiveView, setSelectedPlaylistId, navigateTo, playerTheme, setPlayerTheme } = useUIStore();
-  const { clearAddonSearchCache } = useAddonStore();
+  const { setActiveView, setSelectedPlaylistId, navigateTo, playerTheme, setPlayerTheme, setConnectionsScreen } = useUIStore();
+  const {
+    clearAddonSearchCache,
+    sources,
+    addSource,
+    removeSource,
+    restoreAllModuleSources,
+    dismissModuleSource,
+    hiddenModuleSourceIds,
+  } = useAddonStore();
   const { catalogProvider, setCatalogProvider, appleStorefront, setAppleStorefront } = useMetadataStore();
   const {
     eqEnabled, setEqEnabled, eqPreset, setEqPreset, seekbarStyle, setSeekbarStyle,
@@ -226,6 +236,11 @@ export default function SettingsView() {
   const [extErr, setExtErr] = useState('');
   const [catalogTestBusy, setCatalogTestBusy] = useState(false);
   const [instanceDialogOpen, setInstanceDialogOpen] = useState(false);
+  const [sourcesDialogOpen, setSourcesDialogOpen] = useState(false);
+
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [showAddSourceForm, setShowAddSourceForm] = useState(false);
 
   const [newInstanceUrl, setNewInstanceUrl] = useState('');
   const [newInstanceType, setNewInstanceType] = useState<'api' | 'streaming' | 'qobuz'>('api');
@@ -982,76 +997,22 @@ export default function SettingsView() {
                 </div>
                 
                 <div className="space-y-6">
-                  {/* API Instances */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] px-1">Metadata API</h4>
-                    <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden divide-y divide-border/20 shadow-sm">
-                      {apiInstances.map((inst) => (
-                        <div key={inst.url} className="flex items-center justify-between p-4 hover:bg-primary/5 transition-colors group">
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className={cn(
-                              "w-2 h-2 rounded-full",
-                              selectedApiUrl === inst.url ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-zinc-600"
-                            )} />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{inst.url}</p>
-                              <p className="text-[10px] text-muted-foreground font-mono">v{inst.version || '?'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="sm" 
-                              variant={selectedApiUrl === inst.url ? "secondary" : "ghost"} 
-                              className="h-8 rounded-lg text-xs"
-                              onClick={() => setSelectedUrl('api', inst.url)}
-                            >
-                              {selectedApiUrl === inst.url ? 'Active' : 'Select'}
-                            </Button>
-                            {inst.isUser && (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => removeInstance('api', inst.url)}>
-                                <Trash2 size={14} />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                  {/* Consolidated into Addons -> Sources */}
+                  <div className="p-6 rounded-[24px] bg-zinc-900/40 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 group">
+                    <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(var(--primary),0.1)]">
+                        <Cloud size={28} />
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">Legacy Proxy Instances</p>
+                        <p className="text-sm text-muted-foreground max-w-sm">Metadata and streaming instances have been moved to the Addon Store sources for better management.</p>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Streaming Instances */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] px-1">Streaming API</h4>
-                    <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden divide-y divide-border/20 shadow-sm">
-                      {streamingInstances.map((inst) => (
-                        <div key={inst.url} className="flex items-center justify-between p-4 hover:bg-primary/5 transition-colors group">
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className={cn(
-                              "w-2 h-2 rounded-full",
-                              selectedStreamingUrl === inst.url ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-zinc-600"
-                            )} />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{inst.url}</p>
-                              <p className="text-[10px] text-muted-foreground font-mono">v{inst.version || '?'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="sm" 
-                              variant={selectedStreamingUrl === inst.url ? "secondary" : "ghost"} 
-                              className="h-8 rounded-lg text-xs"
-                              onClick={() => setSelectedUrl('streaming', inst.url)}
-                            >
-                              {selectedStreamingUrl === inst.url ? 'Active' : 'Select'}
-                            </Button>
-                            {inst.isUser && (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => removeInstance('streaming', inst.url)}>
-                                <Trash2 size={14} />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <Button variant="outline" className="rounded-full px-6 border-white/10 hover:bg-white/5" onClick={() => {
+                      setSourcesDialogOpen(true);
+                    }}>
+                      Manage Sources
+                    </Button>
                   </div>
 
                   {/* Credentials */}
@@ -1115,6 +1076,7 @@ export default function SettingsView() {
                             <SelectItem value="apple">Apple Music</SelectItem>
                             <SelectItem value="spotify">Spotify (API)</SelectItem>
                             <SelectItem value="tidal">Tidal (Official)</SelectItem>
+                            <SelectItem value="addon">Addon (Community)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1144,6 +1106,12 @@ export default function SettingsView() {
                         onClick={async () => {
                           setCatalogTestBusy(true);
                           try {
+                            if (catalogProvider === 'addon') {
+                              const home = await useAddonStore.getState().getHome();
+                              if (home) toast({ title: 'Connection Successful', description: 'Addon catalog is working properly.' });
+                              else throw new Error('No catalog returned');
+                              return;
+                            }
                             const res = await fetch(metadataSearchUrl({ q: 'daft punk', provider: catalogProvider, appleCountry: appleStorefront ?? 'US' }));
                             if (res.ok) toast({ title: 'Connection Successful', description: `${catalogProvider} metadata is working properly.` });
                             else throw new Error('API Response Error');
@@ -1221,24 +1189,34 @@ export default function SettingsView() {
                     </div>
                   </div>
 
-                  <div className="pt-4 flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-spotify-green to-cyan-500 flex items-center justify-center shadow-lg">
-                       <svg width="32" height="32" viewBox="0 0 18 18" fill="none">
-                          <path d="M2 14 L2 5 L6.5 11 L9 7.5 L11.5 11 L16 5 L16 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                    </div>
-                    <div className="text-center">
-                      <h3 className="font-bold">musik</h3>
-                      <p className="text-xs text-muted-foreground">Version {MUSIK_VERSION}</p>
-                      <p className="text-xs text-muted-foreground">Build {MUSIK_BUILD}</p>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                      <Button variant="outline" size="sm" className="rounded-full" onClick={() => setPage('help')}>
+                  <div className="pt-8 border-t border-border/20 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 px-2">
+                    <div className="flex flex-col gap-2 w-full max-w-[200px] order-2 md:order-1">
+                      <Button variant="outline" size="sm" className="rounded-full justify-start gap-3 hover:bg-primary/5" onClick={() => setPage('help')}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                         Help & FAQ
                       </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setPage('about')}>
+                      <Button variant="ghost" size="sm" className="rounded-full justify-start gap-3" onClick={() => setPage('about')}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
                         About musik
                       </Button>
+                    </div>
+
+                    <div className="flex items-center gap-4 order-1 md:order-2 text-right">
+                      <div className="hidden md:block">
+                        <h3 className="font-black text-2xl tracking-tighter italic bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">musik</h3>
+                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest opacity-70">
+                          v{MUSIK_VERSION} • {MUSIK_BUILD}
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-white/10 flex items-center justify-center shadow-2xl backdrop-blur-xl group">
+                         <svg width="24" height="24" viewBox="0 0 18 18" fill="none" className="group-hover:scale-110 transition-transform duration-300">
+                            <path d="M2 14 L2 5 L6.5 11 L9 7.5 L11.5 11 L16 5 L16 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                      </div>
+                      <div className="md:hidden text-center">
+                        <h3 className="font-bold">musik</h3>
+                        <p className="text-xs text-muted-foreground">Version {MUSIK_VERSION}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1324,6 +1302,146 @@ export default function SettingsView() {
                 Cancel
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={sourcesDialogOpen} onOpenChange={(open) => {
+        setSourcesDialogOpen(open);
+        if (!open) {
+          setShowAddSourceForm(false);
+          setNewSourceName('');
+          setNewSourceUrl('');
+        }
+      }}>
+        <DialogContent className="bg-zinc-950 border-white/10 text-white sm:max-w-md max-h-[85vh] flex flex-col rounded-[24px] p-6 overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="text-xl font-bold tracking-tight text-white">Manage Module Sources</DialogTitle>
+            <p className="text-xs text-white/50">Add or remove module registries for search and playback.</p>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1 custom-scrollbar">
+            {showAddSourceForm ? (
+              <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2 duration-200">
+                <p className="text-sm font-bold text-white">Add Custom Source</p>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-wider text-white/50">Display Name</Label>
+                    <Input
+                      value={newSourceName}
+                      onChange={(e) => setNewSourceName(e.target.value)}
+                      placeholder="My Catalog"
+                      className="bg-black/50 border-white/10 rounded-xl h-10 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-wider text-white/50">Registry JSON URL</Label>
+                    <Input
+                      value={newSourceUrl}
+                      onChange={(e) => setNewSourceUrl(e.target.value)}
+                      placeholder="https://example.com/index.json"
+                      className="bg-black/50 border-white/10 rounded-xl h-10 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-10 text-xs"
+                      disabled={!newSourceName.trim() || !newSourceUrl.trim()}
+                      onClick={() => {
+                        addSource(newSourceName.trim(), newSourceUrl.trim());
+                        setNewSourceName('');
+                        setNewSourceUrl('');
+                        setShowAddSourceForm(false);
+                        toast({
+                          title: "Source Added",
+                          description: `Successfully added catalog "${newSourceName}"`
+                        });
+                      }}
+                    >
+                      Save
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="rounded-full hover:bg-white/5 text-white/80 h-10 text-xs px-4" 
+                      onClick={() => setShowAddSourceForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button
+                onClick={() => setShowAddSourceForm(true)}
+                className="w-full h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs gap-2"
+              >
+                <Plus size={16} /> Add Custom Source
+              </Button>
+            )}
+
+            {hiddenModuleSourceIds.length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full h-11 rounded-full border-white/10 hover:bg-white/5 text-white font-bold text-xs gap-2"
+                onClick={() => restoreAllModuleSources()}
+              >
+                <RotateCcw size={14} /> Restore Hidden Catalogs
+              </Button>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Active Registries</p>
+              {sources.length === 0 ? (
+                <p className="text-xs text-white/30 text-center py-6">No active sources.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {sources.map((s) => {
+                    const isHidden = hiddenModuleSourceIds.includes(s.id);
+                    if (isHidden) return null;
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] border border-white/5"
+                      >
+                        <div className="min-w-0 flex-1 pr-3">
+                          <p className="text-sm font-bold truncate text-white">{s.name}</p>
+                          <p className="text-xs text-white/40 truncate mt-0.5">
+                            {s.registryUrl || "Built-in default catalog"}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-full shrink-0"
+                          onClick={() => {
+                            if (s.builtIn) {
+                              dismissModuleSource(s.id);
+                            } else {
+                              removeSource(s.id);
+                            }
+                            toast({
+                              title: s.builtIn ? "Catalog Hidden" : "Source Removed",
+                              description: `Successfully removed/hid catalog "${s.name}"`
+                            });
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 pt-4 border-t border-white/10 flex justify-end">
+            <Button
+              className="rounded-full bg-white hover:bg-white/90 text-black font-bold h-10 px-6 text-xs"
+              onClick={() => setSourcesDialogOpen(false)}
+            >
+              Done
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

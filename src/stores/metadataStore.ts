@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type CatalogMetadataProvider = 'spotify' | 'apple' | 'tidal';
+export type CatalogMetadataProvider = 'spotify' | 'apple' | 'tidal' | 'addon';
 
 interface MetadataState {
   /** Used for Settings + default catalog search when engine is “catalog”. */

@@ -155,7 +155,7 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           const Text(
-            'BeatBoss',
+            'Musik',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,

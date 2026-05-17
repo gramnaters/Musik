@@ -129,12 +129,39 @@ export default function SearchView() {
         const results = await searchWithAddon(id, q);
         setAddonSearchSnapshot(results);
         setAddonResults((results.tracks || []).map(addonTrackToTrack));
+
+        if (catalogProvider === 'addon') {
+          setCatalogBundle({
+            tracks: (results.tracks || []).map(addonTrackToTrack),
+            albums: (results.albums || []).map((a) => ({
+              id: a.id,
+              title: a.title || a.name || '',
+              artist: a.artistName || a.artist || '',
+              cover: a.cover || a.artworkURL,
+              year: a.year,
+              trackCount: a.trackCount || a.numberOfTracks,
+            })),
+            artists: (results.artists || []).map((art) => ({
+              id: art.id,
+              name: art.name,
+              cover: art.image || art.artworkURL,
+            }) as any),
+            playlists: (results.playlists || []).map((pl) => ({
+              id: pl.id,
+              name: pl.name || pl.title || '',
+              description: pl.description,
+              cover: pl.cover || pl.artworkURL || pl.image,
+              trackCount: pl.trackCount,
+            }) as any),
+            podcasts: [],
+          });
+        }
       } catch {
         setAddonSearchSnapshot(null);
         setAddonResults([]);
       }
     },
-    [searchWithAddon]
+    [searchWithAddon, catalogProvider]
   );
 
   const handleQueryChange = useCallback(
@@ -179,9 +206,11 @@ export default function SearchView() {
 
   useEffect(() => {
     const q = query.trim();
-    if (!hasSearched || !q) {
-      setCatalogBundle(null);
-      setCatalogLoading(false);
+    if (!hasSearched || !q || catalogProvider === 'addon') {
+      if (catalogProvider !== 'addon') {
+        setCatalogBundle(null);
+        setCatalogLoading(false);
+      }
       return;
     }
     const ac = new AbortController();
@@ -576,7 +605,7 @@ export default function SearchView() {
             )}
 
             {!query.trim() && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 md:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-3">
                 {SEARCH_CATEGORY_TILES.map((tile) => (
                   <motion.button
                     type="button"
@@ -702,7 +731,7 @@ export default function SearchView() {
                           <Loader2 className="animate-spin text-white/60" size={22} />
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
                           {(displayCatalogBundle?.albums || []).map((album) => (
                             <button
                               key={album.id}
@@ -784,7 +813,7 @@ export default function SearchView() {
                             playlists alongside Apple results.
                           </p>
                         )}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
                         {(displayCatalogBundle?.playlists || []).map((pl) => (
                           <button
                             key={pl.id}

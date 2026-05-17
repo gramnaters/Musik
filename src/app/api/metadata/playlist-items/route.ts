@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-type Provider = 'spotify' | 'apple';
+type Provider = 'spotify' | 'apple' | 'tidal';
 
 function appleArtworkUrl(item: Record<string, unknown>): string {
   const raw =
@@ -159,14 +159,178 @@ async function appleAlbumTracks(collectionId: string, country: string) {
   return { tracks, error: undefined as undefined };
 }
 
-/** Resolve playlist (Spotify) or album (Apple) track lists for in-app hubs. */
+async function getTidalToken(): Promise<string | null> {
+  const id = process.env.TIDAL_CLIENT_ID?.trim();
+  const secret = process.env.TIDAL_CLIENT_SECRET?.trim();
+  if (!id || !secret) return null;
+  
+  try {
+    const auth = Buffer.from(`${id}:${secret}`).toString('base64');
+    const res = await fetch('https://auth.tidal.com/v1/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ grant_type: 'client_credentials' }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+function mapTidalTrack(item: any) {
+  return {
+    id: `tidal_${item.id}`,
+    title: item.title,
+    artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
+    album: item.album?.title || '',
+    albumCover: item.album?.cover 
+      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` 
+      : '',
+    duration: item.duration || 0,
+    streamURL: undefined,
+    source: 'tidal' as const,
+    explicit: item.explicit === true,
+  };
+}
+
+async function tidalAlbumTracks(albumId: string, countryCode: string) {
+  const token = await getTidalToken();
+  if (!token) return [];
+  
+  const cc = countryCode.length === 2 ? countryCode.toUpperCase() : 'US';
+  try {
+    // Try items first (standard album tracks endpoint in Tidal v1)
+    const res = await fetch(`https://api.tidal.com/v1/albums/${encodeURIComponent(albumId)}/items?limit=100&countryCode=${cc}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+    });
+    if (!res.ok) {
+      // Try tracks fallback
+      const res2 = await fetch(`https://api.tidal.com/v1/albums/${encodeURIComponent(albumId)}/tracks?limit=100&countryCode=${cc}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+      if (!res2.ok) return [];
+      const data = await res2.json();
+      return (data.items || []).map(mapTidalTrack);
+    }
+    const data = await res.json();
+    return (data.items || []).map((x: any) => mapTidalTrack(x.item || x));
+  } catch {
+    return [];
+  }
+}
+
+async function tidalPlaylistTracks(playlistId: string, countryCode: string) {
+  const token = await getTidalToken();
+  if (!token) return [];
+  
+  const cc = countryCode.length === 2 ? countryCode.toUpperCase() : 'US';
+  try {
+    const res = await fetch(`https://api.tidal.com/v1/playlists/${encodeURIComponent(playlistId)}/items?limit=100&countryCode=${cc}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.items || []).map((x: any) => mapTidalTrack(x.item || x));
+  } catch {
+    return [];
+  }
+}
+
+/** Resolve playlist (Spotify/Tidal) or album (Apple/Spotify/Tidal) track lists for in-app hubs. */
 export async function GET(req: NextRequest) {
   const provider = (req.nextUrl.searchParams.get('provider') || 'spotify') as Provider;
   const rawId = req.nextUrl.searchParams.get('id')?.trim() || '';
   const country = req.nextUrl.searchParams.get('country')?.trim() || 'US';
   const market = req.nextUrl.searchParams.get('market')?.trim() || country || 'US';
+  const title = req.nextUrl.searchParams.get('title')?.trim() || '';
+  const artist = req.nextUrl.searchParams.get('artist')?.trim() || '';
+
   if (!rawId) {
     return NextResponse.json({ tracks: [], error: 'missing_id' }, { status: 400 });
+  }
+
+  // --- SMART RESOLUTION FALLBACK FOR EXPLORE PAGE ---
+  // 1. If it's a Tidal playlist UUID, load it from monochrome's public API
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+  if (isUuid) {
+    try {
+      const res = await fetch(`https://hot.monochrome.tf/playlist/?id=${rawId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
+          'Accept': 'application/json',
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.items || [];
+        const tracks = items.map((row: any) => {
+          const item = row.item || row;
+          return {
+            id: `tidal_${item.id}`,
+            title: item.title || '',
+            artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || item.artist || '',
+            album: item.album?.title || '',
+            albumCover: item.album?.cover 
+              ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` 
+              : '',
+            duration: item.duration || 0,
+            streamURL: undefined,
+            source: 'tidal' as const,
+            explicit: item.explicit === true,
+          };
+        });
+        return NextResponse.json({ tracks, provider: 'tidal' });
+      }
+    } catch (e) {
+      console.error('Failed to resolve monochrome playlist:', e);
+    }
+  }
+
+  // 2. If it's a Tidal album ID (pure number), resolve it via Tidal if configured or fallback to iTunes
+  const isNumericAlbum = /^\d+$/.test(rawId) || rawId.includes('album');
+  if (isNumericAlbum) {
+    if (process.env.TIDAL_CLIENT_ID && process.env.TIDAL_CLIENT_SECRET) {
+      try {
+        const tracks = await tidalAlbumTracks(tidalId, market);
+        if (tracks && tracks.length > 0) {
+          return NextResponse.json({ tracks, provider: 'tidal' });
+        }
+      } catch (e) {
+        console.error('Tidal album lookup failed, trying iTunes fallback:', e);
+      }
+    }
+
+    if (title && artist) {
+      try {
+        const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + ' ' + title)}&entity=album&limit=5&country=${country}`;
+        const sRes = await fetch(searchUrl, {
+          headers: { 'User-Agent': ITUNES_UA, 'Accept': 'application/json' }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          const results = sData.results || [];
+          // Find best matching album
+          const bestAlbum = results.find((r: any) => 
+            r.collectionName?.toLowerCase().includes(title.toLowerCase()) ||
+            title.toLowerCase().includes(r.collectionName?.toLowerCase())
+          ) || results[0];
+          
+          if (bestAlbum && bestAlbum.collectionId) {
+            const { tracks, error } = await appleAlbumTracks(String(bestAlbum.collectionId), country);
+            if (!error && tracks && tracks.length > 0) {
+              return NextResponse.json({ tracks, provider: 'apple' });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to resolve Tidal album via iTunes search fallback:', e);
+      }
+    }
   }
 
   let spotifyPlaylistId = rawId;
@@ -183,7 +347,47 @@ export async function GET(req: NextRequest) {
     appleCollectionId = rawId.slice('apple_album_'.length);
   }
 
+  let tidalId = rawId;
+  if (rawId.startsWith('tidal_album_')) {
+    tidalId = rawId.slice('tidal_album_'.length);
+  } else if (rawId.startsWith('tidal_pl_')) {
+    tidalId = rawId.slice('tidal_pl_'.length);
+  } else if (rawId.startsWith('tidal_')) {
+    tidalId = rawId.replace(/^tidal_/, '');
+  }
+
   try {
+    if (provider === 'tidal') {
+      const isAlbum = rawId.startsWith('tidal_album_') || rawId.includes('album');
+      const tracks = isAlbum 
+        ? await tidalAlbumTracks(tidalId, market)
+        : await tidalPlaylistTracks(tidalId, market);
+      
+      // Fallback for albums if credentials failed
+      if (tracks.length === 0 && isAlbum && title && artist) {
+        const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + ' ' + title)}&entity=album&limit=5&country=${country}`;
+        const sRes = await fetch(searchUrl, {
+          headers: { 'User-Agent': ITUNES_UA, 'Accept': 'application/json' }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          const results = sData.results || [];
+          const bestAlbum = results.find((r: any) => 
+            r.collectionName?.toLowerCase().includes(title.toLowerCase()) ||
+            title.toLowerCase().includes(r.collectionName?.toLowerCase())
+          ) || results[0];
+          if (bestAlbum && bestAlbum.collectionId) {
+            const { tracks: fallbackTracks, error } = await appleAlbumTracks(String(bestAlbum.collectionId), country);
+            if (!error && fallbackTracks && fallbackTracks.length > 0) {
+              return NextResponse.json({ tracks: fallbackTracks, provider: 'apple' });
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({ tracks, provider: 'tidal' });
+    }
+
     if (provider === 'spotify' && rawId.startsWith('spotify_album_')) {
       const albumId = rawId.slice('spotify_album_'.length);
       const { tracks, error, detail } = await spotifyAlbumTracks(albumId, market);
@@ -198,6 +402,19 @@ export async function GET(req: NextRequest) {
     if (provider === 'spotify') {
       const { tracks, error, detail } = await spotifyPlaylistTracks(spotifyPlaylistId, market);
       if (error) {
+        // Double fallback: if it's a spotify error due to credentials, try searching iTunes as last resort if title is available
+        if (title && artist && rawId.includes('album')) {
+          const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + ' ' + title)}&entity=album&limit=5&country=${country}`;
+          const sRes = await fetch(searchUrl, { headers: { 'User-Agent': ITUNES_UA } });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const best = sData.results?.[0];
+            if (best && best.collectionId) {
+              const { tracks: fallbackTracks, error: err } = await appleAlbumTracks(String(best.collectionId), country);
+              if (!err) return NextResponse.json({ tracks: fallbackTracks, provider: 'apple' });
+            }
+          }
+        }
         return NextResponse.json(
           { tracks: [], error, detail },
           { status: error === 'missing_spotify_credentials' ? 501 : 502 }

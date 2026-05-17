@@ -56,23 +56,9 @@ const DEFAULT_SOURCES: AddonSource[] = [
     builtIn: true,
   },
   {
-    id: '8spine-vercel',
-    name: '8SPINE Module Library (Vercel)',
-    registryUrl: 'https://8spine-modules.vercel.app/index.json',
-    builtIn: true,
-  },
-  {
-    id: '8spine-github-jawsh',
-    name: '8SPINE Modules (GitHub — Jawsh)',
-    registryUrl:
-      'https://raw.githubusercontent.com/Jawsh777/8spine-modules/refs/heads/main/dist/module-source.json',
-    builtIn: true,
-  },
-  {
-    id: '8spine-jsdelivr',
-    name: '8SPINE Modules (jsDelivr mirror)',
-    registryUrl:
-      'https://cdn.jsdelivr.net/gh/Jawsh777/8spine-modules@main/dist/module-source.json',
+    id: 'monochrome-instances',
+    name: 'Monochrome Instances',
+    registryUrl: '', // Static custom catalog handling
     builtIn: true,
   },
   {
@@ -82,23 +68,23 @@ const DEFAULT_SOURCES: AddonSource[] = [
     builtIn: true,
   },
   {
-    id: '8spine-official',
-    name: '8SPINE Official Registry',
-    registryUrl: 'https://8spine.club/index.json',
-    builtIn: true,
-  },
-  {
-    id: '8spine-community',
-    name: '8SPINE Community Repo',
-    registryUrl: 'https://8spine.com/index.json',
-    builtIn: true,
-  },
-  {
     id: 'ricky-source',
-    name: 'Ricky (Cyrus All-in-One)',
+    name: 'Ricky Cyrus (AIO)',
     registryUrl: 'https://all-in-one.cyrusna29.workers.dev/8spine-source.json',
     builtIn: true,
   },
+  {
+    id: 'doc-source',
+    name: 'Doc\'s Modules',
+    registryUrl: 'https://raw.githubusercontent.com/DocSavage-8spine/modules/main/index.json',
+    builtIn: true,
+  },
+  {
+    id: '8spine-official',
+    name: '8SPINE Official',
+    registryUrl: 'https://8spine.club/index.json',
+    builtIn: true,
+  }
 ];
 
 
@@ -144,6 +130,7 @@ interface AddonActions {
   getAlbumTracksForAddon: (addonId: string, albumId: string) => Promise<AddonTrack[]>;
   getPlaylistTracksForAddon: (addonId: string, playlistId: string) => Promise<AddonTrack[]>;
   getArtistTracksForAddon: (addonId: string, artistId: string) => Promise<AddonTrack[]>;
+  getHome: () => Promise<AddonSearchResults | null>;
   clearError: () => void;
   clearAddonSearchCache: () => void;
   /** Enabled search modules: custom order first, then any not listed. */
@@ -582,117 +569,69 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       },
 
       resolveStreamUrl: async (track: AddonTrack & { source?: string }): Promise<string> => {
-        // 1. If track already has a direct stream URL, proxy it through our local stream handler
-        if (track.streamURL) {
-          return `/api/stream?url=${encodeURIComponent(track.streamURL)}`;
-        }
-
-        const { addons } = get();
-        const streamingStore = useStreamingStore.getState();
-        const streamingUrl = streamingStore.selectedStreamingUrl;
-
-        // Clean ID (strip source prefixes)
-        const trackId = String(track.id || '').trim();
-        const cleanId = trackId.replace(/^(tidal|spotify|apple|deezer|yt|youtube)_/i, '');
-
-        // 2. Try resolving via the selected streaming instance first (for metadata-only tracks)
-        if (!track.addonId || track.source === 'tidal' || track.source === 'deezer') {
-          if (streamingUrl && cleanId) {
-            const instanceUrl = `${streamingUrl.replace(/\/$/, '')}/stream/${cleanId}`;
+        const { addons, getPlaybackOrderedSearchAddonIds } = get();
+        let url: string | undefined;
+        
+        // 1. Try the track's native addon resolution first (if it came from an addon)
+        if (track.addonId) {
+          const addon = addons.find((a) => a.manifest.id === track.addonId && a.enabled);
+          if (addon) {
             try {
-              const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(instanceUrl)}`);
-              if (res.ok) {
-                const data = await res.json();
-                const resolvedUrl = pickStreamUrlFromEightspineResult(data);
-                if (resolvedUrl) {
-                  return `/api/stream?url=${encodeURIComponent(resolvedUrl)}`;
+              const targetId = (track as any).addonTrackId || track.id;
+              if (addon.eightspineInnerCode) {
+                const api = await getEightspineApi(addon);
+                const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
+                if (typeof getTrackStreamUrl === 'function') {
+                  const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, undefined, { settings: {} })
+                           : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, undefined)
+                           : await getTrackStreamUrl(targetId);
+                  url = pickStreamUrlFromEightspineResult(out);
                 }
               }
+              if (!url) {
+                const baseURL = addon.manifest.baseURL || '';
+                const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/stream/${targetId}`)}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  url = pickStreamUrlFromEightspineResult(data);
+                }
+              }
+              if (url) return `/api/stream?url=${encodeURIComponent(url)}`;
             } catch (e) {
-              console.warn('[AddonStore] Instance resolution failed:', e);
+              console.warn(`[AddonStore] Primary resolution failed for ${addon.manifest.id}:`, e);
             }
           }
         }
 
-        // 3. Fallback to specific addon resolution if addonId is present
-        const addon = track.addonId ? addons.find((a) => a.manifest.id === track.addonId) : null;
-        
-        if (addon) {
-          if (addon.eightspineInnerCode) {
-            const api = await getEightspineApi(addon);
-            const getTrackStreamUrl = (api.getTrackStreamUrl ??
-              api.getStreamUrl ??
-              api.getTrackUrl ??
-              api.streamUrl) as Function | undefined;
-            if (typeof getTrackStreamUrl === 'function') {
-              const ctx = { settings: {} };
-              const out =
-                getTrackStreamUrl.length >= 3
-                  ? await getTrackStreamUrl(track.id, undefined, ctx)
-                  : getTrackStreamUrl.length >= 2
-                    ? await getTrackStreamUrl(track.id, undefined)
-                    : await getTrackStreamUrl(track.id);
-              const resolvedUrl = pickStreamUrlFromEightspineResult(out);
-              if (resolvedUrl) return `/api/stream?url=${encodeURIComponent(resolvedUrl)}`;
-            }
-          }
-
-          const baseURL = addon.manifest.baseURL || '';
-          const streamApiUrl = `${baseURL}/stream/${track.id}`;
-          
-          try {
-            const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(streamApiUrl)}`);
-            if (res.ok) {
-              const data: Record<string, unknown> = await res.json();
-              const resolvedUrl = pickStreamUrlFromEightspineResult(data);
-              if (resolvedUrl) return `/api/stream?url=${encodeURIComponent(resolvedUrl)}`;
-            }
-          } catch (e) {
-             console.warn(`[AddonStore] Addon ${addon.manifest.id} resolution failed:`, e);
-          }
-        }
-
-        // 4. SMART FALLBACK: Search for the track via enabled addons (YouTube, etc.)
-        // Only if we haven't already tried a fallback search for this specific track.
-        const canFallback = !track.isFallback && track.title && track.artist;
-        if (canFallback) {
+        // 2. FALLBACK CHAIN: Try all enabled search-capable addons in priority order
+        if (!(track as any).isFallback) {
+          const fallbackAddonIds = getPlaybackOrderedSearchAddonIds();
           const query = `${track.title} ${track.artist}`.trim();
-          const activeAddonId = get().activeAddonId;
-          const enabledAddons = addons
-            .filter(a => a.enabled && a.manifest.id !== track.addonId)
-            .sort((a, b) => {
-              if (a.manifest.id === activeAddonId) return -1;
-              if (b.manifest.id === activeAddonId) return 1;
-              return 0;
-            });
-          
-          for (const fallbackAddon of enabledAddons) {
-            try {
-              const results = await get().searchWithAddon(fallbackAddon.manifest.id, query);
-              const match = results.tracks?.find(t => 
-                t.title.toLowerCase().includes(track.title.toLowerCase()) || 
-                track.title.toLowerCase().includes(t.title.toLowerCase())
-              ) || results.tracks?.[0];
 
+          for (const addonId of fallbackAddonIds) {
+            if (addonId === track.addonId) continue; // Skip what we already tried
+            
+            const addon = addons.find((a) => a.manifest.id === addonId);
+            if (!addon) continue;
+
+            try {
+              const results = await get().searchWithAddon(addonId, query);
+              const match = results.tracks?.[0];
+              
               if (match) {
-                // Mark as fallback to avoid infinite recursion
-                return await get().resolveStreamUrl({ ...match, isFallback: true } as any);
+                // Recursive call with isFallback=true to prevent infinite loop
+                const url = await get().resolveStreamUrl({ ...match, isFallback: true } as any);
+                if (url) return url;
               }
             } catch (e) {
-              console.warn(`[AddonStore] Fallback search via ${fallbackAddon.manifest.name} failed:`, e);
+              console.warn(`[AddonStore] Fallback resolution failed for ${addon.manifest.id}:`, e);
             }
           }
         }
 
-        // 5. Final desperate attempt with clean ID on instance (if not already tried)
-        if (streamingUrl && cleanId) {
-          const instanceUrl = `${streamingUrl.replace(/\/$/, '')}/stream/${cleanId}`;
-          const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(instanceUrl)}`);
-          if (res.ok) {
-            const data = await res.json();
-            const resolvedUrl = pickStreamUrlFromEightspineResult(data);
-            if (resolvedUrl) return `/api/stream?url=${encodeURIComponent(resolvedUrl)}`;
-          }
+        // 3. Last resort: If track already has a direct stream URL from the instance, use it
+        if (track.streamURL) {
+          return `/api/stream?url=${encodeURIComponent(track.streamURL)}`;
         }
 
         throw new Error(`Could not resolve stream for "${track.title}" by ${track.artist}`);
@@ -864,6 +803,96 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         } finally {
           set({ activeAddonId: prev });
         }
+      },
+
+      getHome: async (): Promise<AddonSearchResults | null> => {
+        const priorityIds = get().getPlaybackOrderedSearchAddonIds();
+        if (!priorityIds.length) return null;
+
+        const aggregated: AddonSearchResults = {
+          tracks: [],
+          albums: [],
+          artists: [],
+          playlists: []
+        };
+
+        let hasData = false;
+
+        for (const addonId of priorityIds) {
+          const addon = get().addons.find((a) => a.manifest.id === addonId && a.enabled);
+          if (!addon) continue;
+
+          try {
+            let data: AddonSearchResults | null = null;
+            if (addon.eightspineInnerCode) {
+              const api = await getEightspineApi(addon);
+              const getHomeFn = (api.getHome ?? api.getCatalog ?? api.getExplore ?? api.getFeatured) as Function | undefined;
+              if (typeof getHomeFn === 'function') {
+                data = await getHomeFn();
+              }
+            }
+            
+            if (!data) {
+              const baseURL = addon.manifest.baseURL || '';
+              if (baseURL) {
+                const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/home`)}`);
+                if (res.ok) {
+                  data = await res.json();
+                }
+              }
+            }
+
+            if (data && (data.tracks || data.albums || data.artists || data.playlists)) {
+              hasData = true;
+              if (data.tracks) {
+                const normalizedTracks = data.tracks.map((t: any) => 
+                  normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, addon.manifest.baseURL || '')
+                );
+                aggregated.tracks!.push(...normalizedTracks);
+              }
+              if (data.albums) {
+                const normalizedAlbums = data.albums.map((a: any) => ({
+                  id: String(a.id ?? ''),
+                  name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
+                  title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
+                  artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
+                  artworkURL: a.artworkURL ?? a.cover ?? a.image,
+                  cover: a.artworkURL ?? a.cover ?? a.image,
+                  trackCount: a.trackCount ?? a.numberOfTracks,
+                  year: a.year,
+                  addonId: addon.manifest.id,
+                }));
+                aggregated.albums!.push(...normalizedAlbums);
+              }
+              if (data.artists) {
+                const normalizedArtists = data.artists.map((art: any) => ({
+                  id: String(art.id ?? ''),
+                  name: String(art.name ?? 'Unknown Artist'),
+                  image: art.artworkURL ?? art.image ?? art.picture,
+                  artworkURL: art.artworkURL ?? art.image ?? art.picture,
+                  addonId: addon.manifest.id,
+                }));
+                aggregated.artists!.push(...normalizedArtists);
+              }
+              if (data.playlists) {
+                const normalizedPlaylists = data.playlists.map((pl: any) => ({
+                  id: String(pl.id ?? ''),
+                  name: pl.name ?? pl.title ?? 'Playlist',
+                  cover: pl.artworkURL ?? pl.cover ?? pl.image,
+                  artworkURL: pl.artworkURL ?? pl.cover ?? pl.image,
+                  description: pl.description,
+                  trackCount: pl.trackCount,
+                  addonId: addon.manifest.id,
+                }));
+                aggregated.playlists!.push(...normalizedPlaylists);
+              }
+            }
+          } catch (e) {
+            console.warn(`[AddonStore] Failed to fetch home from ${addonId}:`, e);
+          }
+        }
+        
+        return hasData ? aggregated : null;
       },
 
       getPlaybackOrderedSearchAddonIds: () => {

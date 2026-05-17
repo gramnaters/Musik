@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -51,6 +51,7 @@ function MainContent() {
 export default function AppPage() {
   const { initializeDefaults } = useLibraryStore();
   const { cleanup } = usePlayerStore();
+  const [showSplash] = useState(false);
 
   // Initialize default playlists on first load
   useEffect(() => {
@@ -128,41 +129,46 @@ export default function AppPage() {
   const { playerTheme } = useUIStore();
 
   return (
-    <div className={cn(
-      "h-screen w-screen flex flex-col overflow-hidden text-foreground relative transition-colors duration-500",
-      playerTheme === 'tidal' ? "bg-black" : "bg-background"
-    )}>
-      {/* Main Layout */}
-      <div
-        className={cn(
-          'flex-1 flex flex-row overflow-hidden relative z-10',
-          'max-md:pb-[calc(12rem+env(safe-area-inset-bottom,0px))] md:pb-0'
-        )}
-      >
-        <Sidebar />
-        <MainContent />
-        <RightPanel />
+    <>
+      {/* Splash screen removed */}
+
+      <div className={cn(
+        "h-screen w-screen flex flex-col overflow-hidden text-foreground relative transition-colors duration-500",
+        playerTheme === 'tidal' ? "bg-[#060607]" : "bg-background"
+      )}>
+        {/* Main Layout */}
+        <div
+          className={cn(
+            'flex-1 flex flex-row overflow-hidden relative z-10',
+            'max-md:pb-[calc(12rem+env(safe-area-inset-bottom,0px))] md:pb-0'
+          )}
+        >
+          <Sidebar />
+          <MainContent />
+          <RightPanel />
+        </div>
+
+        {/* Player sits above mobile tab bar; tab bar is pinned to the bottom (see MobileNav) */}
+        <div
+          className={cn(
+            'w-full z-20 transition-all duration-500',
+            playerTheme === 'tidal' 
+              ? 'fixed inset-x-0 bottom-0 pointer-events-none' 
+              : 'flex-shrink-0 max-md:fixed max-md:left-0 max-md:right-0 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:relative'
+          )}
+        >
+          <div className="pointer-events-auto">
+            <PlayerBar />
+          </div>
+        </div>
+
+        <MobileNav />
+
+        {/* Now Playing Overlay */}
+        <NowPlaying />
+
+        <EqualizerOutlet />
       </div>
-
-      {/* Player sits above mobile tab bar; tab bar is pinned to the bottom (see MobileNav) */}
-      <div
-        className={cn(
-          'flex-shrink-0 w-full z-20',
-          'max-md:fixed max-md:left-0 max-md:right-0',
-          /* Pinned above bottom tab bar (nav row ~4.5rem + same safe-area inset) */
-          'max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))]',
-          'md:relative'
-        )}
-      >
-        <PlayerBar />
-      </div>
-
-      <MobileNav />
-
-      {/* Now Playing Overlay */}
-      <NowPlaying />
-
-      <EqualizerOutlet />
-    </div>
+    </>
   );
 }

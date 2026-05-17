@@ -18,12 +18,14 @@ export async function downloadTrackOneClick(track: Track) {
 
     // 1. Resolve Stream URL
     let streamUrl = track.streamURL;
-    if (!streamUrl && track.addonId && track.addonTrackId) {
+    if (!streamUrl) {
       streamUrl = await resolveStreamUrl({
-        id: track.addonTrackId,
+        id: track.addonTrackId || track.id,
         title: track.title,
         artist: track.artist,
         addonId: track.addonId,
+        streamURL: track.streamURL,
+        source: track.source,
       } as any);
     }
 

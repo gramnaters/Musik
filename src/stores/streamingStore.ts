@@ -142,24 +142,15 @@ interface StreamingActions {
 
 const DEFAULT_API_INSTANCES: StreamingInstance[] = [
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'api' },
-  { url: 'https://eu-central.monochrome.tf', version: '2.7', type: 'api' },
-  { url: 'https://us-west.monochrome.tf', version: '2.7', type: 'api' },
-  { url: 'https://api.monochrome.tf', version: '2.5', type: 'api' },
-  { url: 'https://musik.v.api.monochrome.tf', version: '3.0', type: 'api' },
 ];
 
 const DEFAULT_STREAMING_INSTANCES: StreamingInstance[] = [
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'streaming' },
   { url: 'https://maus.qqdl.site', version: '2.6', type: 'streaming' },
-  { url: 'https://stream.monochrome.tf', version: '2.7', type: 'streaming' },
-  { url: 'https://dl.musik.monochrome.tf', version: '2.8', type: 'streaming' },
 ];
 
 const DEFAULT_QOBUZ_INSTANCES: StreamingInstance[] = [
-  { url: 'https://qdl-api.monochrome.tf', version: '1.0', type: 'qobuz' },
   { url: 'https://qobuz.kennyy.com.br', version: '1.0', type: 'qobuz' },
-  { url: 'https://qobuz.monochrome.tf', version: '1.1', type: 'qobuz' },
-  { url: 'https://qobuz-proxy.monochrome.tf', version: '1.0', type: 'qobuz' },
 ];
 
 export const useStreamingStore = create<StreamingState & StreamingActions>()(
@@ -171,7 +162,7 @@ export const useStreamingStore = create<StreamingState & StreamingActions>()(
       
       selectedApiUrl: 'https://hifi.geeked.wtf',
       selectedStreamingUrl: 'https://hifi.geeked.wtf',
-      selectedQobuzUrl: 'https://qdl-api.monochrome.tf',
+      selectedQobuzUrl: 'https://qobuz.kennyy.com.br',
 
       tidalToken: null,
       qobuzToken: null,

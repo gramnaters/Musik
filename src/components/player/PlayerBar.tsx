@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useStreamingStore } from '@/stores/streamingStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
@@ -36,6 +37,7 @@ export default function PlayerBar() {
   const { isFavourite, toggleFavourite } = useLibraryStore();
   const { rightPanel, setRightPanel, playerTheme, setPlayerTheme } = useUIStore();
   const { openDownload } = useDownloadStore();
+  const { glassEffect } = useStreamingStore();
   const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
@@ -62,191 +64,182 @@ export default function PlayerBar() {
           </div>
         )}
         <motion.div
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
+        initial={playerTheme === 'tidal' ? { opacity: 0 } : { y: 100 }}
+        animate={playerTheme === 'tidal' ? { opacity: 1 } : { y: 0 }}
+        transition={{ duration: 0.3 }}
+        data-glass={glassEffect}
         className={cn(
           'flex-shrink-0 flex flex-col transition-all duration-500',
-          'bg-black/40 backdrop-blur-3xl border-t border-white/5',
           playerTheme === 'spotify' &&
-            'h-[90px] px-2 sm:px-4 items-center justify-center text-white',
-          playerTheme === 'tidal' &&
-            'min-h-[100px] h-auto py-2.5 md:py-0 md:h-[100px] tidal-player-bar w-full relative justify-center max-md:rounded-t-2xl max-md:mx-2 max-md:border-white/15 max-md:border-b-0 max-md:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]',
+            'bg-black/40 backdrop-blur-3xl border-t border-white/5 h-[90px] px-2 sm:px-4 items-center justify-center text-white',
+          playerTheme === 'tidal' && 'tidal-glass-player text-white',
           playerTheme === 'apple' &&
             'h-[90px] w-full rounded-none m-0 px-2 sm:px-4 items-center justify-center bg-black/65 backdrop-blur-2xl text-white',
-          'z-10 md:z-50 sticky bottom-0'
+          'md:z-50'
         )}
       >
         {playerTheme === 'tidal' ? (
-          <>
-            {currentTrack?.albumCover ? (
-              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none rounded-[inherit] transition-opacity duration-500">
-                <div 
-                  className="absolute inset-[-20%] transition-all duration-700 ease-out bg-no-repeat bg-cover bg-center"
-                  style={{
-                    backgroundImage: `url(${currentTrack.albumCover})`,
-                    filter: 'blur(40px) saturate(2) brightness(0.6)',
-                    opacity: 0.9,
-                    transform: 'scale(1.2)'
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/50 supports-[backdrop-filter]:backdrop-blur-xl" />
-                {/* Subtle top light border for glass effect */}
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-              </div>
-            ) : (
-              <div className="absolute inset-0 z-0 bg-[#0c0c0c] pointer-events-none rounded-[inherit]" />
-            )}
-            <div className="tidal-player-grid w-full max-w-full min-w-0 relative z-10 box-border px-1.5 sm:px-0">
-            {/* Track info */}
-            <div className="pb-track tidal-pb-track min-w-0 items-center">
-              {currentTrack ? (
-                <>
-                  <div
-                    className="pb-thumb tidal-pb-thumb shrink-0 md:h-[52px] md:w-[52px] md:rounded-[10px]"
-                    style={{ background: currentTrack.albumCover ? `url(${currentTrack.albumCover}) center/cover` : 'linear-gradient(135deg,#667eea,#764ba2)' }}
-                  />
-                  <div className="tidal-pb-meta flex min-w-0 flex-1 flex-col justify-center gap-1 py-0.5">
-                    <div className="flex min-w-0 items-center gap-0.5">
-                      <div
-                        className={cn(
-                          'tidal-pb-title pb-title min-w-0 cursor-pointer truncate font-medium hover:underline text-[12px] leading-snug md:text-[13px] md:font-semibold md:leading-tight md:tracking-tight'
+          <div className="w-full h-full relative flex flex-col">
+            <div className="tidal-player-grid w-full h-full max-w-full min-w-0 relative z-10 box-border px-5 py-2.5">
+              {/* Track info */}
+              <div className="pb-track tidal-pb-track flex items-center min-w-0 h-full gap-3">
+                {currentTrack ? (
+                  <>
+                    <div
+                      className="pb-thumb tidal-pb-thumb shrink-0 h-[52px] w-[52px] rounded-[6px] shadow-lg cursor-pointer"
+                      style={{ background: currentTrack.albumCover ? `url(${currentTrack.albumCover}) center/cover` : 'linear-gradient(135deg,#667eea,#764ba2)' }}
+                      onClick={() => setShowNowPlaying(true)}
+                    />
+                    <div className="tidal-pb-meta flex min-w-0 flex-col justify-center">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <div
+                          className="tidal-pb-title pb-title min-w-0 cursor-pointer truncate font-bold text-[14px] leading-tight hover:underline text-white"
+                          onClick={() => setShowNowPlaying(true)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          {currentTrack.title}
+                        </div>
+                        {currentTrack.explicit && (
+                          <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
                         )}
-                        onClick={() => setShowNowPlaying(true)}
-                        onKeyDown={(e) => e.key === 'Enter' && setShowNowPlaying(true)}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        {currentTrack.title}
+                        {qualityBadge && (
+                          <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-[2px] bg-white/10 text-white/80 border border-white/10">
+                            {qualityBadge.label}
+                          </span>
+                        )}
                       </div>
-                      {qualityBadge && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="shrink-0 text-[8px] font-bold tracking-tight sm:text-[9px] px-1 py-0.5 rounded-[2px] leading-none bg-black/75 text-white border border-white/15 cursor-default"
-                              aria-label={qualityTip}
-                            >
-                              {qualityBadge.label}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5"
-                          >
-                            {qualityTip}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      <button
-                        type="button"
-                        className={cn('pb-like tidal-pb-like !p-1 shrink-0', isFav && 'on')}
+                      <p className="tidal-pb-artist pb-artist truncate text-[12px] text-white/50 font-medium hover:underline mt-0.5">
+                        {currentTrack.artist} {currentTrack.album && <span className="text-white/30 ml-1 font-normal">• {currentTrack.album}</span>}
+                      </p>
+                    </div>
+                    {/* Heart and Options Buttons right next to meta */}
+                    <div className="flex items-center gap-1 ml-2 shrink-0">
+                      <button 
+                        className={cn("p-1.5 rounded-full hover:bg-white/5 transition-colors", isFav ? "text-cyan-400" : "text-white/40 hover:text-white")}
                         onClick={() => toggleFavourite(currentTrack)}
-                        aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
                       >
-                        {isFav ? (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path fill="#ec4899" stroke="#ec4899" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                        ) : (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                        )}
+                        <Heart size={16} fill={isFav ? "currentColor" : "none"} />
                       </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md',
-                          'border border-white/[0.22] bg-white/[0.07] text-white/75 transition-colors hover:bg-white/12 hover:text-white'
-                        )}
-                        onClick={() => setShowNowPlaying(true)}
-                        aria-label="Open full player"
+                      <button 
+                        className="p-1.5 rounded-full hover:bg-white/5 transition-colors text-white/40 hover:text-white"
+                        onClick={() => currentTrack && openDownload(currentTrack)}
                       >
-                        <ChevronUp className="size-4" strokeWidth={2} />
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                          <circle cx="5" cy="12" r="2" />
+                          <circle cx="12" cy="12" r="2" />
+                          <circle cx="19" cy="12" r="2" />
+                        </svg>
                       </button>
                     </div>
-                    <p className="tidal-pb-artist pb-artist min-h-[1.25em] truncate text-[11px] leading-snug text-white/[0.52] hover:underline md:text-[11.5px]">
-                      {currentTrack.artist}
-                    </p>
-                    <div className="tidal-pb-album flex min-h-[1.25em] min-w-0 items-center gap-1 text-[11px] leading-snug text-white/[0.48] md:text-[11.5px]">
-                      {currentTrack.album?.trim() ? (
-                        <>
-                          <Disc3 className="size-[13px] shrink-0 self-center opacity-90" aria-hidden />
-                          <span className="min-w-0 truncate">{currentTrack.album}</span>
-                        </>
-                      ) : (
-                        <span className="sr-only">Album</span>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="pb-thumb tidal-pb-thumb flex items-center justify-center bg-white/5 border-none shadow-none shrink-0">
-                    <MusicIcon size={18} className="text-white/30" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="pb-title text-white/50 max-md:text-[12px]">No track playing</div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Transport + timeline */}
-            <div className="pb-center w-full max-w-none">
-              <div className="pb-buttons gap-2 sm:gap-4 md:gap-8">
-                <button className="ctrl" onClick={toggleShuffle} style={{ color: isShuffle ? '#fff' : '', opacity: isShuffle ? 1 : 0.7 }}>
-                  <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
-                </button>
-                <button className="ctrl" onClick={previousTrack} style={{ opacity: 0.8 }}>
-                  <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
-                <button className="play-btn-main" onClick={togglePlayPause}>
-                  {isPlaying ? (
-                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                  ) : showBuffering ? (
-                    <Loader2 width={24} height={24} className="animate-spin text-white" aria-hidden />
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
-                  )}
-                </button>
-                <button className="ctrl" onClick={nextTrack} style={{ opacity: 0.8 }}>
-                  <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M16 6h2v12h-2zm-11 0l8.5 6L5 18z"/></svg>
-                </button>
-                <button className="ctrl" onClick={cycleRepeat} style={{ color: repeatMode !== 'off' ? '#fff' : '', opacity: repeatMode !== 'off' ? 1 : 0.7 }}>
-                  <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-                </button>
-              </div>
-              <div className="pb-progress w-full max-w-none md:max-w-[440px] tidal-pb-progress mx-auto">
-                <span className="time-label">{currentTrack ? formatDuration(currentTime) : '0:00'}</span>
-                <div className={cn('min-w-0 flex-1', seekbarWrapperClass(seekbarStyle))}>
-                  <PlaybackSeekSlider sliderClassName="tidal-progress-slider w-full touch-pan-y" />
-                </div>
-                <span className="time-label right">{currentTrack && duration ? formatDuration(duration) : '0:00'}</span>
-              </div>
-            </div>
-
-            {/* Queue, theme, volume */}
-            <div className="pb-right tidal-pb-icons-row justify-end items-center min-w-0 gap-1 sm:gap-2 md:gap-3 shrink-0">
-              <button className="icon-btn" title="Download" aria-label="Download track" type="button" onClick={() => currentTrack && openDownload(currentTrack)}>
-                <Download width={18} height={18} />
-              </button>
-              <button className="icon-btn" onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')} title="Queue">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
-              </button>
-              <button className="icon-btn" onClick={() => {
-                const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
-                setPlayerTheme(themes[(themes.indexOf(playerTheme) + 1) % themes.length]);
-              }} title="Cycle player style" aria-label="Cycle player style">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z"/></svg>
-              </button>
-              <div className="icon-btn" onClick={toggleMute} style={{ border: 'none', background: 'none' }}>
-                {isMuted || volume === 0 ? (
-                  <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                  </>
                 ) : (
-                  <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.9 7-4.6 7-9.03s-3-8.13-7-9.03z"/></svg>
+                  <div className="flex items-center gap-3 opacity-30">
+                    <div className="h-12 w-12 rounded-[6px] bg-white/10" />
+                    <div className="space-y-1">
+                      <div className="h-3 w-24 bg-white/20 rounded-full" />
+                      <div className="h-2 w-16 bg-white/10 rounded-full" />
+                    </div>
+                  </div>
                 )}
               </div>
-              <input type="range" className="vol-slider hidden md:block" min="0" max="100" value={isMuted ? 0 : volume * 100} onChange={(e) => setVolume(Number(e.target.value) / 100)} style={{ background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.15) ${isMuted ? 0 : volume * 100}%)` }} aria-label="Volume" />
+
+              {/* Transport & Seekbar */}
+              <div className="pb-center flex flex-col items-center justify-center h-full gap-1.5">
+                {/* Control Buttons */}
+                <div className="flex items-center gap-7">
+                  <button className="ctrl hover:text-white transition-colors animate-in fade-in" onClick={toggleShuffle} style={{ color: isShuffle ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                    <Shuffle size={18} />
+                  </button>
+                  <button className="ctrl hover:text-white transition-colors" onClick={previousTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    <SkipBack size={22} fill="currentColor" />
+                  </button>
+                  <button className="tidal-play-btn" onClick={togglePlayPause}>
+                    {isPlaying ? <Pause size={20} fill="currentColor" /> : showBuffering ? <Loader2 size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                  </button>
+                  <button className="ctrl hover:text-white transition-colors" onClick={nextTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    <SkipForward size={22} fill="currentColor" />
+                  </button>
+                  <button className="ctrl hover:text-white transition-colors" onClick={cycleRepeat} style={{ color: repeatMode !== 'off' ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                    {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                  </button>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="flex items-center gap-3 w-full max-w-[850px] px-2">
+                  <span className="text-[11px] w-10 text-right tabular-nums text-white/50">
+                    {currentTrack ? formatDuration(currentTime) : ''}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <PlaybackSeekSlider sliderClassName="tidal-progress-slider w-full" />
+                  </div>
+                  <span className="text-[11px] w-10 tabular-nums text-white/50">
+                    {currentTrack && duration ? formatDuration(duration) : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Volume & Actions */}
+              <div className="pb-right flex items-center justify-end h-full gap-3">
+                {/* Download */}
+                <button 
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                  onClick={() => currentTrack && openDownload(currentTrack)}
+                  title="Download"
+                >
+                  <Download size={18} />
+                </button>
+
+                {/* Lyrics / Now Playing */}
+                <button 
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                  onClick={() => setShowNowPlaying(true)}
+                  title="Lyrics"
+                >
+                  <Mic2 size={18} />
+                </button>
+
+                {/* Queue / ListMusic */}
+                <button 
+                  className={cn("p-2 rounded-full hover:bg-white/5 transition-colors", rightPanel === 'queue' ? 'text-cyan-400' : 'text-white/60 hover:text-white')} 
+                  onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')}
+                  title="Queue"
+                >
+                  <ListMusic size={18} />
+                </button>
+
+                {/* Cycle Style / Maximize2 */}
+                <button 
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                  onClick={() => {
+                    const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
+                    const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
+                    setPlayerTheme(next);
+                  }}
+                  title="Cycle Theme"
+                >
+                  <Maximize2 size={18} />
+                </button>
+
+                {/* Volume icon & slider */}
+                <div className="flex items-center gap-2 group mr-1">
+                  <button onClick={toggleMute} className="text-white/60 hover:text-white transition-colors">
+                    <VolumeIcon size={18} />
+                  </button>
+                  <input 
+                    type="range" 
+                    className="vol-slider w-20 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white" 
+                    min="0" max="100" 
+                    value={isMuted ? 0 : volume * 100} 
+                    onChange={(e) => setVolume(Number(e.target.value) / 100)}
+                    style={{ 
+                      background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.1) ${isMuted ? 0 : volume * 100}%)` 
+                    }} 
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          </>
         ) : (
           <div className="flex items-center justify-between w-full h-full relative">
             {/* Left column - Track info */}
@@ -528,7 +521,7 @@ export default function PlayerBar() {
               {/* Progress bar */}
               <div className="flex items-center gap-3 w-full max-w-[600px]">
                 <span className="text-[11px] w-10 text-right tabular-nums text-white/50">
-                  {currentTrack ? formatDuration(currentTime) : '0:00'}
+                  {currentTrack ? formatDuration(currentTime) : ''}
                 </span>
                 <div
                   className={cn(
@@ -544,7 +537,7 @@ export default function PlayerBar() {
                   <PlaybackSeekSlider />
                 </div>
                 <span className="text-[11px] w-10 tabular-nums text-white/50">
-                  {currentTrack && duration ? formatDuration(duration) : '0:00'}
+                  {currentTrack && duration ? formatDuration(duration) : ''}
                 </span>
               </div>
             </div>
