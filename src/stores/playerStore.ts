@@ -223,7 +223,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           try {
             let finalStreamUrl = track.streamURL;
 
-            if (!finalStreamUrl && (track.addonId || track.addonTrackId || track.source === 'tidal')) {
+            if (!finalStreamUrl) {
               try {
                 const proxied = await useAddonStore.getState().resolveStreamUrl({
                   id: track.addonTrackId || track.id,

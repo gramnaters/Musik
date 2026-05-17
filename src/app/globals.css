@@ -380,50 +380,151 @@
 }
 
 .tidal-glass-player {
-  background: rgba(5, 5, 10, 0.6) !important;
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 88px !important;
+  background: rgba(10, 10, 12, 0.96) !important;
+  backdrop-filter: blur(10px) saturate(140%) brightness(0.85) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) brightness(0.85) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.8) !important;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100 !important;
+}
+
+[data-glass="false"] .tidal-glass-player {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 88px !important;
+  border-radius: 0 !important;
+  background: rgba(10, 10, 12, 1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+}
+
+/* ====== Custom Tidal Seekbar Progress Slider ====== */
+.tidal-progress-slider {
+  --td-height: 3px;
+}
+
+.tidal-progress-slider [data-slot="slider-track"] {
+  height: var(--td-height) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  transition: background-color 0.2s, height 0.15s;
+}
+
+.tidal-progress-slider:hover [data-slot="slider-track"] {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  height: 4px !important;
+}
+
+.tidal-progress-slider [data-slot="slider-range"] {
+  height: var(--td-height) !important;
+  background-color: #00FFFF !important; /* Tidal Cyan */
+  box-shadow: 0 0 6px rgba(0, 242, 255, 0.4) !important;
+  transition: background-color 0.2s, height 0.15s;
+}
+
+.tidal-progress-slider:hover [data-slot="slider-range"] {
+  height: 4px !important;
+}
+
+.tidal-progress-slider [data-slot="slider-thumb"] {
+  width: 10px !important;
+  height: 10px !important;
+  background-color: #00FFFF !important;
+  border: 2px solid #ffffff !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s, transform 0.15s;
+  box-shadow: 0 0 8px rgba(0, 242, 255, 0.8) !important;
+  outline: none !important;
+  ring: none !important;
+}
+
+.tidal-progress-slider:hover [data-slot="slider-thumb"],
+.tidal-progress-slider:focus-within [data-slot="slider-thumb"] {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+}
+
+.tidal-glass-player::before {
+  display: none !important;
+}
+
+.tidal-glass-player::after {
+  display: none !important;
 }
 
 .tidal-play-btn {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0d0d12;
-  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);
-  transition: transform 0.15s, box-shadow 0.15s;
+  color: #000000;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tidal-play-btn:hover {
-  transform: scale(1.07);
-  box-shadow: 0 6px 28px rgba(255, 255, 255, 0.28);
+  transform: scale(1.05);
+  background: #f0f0f0;
+}
+
+.tidal-play-btn:active {
+  transform: scale(0.95);
 }
 
 .tidal-nav-item-active {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
   color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.tidal-hero-gradient {
-  background: linear-gradient(120deg, rgba(59, 130, 246, 0.4), rgba(139, 92, 246, 0.4), rgba(236, 72, 153, 0.3));
+.tidal-progress {
+  padding: 0 !important;
 }
 
 .tidal-progress [data-slot="slider-track"] {
-  height: 4px !important;
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  height: 3px !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 0 !important;
 }
 
 .tidal-progress [data-slot="slider-range"] {
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6) !important;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  background: #00f2ff !important;
+  box-shadow: 0 0 8px rgba(0, 242, 255, 0.4);
+  border-radius: 0 !important;
+}
+
+.tidal-progress [data-slot="slider-thumb"] {
+  width: 10px !important;
+  height: 10px !important;
+  background: #fff !important;
+  border: none !important;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tidal-progress:hover [data-slot="slider-thumb"] {
+  opacity: 1;
 }
 
 .tidal-progress [data-slot="slider-thumb"] {
@@ -525,6 +626,22 @@
   50% { transform: translate(-30px, 40px) scale(0.92); }
   75% { transform: translate(50px, 30px) scale(1.04); }
   100% { transform: translate(-20px, -40px) scale(0.96); }
+}
+
+.tidal-nowplaying-glass {
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(32px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.tidal-progress-slider {
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Liquify Background Engine */
@@ -1058,35 +1175,32 @@ img {
   margin-block: -10px;
 }
 .tidal-progress-slider [data-slot="slider-track"] {
-  height: 3px !important;
+  height: 2px !important;
   border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
   overflow: visible !important;
 }
 .tidal-progress-slider [data-slot="slider-range"] {
   border-radius: 999px !important;
   background: var(--tidal-fill) !important;
 }
-/* Tidal web player: solid white thumb, always visible, vertically centered on the bar */
+/* Tidal web player: thumb hidden by default, appears on hover */
 .tidal-progress-slider [data-slot="slider-thumb"] {
-  width: 12px !important;
-  height: 12px !important;
+  width: 10px !important;
+  height: 10px !important;
   border: none !important;
   background: #ffffff !important;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.35) !important;
-  opacity: 1 !important;
-  transition: box-shadow 0.15s ease;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  opacity: 0 !important;
+  transition: opacity 0.15s ease, transform 0.15s ease;
   border-radius: 50% !important;
-  -webkit-border-radius: 50% !important;
+  transform: scale(0.8);
 }
 .tidal-progress-slider:hover [data-slot="slider-thumb"],
-.tidal-progress-slider:focus-visible [data-slot="slider-thumb"],
+.tidal-progress-slider:focus-within [data-slot="slider-thumb"],
 .tidal-progress-slider:active [data-slot="slider-thumb"] {
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.45),
-    0 2px 14px rgba(0, 0, 0, 0.55) !important;
+  opacity: 1 !important;
+  transform: scale(1);
 }
 @media (hover: none) and (pointer: coarse) {
   .tidal-progress-slider [data-slot="slider-thumb"] {

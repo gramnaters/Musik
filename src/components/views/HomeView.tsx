@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
 import { trackListenDedupeKey } from '@/lib/track-identity';
 import { toast } from '@/hooks/use-toast';
+import { resolveAssetUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
+import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 
 /** Monochrome Genres */
 const GENRES = [
@@ -58,7 +60,7 @@ function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => vo
 
 function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 gap-x-4 gap-y-8">
       {children}
     </div>
   );
@@ -119,14 +121,144 @@ export default function HomeView() {
   const [exploreData, setExploreData] = useState<any>(null);
   const [exploreLoading, setExploreLoading] = useState(true);
   const [genreHub, setGenreHub] = useState<{ id: string; name: string; data?: any; loading: boolean } | null>(null);
+  const [collectionHub, setCollectionHub] = useState<{
+    id: string;
+    title: string;
+    subtitle?: string;
+    image?: string;
+    tracks: Track[];
+    loading: boolean;
+    addonId?: string;
+  } | null>(null);
   
   const { play } = usePlayerStore();
   const { recentlyPlayed, playlists: myPlaylists } = useLibraryStore();
   const { playerTheme, setSelectedPlaylistId } = useUIStore();
 
+  const { getHome } = useAddonStore();
+  const { catalogProvider } = useMetadataStore();
+
+  const getImageUrl = (item: any) => {
+    if (!item) return '';
+    let uuid = item.squareImage || item.image || item.picture || item.album?.cover || item.cover || item.artworkURL;
+    if (typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
+      return `https://resources.tidal.com/images/${uuid.replace(/-/g, '/')}/640x640.jpg`;
+    }
+    
+    let resolved = typeof uuid === 'string' ? uuid : '';
+    if (item.addonId && resolved) {
+      const addon = useAddonStore.getState().addons.find(a => a.manifest.id === item.addonId);
+      const baseURL = addon?.manifest.baseURL || '';
+      const resUrl = resolveAssetUrl(resolved, baseURL) || resolved;
+      if (resUrl && /^https?:\/\//i.test(resUrl)) {
+        return proxiedRemoteUrl(resUrl);
+      }
+      return resUrl;
+    }
+    return resolved;
+  };
+
+  const mapItemToTrack = (item: any): Track => {
+    if (item.addonId) {
+      const track = addonTrackToTrack(item);
+      track.albumCover = getImageUrl(item);
+      return track;
+    }
+    // If it's already a Track object, return it
+    if (item.source && item.id && !item.uuid) return item;
+    
+    return {
+      id: item.id || item.uuid,
+      title: item.title || item.name || 'Unknown Track',
+      artist: item.artist?.name || item.artists?.[0]?.name || item.artist || 'Unknown Artist',
+      album: item.album?.title || item.album || '',
+      albumCover: getImageUrl(item),
+      duration: item.duration || 0,
+      source: item.source || 'tidal',
+    };
+  };
+
+  const loadCollection = async (item: any, type: 'album' | 'playlist' | 'artist') => {
+    setGenreHub(null);
+    setCollectionHub({
+      id: item.id || item.uuid,
+      title: item.title || item.name || 'Collection',
+      subtitle: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+      image: getImageUrl(item),
+      tracks: [],
+      loading: true,
+      addonId: item.addonId
+    });
+
+    try {
+      let tracks: Track[] = [];
+      const addonId = item.addonId;
+
+      if (addonId) {
+        const store = useAddonStore.getState();
+        let raw: any[] = [];
+        if (type === 'album') {
+          raw = await store.getAlbumTracksForAddon(addonId, item.id || item.uuid);
+        } else if (type === 'playlist') {
+          raw = await store.getPlaylistTracksForAddon(addonId, item.id || item.uuid);
+        } else if (type === 'artist') {
+          raw = await store.getArtistTracksForAddon(addonId, item.id || item.uuid);
+        }
+        if (raw) {
+          raw.forEach(t => { t.addonId = addonId; });
+          tracks = raw.map(mapItemToTrack);
+        }
+      } else {
+        // Standard metadata proxy
+        const params = new URLSearchParams({ 
+          id: item.id || item.uuid, 
+          provider: catalogProvider,
+          title: item.title || item.name || '',
+          artist: item.artist?.name || item.artists?.[0]?.name || item.artist || ''
+        });
+        const res = await fetch(`/api/metadata/playlist-items?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+        }
+      }
+
+      setCollectionHub(h => h ? { ...h, tracks, loading: false } : null);
+    } catch (e) {
+      console.error('Failed to load collection tracks', e);
+      toast({
+        title: 'Failed to load collection',
+        description: 'Unable to fetch tracks. Please check connection and settings.',
+        variant: 'destructive'
+      });
+      setCollectionHub(null);
+    }
+  };
+
   const fetchExplore = useCallback(async () => {
     setExploreLoading(true);
     try {
+      if (catalogProvider === 'addon') {
+        const data = await getHome();
+        if (data) {
+          setExploreData({
+            top_tracks: data.tracks || [],
+            top_albums: data.albums || [],
+            featured_playlists: data.playlists || [],
+            sections: data.artists ? [
+              {
+                title: 'Trending Artists',
+                type: 'ARTIST_LIST',
+                items: data.artists
+              }
+            ] : []
+          });
+        } else {
+          setExploreData({ top_tracks: [], top_albums: [], featured_playlists: [], sections: [] });
+        }
+        return;
+      }
+
       const res = await fetch('/api/hot');
       const data = await res.json();
       setExploreData(data);
@@ -135,7 +267,7 @@ export default function HomeView() {
     } finally {
       setExploreLoading(false);
     }
-  }, []);
+  }, [catalogProvider, getHome]);
 
   useEffect(() => {
     if (activeTab === 'explore' && !exploreData) {
@@ -144,6 +276,7 @@ export default function HomeView() {
   }, [activeTab, exploreData, fetchExplore]);
 
   const loadGenre = async (id: string, name: string) => {
+    setCollectionHub(null);
     setGenreHub({ id, name, loading: true });
     try {
       const res = await fetch(`/api/explore/genre?id=${id}`);
@@ -160,30 +293,6 @@ export default function HomeView() {
       });
       setGenreHub(null);
     }
-  };
-
-  const getImageUrl = (item: any) => {
-    if (!item) return '';
-    const uuid = item.squareImage || item.image || item.picture || item.album?.cover || item.cover;
-    if (typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
-      return `https://resources.tidal.com/images/${uuid.replace(/-/g, '/')}/640x640.jpg`;
-    }
-    return item.artworkURL || (typeof uuid === 'string' ? uuid : '');
-  };
-
-  const mapItemToTrack = (item: any): Track => {
-    // If it's already a Track object, return it
-    if (item.source && item.id && !item.uuid) return item;
-    
-    return {
-      id: item.id || item.uuid,
-      title: item.title || item.name || 'Unknown Track',
-      artist: item.artist?.name || item.artists?.[0]?.name || item.artist || 'Unknown Artist',
-      album: item.album?.title || item.album || '',
-      albumCover: getImageUrl(item),
-      duration: item.duration || 0,
-      source: item.source || 'tidal',
-    };
   };
 
   const renderHome = () => {
@@ -242,6 +351,93 @@ export default function HomeView() {
   };
 
   const renderExplore = () => {
+    if (collectionHub) {
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="rounded-full bg-white/5 hover:bg-white/10 shrink-0"
+              onClick={() => setCollectionHub(null)}
+            >
+              <ChevronLeft size={20} />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-bold truncate">{collectionHub.title}</h1>
+              {collectionHub.subtitle && (
+                <p className="text-sm text-white/40">{collectionHub.subtitle}</p>
+              )}
+            </div>
+          </div>
+
+          {collectionHub.loading ? (
+            <div className="flex flex-col items-center justify-center py-32 space-y-4">
+              <Loader2 className="animate-spin text-white/20" size={40} />
+              <p className="text-white/20 text-sm font-medium">Gathering collection tracks...</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <div className="flex flex-col md:flex-row gap-8 items-start md:items-end">
+                {collectionHub.image && (
+                  <div className="relative group w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-2xl overflow-hidden shadow-2xl border border-white/5">
+                    <img 
+                      src={collectionHub.image} 
+                      alt={collectionHub.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/placeholder.png';
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-primary font-bold">Collection</p>
+                    <h2 className="text-4xl md:text-5xl font-black tracking-tight">{collectionHub.title}</h2>
+                    {collectionHub.subtitle && (
+                      <p className="text-white/60 text-lg font-medium">{collectionHub.subtitle}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {collectionHub.tracks.length > 0 && (
+                      <Button
+                        onClick={() => play(collectionHub.tracks[0], collectionHub.tracks, 0)}
+                        className="rounded-full h-12 px-6 font-bold flex items-center gap-2 bg-primary text-black hover:scale-102 transition-transform shadow-[0_0_20px_rgba(var(--primary),0.3)]"
+                      >
+                        <Play size={18} fill="currentColor" />
+                        Play All
+                      </Button>
+                    )}
+                    <span className="text-sm text-white/30 font-medium">
+                      {collectionHub.tracks.length} {collectionHub.tracks.length === 1 ? 'track' : 'tracks'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {!collectionHub.tracks.length && (
+                <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 rounded-3xl border border-white/5">
+                  <Music className="text-white/10 mb-4" size={48} />
+                  <p className="text-white/50 font-medium">No tracks found inside this collection</p>
+                </div>
+              )}
+
+              {collectionHub.tracks.length > 0 && (
+                <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                  <TrackList 
+                    tracks={collectionHub.tracks} 
+                    showAlbumArt 
+                    showIndex 
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (genreHub) {
       return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -298,8 +494,10 @@ export default function HomeView() {
                           onClick={() => {
                             if (section.type === 'TRACK' || !section.type) {
                               play(mapItemToTrack(item));
+                            } else if (section.type === 'ARTIST') {
+                              loadCollection(item, 'artist');
                             } else {
-                              // Handle other types if needed
+                              loadCollection(item, 'album');
                             }
                           }}
                           type={section.type === 'ARTIST' ? 'artist' : 'album'}
@@ -338,7 +536,7 @@ export default function HomeView() {
             {[1, 2, 3].map(i => (
               <div key={i} className="space-y-6">
                 <div className="h-7 w-48 bg-zinc-900 rounded animate-pulse" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-6">
                   {[1, 2, 3, 4, 5, 6].map(j => (
                     <div key={j} className="space-y-3">
                       <div className="aspect-square bg-zinc-900 rounded-2xl animate-pulse" />
@@ -371,9 +569,9 @@ export default function HomeView() {
                     <Card 
                       key={item.id}
                       title={item.title}
-                      subtitle={item.artist?.name}
+                      subtitle={item.artist?.name || item.artist}
                       image={getImageUrl(item)}
-                      onClick={() => {}}
+                      onClick={() => loadCollection(item, 'album')}
                     />
                   ))}
                 </Grid>
@@ -401,9 +599,9 @@ export default function HomeView() {
                     <Card 
                       key={item.uuid || item.id}
                       title={item.title}
-                      subtitle={item.description || `${item.numberOfTracks || 0} tracks`}
+                      subtitle={item.description || `${item.trackCount || item.numberOfTracks || 0} tracks`}
                       image={getImageUrl(item)}
-                      onClick={() => {}}
+                      onClick={() => loadCollection(item, 'playlist')}
                       type="playlist"
                     />
                   ))}
@@ -424,6 +622,10 @@ export default function HomeView() {
                       onClick={() => {
                         if (section.type === 'TRACK') {
                           play(mapItemToTrack(item));
+                        } else if (section.type === 'ARTIST_LIST') {
+                          loadCollection(item, 'artist');
+                        } else {
+                          loadCollection(item, 'album');
                         }
                       }}
                       type={section.type === 'ARTIST_LIST' ? 'artist' : 'album'}

@@ -87,7 +87,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.code_rounded,
             iconColor: AppTheme.textTertiary,
             title: 'Open Source',
-            subtitle: 'github.com/TheVolecitor/BeatBoss',
+            subtitle: 'github.com/gramnaters/Musik',
             onTap: () {},
           ),
         ],

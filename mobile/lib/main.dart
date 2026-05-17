@@ -36,11 +36,11 @@ void main() async {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  runApp(const BeatBossApp());
+  runApp(const MusikApp());
 }
 
-class BeatBossApp extends StatelessWidget {
-  const BeatBossApp({super.key});
+class MusikApp extends StatelessWidget {
+  const MusikApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +50,7 @@ class BeatBossApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LibraryProvider()),
       ],
       child: MaterialApp(
-        title: 'BeatBoss',
+        title: 'Musik',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme(),
         home: const MainShell(),

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AntiGravity — Tidal Glass Player</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --glass-bg: rgba(18, 18, 20, 0.55);
+    --glass-border: rgba(255,255,255,0.07);
+    --glass-highlight: rgba(255,255,255,0.04);
+    --accent: #e8e8e8;
+    --muted: rgba(255,255,255,0.38);
+    --track-bg: rgba(255,255,255,0.10);
+    --track-fill: #ffffff;
+    --player-height: 72px;
+    --blur-amount: 28px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0a0b;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── PAGE CONTENT ── */
+  .page {
+    min-height: 200vh;
+    padding: calc(var(--player-height) + 24px) 0 calc(var(--player-height) + 40px);
+  }
+
+  .hero {
+    padding: 60px 48px 48px;
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 18px;
+  }
+
+  .hero-title {
+    font-size: clamp(42px, 6vw, 80px);
+    font-weight: 300;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: rgba(255,255,255,0.45);
+  }
+
+  /* Album grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 20px;
+    padding: 40px 48px;
+  }
+
+  .album-card {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  .album-card:hover { transform: translateY(-4px); }
+  .album-card:hover .album-art { box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+
+  .album-art {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--c1, #1a1a2e), var(--c2, #16213e));
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    transition: box-shadow 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    overflow: hidden;
+    position: relative;
+  }
+  .album-art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+  }
+
+  .album-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #e8e8e8;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .album-artist {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── PLAYER BAR ── */
+  .player-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--player-height);
+    z-index: 100;
+
+    /* THE GLASS */
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur-amount)) saturate(180%) brightness(0.9);
+    -webkit-backdrop-filter: blur(var(--blur-amount)) saturate(180%) brightness(0.9);
+    border-top: 1px solid var(--glass-border);
+
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 0;
+
+    /* Slide-in on load */
+    animation: barSlideUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  /* Subtle shimmer line at top of bar */
+  .player-bar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255,255,255,0.15) 20%,
+      rgba(255,255,255,0.25) 50%,
+      rgba(255,255,255,0.15) 80%,
+      transparent 100%
+    );
+  }
+
+  /* When scrolled, increase glass density */
+  .player-bar.scrolled {
+    background: rgba(12, 12, 14, 0.72);
+    backdrop-filter: blur(40px) saturate(200%) brightness(0.85);
+    -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(0.85);
+  }
+
+  @keyframes barSlideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+
+  /* Progress bar (sits at very top of player) */
+  .progress-rail {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--track-bg);
+    cursor: pointer;
+    overflow: visible;
+    z-index: 2;
+  }
+
+  .progress-rail:hover { height: 5px; top: -1px; }
+  .progress-rail:hover .progress-thumb { opacity: 1; transform: scale(1); }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--track-fill);
+    width: 37%;
+    transition: width 0.1s linear;
+    position: relative;
+  }
+
+  .progress-thumb {
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+  }
+
+  /* Three columns layout */
+  .player-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 30%;
+    min-width: 0;
+  }
+
+  .player-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .player-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 30%;
+    justify-content: flex-end;
+  }
+
+  /* Track thumbnail */
+  .track-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #8b1a5a, #2d1b69);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    overflow: hidden;
+    position: relative;
+  }
+  .track-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+  }
+
+  /* Track info */
+  .track-info { min-width: 0; }
+  .track-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .track-artist {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Heart */
+  .btn-heart {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-heart:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  .btn-heart.active { color: #ff4f7b; }
+
+  /* Center controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s, transform 0.1s;
+  }
+  .ctrl-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  .ctrl-btn:active { transform: scale(0.9); }
+  .ctrl-btn.active { color: #fff; }
+
+  .ctrl-btn.play-btn {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .ctrl-btn.play-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: scale(1.05);
+  }
+
+  /* Time */
+  .time-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* Right controls */
+  .vol-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 72px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(to right, rgba(255,255,255,0.7) 70%, rgba(255,255,255,0.12) 70%);
+    cursor: pointer;
+    outline: none;
+    transition: height 0.2s;
+  }
+  .vol-slider:hover { height: 4px; }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .vol-wrap:hover .vol-slider::-webkit-slider-thumb { opacity: 1; }
+
+  .preview-btn {
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.7);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+  .preview-btn:hover {
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  /* SVG icon helper */
+  svg { display: block; }
+
+  /* Section labels */
+  .section-label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 48px;
+    margin-bottom: 20px;
+    margin-top: 16px;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 24px 48px;
+  }
+
+  /* List rows */
+  .track-list { padding: 0 48px; }
+  .track-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .track-row:hover { background: rgba(255,255,255,0.05); }
+  .track-row-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); width: 20px; text-align: center; }
+  .track-row-art {
+    width: 36px; height: 36px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .track-row-info { flex: 1; min-width: 0; }
+  .track-row-name { font-size: 13px; font-weight: 500; color: #e8e8e8; }
+  .track-row-artist { font-size: 11px; color: var(--muted); }
+  .track-row-dur { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- PAGE CONTENT -->
+<div class="page">
+  <div class="hero">
+    <div class="hero-eyebrow">Now Playing — AntiGravity</div>
+    <h1 class="hero-title">Bolo Bolo<br><em>W.I.S.H., PANTHER</em></h1>
+  </div>
+
+  <p class="section-label">Featured Albums</p>
+  <div class="grid">
+    <div class="album-card">
+      <div class="album-art" style="--c1:#8b1a5a;--c2:#2d1b69">🎵</div>
+      <div class="album-name">Bolo Bolo</div>
+      <div class="album-artist">W.I.S.H., PANTHER</div>
+    </div>
+    <div class="album-card">
+      <div class="album-art" style="--c1:#1a3a5c;--c2:#0d1f33">🌊</div>
+      <div class="album-name">Ocean Drive</div>
+      <div class="album-artist">Wavelength</div>
+    </div>
+    <div class="album-card">
+      <div class="album-art" style="--c1:#2d4a1e;--c2:#1a2e12">🌿</div>
+      <div class="album-name">Equinox</div>
+      <div class="album-artist">Foret</div>
+    </div>
+    <div class="album-card">
+      <div class="album-art" style="--c1:#4a1e1e;--c2:#2e1212">🔥</div>
+      <div class="album-name">Inferno</div>
+      <div class="album-artist">BLAZE</div>
+    </div>
+    <div class="album-card">
+      <div class="album-art" style="--c1:#1e1e4a;--c2:#12122e">⭐</div>
+      <div class="album-name">Stellar</div>
+      <div class="album-artist">Cosmos</div>
+    </div>
+    <div class="album-card">
+      <div class="album-art" style="--c1:#3a2d1e;--c2:#1e170d">🎸</div>
+      <div class="album-name">Raw</div>
+      <div class="album-artist">Gravel</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="section-label">Tracklist</p>
+  <div class="track-list">
+    <div class="track-row">
+      <div class="track-row-num">▶</div>
+      <div class="track-row-art" style="background:linear-gradient(135deg,#8b1a5a,#2d1b69)">🎵</div>
+      <div class="track-row-info">
+        <div class="track-row-name" style="color:#fff">Bolo Bolo</div>
+        <div class="track-row-artist">W.I.S.H., PANTHER</div>
+      </div>
+      <div class="track-row-dur">0:29</div>
+    </div>
+    <div class="track-row">
+      <div class="track-row-num">2</div>
+      <div class="track-row-art" style="background:linear-gradient(135deg,#1a3a5c,#0d1f33)">🌊</div>
+      <div class="track-row-info">
+        <div class="track-row-name">Night Drive</div>
+        <div class="track-row-artist">W.I.S.H.</div>
+      </div>
+      <div class="track-row-dur">3:42</div>
+    </div>
+    <div class="track-row">
+      <div class="track-row-num">3</div>
+      <div class="track-row-art" style="background:linear-gradient(135deg,#2d4a1e,#1a2e12)">🌿</div>
+      <div class="track-row-info">
+        <div class="track-row-name">Gravity</div>
+        <div class="track-row-artist">PANTHER</div>
+      </div>
+      <div class="track-row-dur">4:11</div>
+    </div>
+    <div class="track-row">
+      <div class="track-row-num">4</div>
+      <div class="track-row-art" style="background:linear-gradient(135deg,#4a1e1e,#2e1212)">🔥</div>
+      <div class="track-row-info">
+        <div class="track-row-name">Fade Out</div>
+        <div class="track-row-artist">W.I.S.H., PANTHER</div>
+      </div>
+      <div class="track-row-dur">3:58</div>
+    </div>
+    <div class="track-row">
+      <div class="track-row-num">5</div>
+      <div class="track-row-art" style="background:linear-gradient(135deg,#1e1e4a,#12122e)">⭐</div>
+      <div class="track-row-info">
+        <div class="track-row-name">Outro</div>
+        <div class="track-row-artist">W.I.S.H.</div>
+      </div>
+      <div class="track-row-dur">2:27</div>
+    </div>
+  </div>
+  <div style="height:200px"></div><!-- extra scroll room -->
+</div>
+
+<!-- GLASS PLAYER BAR -->
+<div class="player-bar" id="playerBar">
+  <!-- Thin progress at very top -->
+  <div class="progress-rail" id="progressRail">
+    <div class="progress-fill" id="progressFill">
+      <div class="progress-thumb"></div>
+    </div>
+  </div>
+
+  <!-- Left: track info -->
+  <div class="player-left">
+    <div class="track-thumb">🎵</div>
+    <div class="track-info">
+      <div class="track-name">Bolo Bolo</div>
+      <div class="track-artist">W.I.S.H., PANTHER</div>
+    </div>
+    <button class="btn-heart" id="heartBtn" title="Like">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Center: controls + time -->
+  <div class="player-center">
+    <div class="controls">
+      <!-- Shuffle -->
+      <button class="ctrl-btn" title="Shuffle">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+        </svg>
+      </button>
+      <!-- Prev -->
+      <button class="ctrl-btn" title="Previous">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+      <!-- Play/Pause -->
+      <button class="ctrl-btn play-btn" id="playBtn" title="Play / Pause">
+        <svg id="iconPlay" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <svg id="iconPause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      </button>
+      <!-- Next -->
+      <button class="ctrl-btn" title="Next">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+      <!-- Repeat -->
+      <button class="ctrl-btn" title="Repeat">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+      </button>
+    </div>
+    <!-- Time -->
+    <div class="time-row">
+      <span id="timeCurrent">0:22</span>
+      <span style="color:rgba(255,255,255,0.15)">—</span>
+      <span id="timeTotal">0:29</span>
+    </div>
+  </div>
+
+  <!-- Right: queue, volume, preview -->
+  <div class="player-right">
+    <!-- Queue icon -->
+    <button class="ctrl-btn" title="Queue">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/>
+        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+        <line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+    </button>
+    <!-- Volume -->
+    <div class="vol-wrap">
+      <button class="ctrl-btn" title="Volume" style="width:28px;height:28px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        </svg>
+      </button>
+      <input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="70">
+    </div>
+    <!-- Preview pill -->
+    <button class="preview-btn">Preview</button>
+  </div>
+</div>
+
+<script>
+  const bar = document.getElementById('playerBar');
+  const playBtn = document.getElementById('playBtn');
+  const iconPlay = document.getElementById('iconPlay');
+  const iconPause = document.getElementById('iconPause');
+  const heartBtn = document.getElementById('heartBtn');
+  const progressRail = document.getElementById('progressRail');
+  const progressFill = document.getElementById('progressFill');
+  const timeCurrent = document.getElementById('timeCurrent');
+  const volSlider = document.getElementById('volSlider');
+
+  let isPlaying = false;
+  let progress = 37; // percent
+  let totalSec = 29;
+  let currentSec = Math.round((progress / 100) * totalSec);
+  let ticker = null;
+
+  // ── Scroll → glass density ──
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 40) {
+      bar.classList.add('scrolled');
+    } else {
+      bar.classList.remove('scrolled');
+    }
+  }, { passive: true });
+
+  // ── Play / Pause ──
+  playBtn.addEventListener('click', () => {
+    isPlaying = !isPlaying;
+    iconPlay.style.display = isPlaying ? 'none' : 'block';
+    iconPause.style.display = isPlaying ? 'block' : 'none';
+
+    if (isPlaying) {
+      ticker = setInterval(() => {
+        currentSec = Math.min(currentSec + 1, totalSec);
+        progress = (currentSec / totalSec) * 100;
+        progressFill.style.width = progress + '%';
+        timeCurrent.textContent = fmtTime(currentSec);
+        if (currentSec >= totalSec) {
+          clearInterval(ticker);
+          isPlaying = false;
+          iconPlay.style.display = 'block';
+          iconPause.style.display = 'none';
+          currentSec = 0; progress = 0;
+        }
+      }, 1000);
+    } else {
+      clearInterval(ticker);
+    }
+  });
+
+  // ── Heart ──
+  heartBtn.addEventListener('click', () => {
+    heartBtn.classList.toggle('active');
+    const svg = heartBtn.querySelector('svg');
+    if (heartBtn.classList.contains('active')) {
+      svg.setAttribute('fill', '#ff4f7b');
+      svg.setAttribute('stroke', '#ff4f7b');
+    } else {
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+    }
+  });
+
+  // ── Progress click ──
+  progressRail.addEventListener('click', (e) => {
+    const rect = progressRail.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    progress = pct * 100;
+    currentSec = Math.round(pct * totalSec);
+    progressFill.style.width = progress + '%';
+    timeCurrent.textContent = fmtTime(currentSec);
+  });
+
+  // ── Volume slider gradient ──
+  volSlider.addEventListener('input', () => {
+    const v = volSlider.value;
+    volSlider.style.background = `linear-gradient(to right, rgba(255,255,255,0.75) ${v}%, rgba(255,255,255,0.12) ${v}%)`;
+  });
+
+  function fmtTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+</script>
+</body>
+</html>

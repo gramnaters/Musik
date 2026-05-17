@@ -309,86 +309,71 @@ export default function NowPlaying() {
                   </div>
                 </div>
 
-                {/* Main controls — Apple Music: rewind | back | play | fwd | repeat, icon-only, NO circles */}
-                <div className="flex items-center justify-between px-2 mb-5">
-                  <button
-                    onClick={toggleShuffle}
-                    className={cn('h-10 w-10 flex items-center justify-center rounded-full transition-opacity',
-                      isShuffle ? 'text-white opacity-100' : 'text-white opacity-35 hover:opacity-60')}
-                    aria-label="Shuffle"
-                  >
-                    <Shuffle size={20} strokeWidth={2} />
-                  </button>
+                 {/* Main controls — Apple Music: play button only, centered */}
+                  <div className="flex items-center justify-center px-2 mb-5">
+                    <button
+                      type="button"
+                      onClick={togglePlayPause}
+                      aria-label={isPlaying ? 'Pause' : 'Play'}
+                      className="w-16 h-16 shrink-0 flex items-center justify-center text-white rounded-full border-0 bg-transparent shadow-none outline-none transition-transform duration-200 ease-out hover:scale-[1.04] active:scale-[0.96]"
+                    >
+                      <span className="w-10 h-10 flex items-center justify-center pointer-events-none">
+                        {isPlaying ? (
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
+                            <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
+                          </svg>
+                        ) : (
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="M8 5.5v13L19 12 8 5.5z" />
+                          </svg>
+                        )}
+                      </span>
+                    </button>
+                  </div>
 
-                  {/* Apple Music: uses double-chevron "rewind" icon, not skip */}
-                  <button onClick={previousTrack} className="h-10 w-10 flex items-center justify-center text-white hover:opacity-75 transition-opacity" aria-label="Previous">
-                    {/* Apple-style backward chevrons */}
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-                      <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
-                    </svg>
-                  </button>
+                  {/* Volume — Apple Music: speaker icons flanking a slim slider */}
+                  <div className="flex items-center justify-center gap-3 px-1 mb-4">
+                    <button onClick={toggleMute} className="text-white/40 hover:text-white/70 transition-colors shrink-0">
+                      <VolumeX size={16} />
+                    </button>
+                    <div className="flex-1 apple-progress">
+                      <Slider
+                        value={[isMuted ? 0 : volume * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => setVolume(v[0] / 100)}
+                        className="w-full cursor-pointer"
+                      />
+                    </div>
+                    <button onClick={toggleMute} className="text-white/40 hover:text-white/70 transition-colors shrink-0">
+                      <Volume2 size={16} />
+                    </button>
+                  </div>
 
-                  {/* Apple Music web: fixed slot — same box for play and pause */}
-                  <button
-                    type="button"
-                    onClick={togglePlayPause}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                    className="w-14 h-14 shrink-0 flex items-center justify-center text-white rounded-full border-0 bg-transparent shadow-none outline-none transition-transform duration-200 ease-out hover:scale-[1.04] active:scale-[0.96]"
-                  >
-                    <span className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                      {isPlaying ? (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                          <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
-                          <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
-                        </svg>
-                      ) : (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                          <path d="M8 5.5v13L19 12 8 5.5z" />
-                        </svg>
-                      )}
-                    </span>
-                  </button>
-
-                  <button onClick={nextTrack} className="h-10 w-10 flex items-center justify-center text-white hover:opacity-75 transition-opacity" aria-label="Next">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-                      <path d="M6 18l8.5-6L6 6v12zm2.5-6 5-3.5v7L8.5 12zM16 6h2v12h-2z"/>
-                    </svg>
-                  </button>
-
-                  <button
-                    onClick={cycleRepeat}
-                    className={cn('h-10 w-10 flex items-center justify-center rounded-full transition-opacity',
-                      repeatMode !== 'off' ? 'text-white opacity-100' : 'text-white opacity-35 hover:opacity-60')}
-                    aria-label="Repeat"
-                  >
-                    {repeatMode === 'one' ? <Repeat1 size={20} strokeWidth={2} /> : <Repeat size={20} strokeWidth={2} />}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-center gap-10 px-1">
-                  <button
-                    type="button"
-                    onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                    className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
-                    aria-label="Download"
-                  >
-                    <Download size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNowPlaying(false);
-                      setRightPanel('queue');
-                    }}
-                    className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
-                    aria-label="Queue"
-                  >
-                    <ListMusic size={18} />
-                  </button>
+                  <div className="flex items-center justify-center gap-10 px-1">
+                    <button
+                      type="button"
+                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
+                      className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
+                      aria-label="Download"
+                    >
+                      <Download size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNowPlaying(false);
+                        setRightPanel('queue');
+                      }}
+                      className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
+                      aria-label="Queue"
+                    >
+                      <ListMusic size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* ═══════════════════════════════════════════════════════════
               SPOTIFY — exact match to open.spotify.com web player
@@ -583,47 +568,21 @@ export default function NowPlaying() {
                   </div>
                 </div>
 
-                {/* Main controls — Spotify: shuffle | prev | PLAY CIRCLE | next | repeat */}
-                <div className="flex items-center justify-between px-2 mt-2 mb-5 max-w-[220px] mx-auto gap-1">
-                  <button
-                    onClick={toggleShuffle}
-                    className={cn('h-10 w-10 flex items-center justify-center transition-colors rounded-full',
-                      isShuffle ? 'text-[#1DB954]' : 'text-white/55 hover:text-white')}
-                    aria-label="Shuffle"
-                  >
-                    <Shuffle size={20} strokeWidth={2} />
-                  </button>
-
-                  <button onClick={previousTrack} className="h-10 w-10 flex items-center justify-center text-white hover:text-white/90 transition-colors rounded-full" aria-label="Previous">
-                    <SkipBack size={22} fill="currentColor" strokeWidth={0} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={togglePlayPause}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                    className="h-10 w-10 shrink-0 rounded-full bg-white text-black flex items-center justify-center transition-transform duration-150 hover:scale-[1.06] active:scale-[0.96] focus-visible:outline-none shadow-xl shadow-black/40"
-                  >
-                    {isPlaying ? (
-                      <Pause size={20} fill="black" strokeWidth={0} />
-                    ) : (
-                      <Play size={20} fill="black" strokeWidth={0} className="translate-x-[1px]" />
-                    )}
-                  </button>
-
-                  <button onClick={nextTrack} className="h-10 w-10 flex items-center justify-center text-white hover:text-white/90 transition-colors rounded-full" aria-label="Next">
-                    <SkipForward size={22} fill="currentColor" strokeWidth={0} />
-                  </button>
-
-                  <button
-                    onClick={cycleRepeat}
-                    className={cn('h-10 w-10 flex items-center justify-center transition-colors rounded-full',
-                      repeatMode !== 'off' ? 'text-[#1DB954]' : 'text-white/55 hover:text-white')}
-                    aria-label="Repeat"
-                  >
-                    {repeatMode === 'one' ? <Repeat1 size={20} strokeWidth={2} /> : <Repeat size={20} strokeWidth={2} />}
-                  </button>
-                </div>
+                 {/* Main controls — Spotify: play button only, centered */}
+                 <div className="flex items-center justify-center px-2 mt-2 mb-5">
+                   <button
+                     type="button"
+                     onClick={togglePlayPause}
+                     aria-label={isPlaying ? 'Pause' : 'Play'}
+                     className="h-14 w-14 shrink-0 rounded-full bg-[#1DB954] text-black flex items-center justify-center transition-transform duration-150 hover:scale-[1.05] active:scale-[0.96] focus-visible:outline-none shadow-lg shadow-black/30"
+                   >
+                     {isPlaying ? (
+                       <Pause size={24} fill="black" strokeWidth={0} />
+                     ) : (
+                       <Play size={24} fill="black" strokeWidth={0} className="translate-x-[1px]" />
+                     )}
+                   </button>
+                 </div>
 
                 {/* Bottom row — Spotify: devices left, queue right */}
                 <div className="flex items-center justify-between px-1">
@@ -684,27 +643,27 @@ export default function NowPlaying() {
                 </div>
               </div>
 
-              <div className="now-playing-tidal relative z-10 flex flex-col h-full max-w-[600px] mx-auto w-full px-6 pb-10 pt-3">
-                {/* Top bar — Tidal: down chevron left, queue right */}
-                <div className="flex items-center justify-between py-3">
-                  <button
-                    onClick={() => setShowNowPlaying(false)}
-                    className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
-                    aria-label="Close"
-                  >
-                    <ChevronDown size={20} strokeWidth={2.5} />
-                  </button>
-                  <div className="text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Now Playing</p>
+<div className="now-playing-tidal tidal-nowplaying-glass relative z-10 flex flex-col h-full max-w-[600px] mx-auto w-full px-6 pb-10 pt-3">
+                  {/* Top bar — Tidal: down chevron left, queue right */}
+                  <div className="flex items-center justify-between py-3">
+                    <button
+                      onClick={() => setShowNowPlaying(false)}
+                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
+                      aria-label="Close"
+                    >
+                      <ChevronDown size={20} strokeWidth={2.5} />
+                    </button>
+                    <div className="text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Now Playing</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
+                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
+                      aria-label="Queue"
+                    >
+                      <ListMusic size={17} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
-                    className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
-                    aria-label="Queue"
-                  >
-                    <ListMusic size={17} />
-                  </button>
-                </div>
 
                 {/* Content Area */}
                 <div className="flex items-center justify-center flex-1 py-4 overflow-hidden">
@@ -836,48 +795,38 @@ export default function NowPlaying() {
                   </div>
                 </div>
 
-                {/* Main controls — Tidal: shuffle | prev | WHITE CIRCLE play | next | repeat */}
-                <div className="flex items-center justify-between px-1 mt-3 mb-5">
-                  <button
-                    onClick={toggleShuffle}
-                    className={cn('h-10 w-10 flex items-center justify-center rounded-full transition-colors',
-                      isShuffle ? 'text-white' : 'text-white/35 hover:text-white/65')}
-                    aria-label="Shuffle"
-                  >
-                    <Shuffle size={20} strokeWidth={1.75} />
-                  </button>
+                 {/* Main controls — Tidal: play button only, centered */}
+                 <div className="flex items-center justify-center px-1 mt-3 mb-5">
+                    <button
+                      onClick={togglePlayPause}
+                      aria-label={isPlaying ? 'Pause' : 'Play'}
+                      className="h-[64px] w-[64px] rounded-full bg-white flex items-center justify-center transition-all duration-150 hover:scale-[1.05] active:scale-[0.97] focus-visible:outline-none shadow-[0_4px_20px_rgba(255,255,255,0.2)]"
+                    >
+                      {isPlaying ? (
+                        <Pause size={28} fill="black" strokeWidth={0} />
+                      ) : (
+                        <Play size={28} fill="black" strokeWidth={0} className="translate-x-[2px]" />
+                      )}
+                    </button>
+                  </div>
 
-                  <button onClick={previousTrack} className="h-10 w-10 flex items-center justify-center text-white/80 hover:text-white transition-colors" aria-label="Previous">
-                    <SkipBack size={30} fill="currentColor" strokeWidth={0} />
-                  </button>
-
-                  {/* Tidal: white circle, black icon — exactly like tidal.com */}
-                  <button
-                    onClick={togglePlayPause}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                    className="h-[60px] w-[60px] rounded-full bg-white flex items-center justify-center transition-all duration-150 hover:scale-[1.05] active:scale-[0.97] focus-visible:outline-none"
-                    style={{ boxShadow: '0 4px 24px rgba(255,255,255,0.18)' }}
-                  >
-                    {isPlaying ? (
-                      <Pause size={26} fill="black" strokeWidth={0} />
-                    ) : (
-                      <Play size={26} fill="black" strokeWidth={0} className="translate-x-[2px]" />
-                    )}
-                  </button>
-
-                  <button onClick={nextTrack} className="h-10 w-10 flex items-center justify-center text-white/80 hover:text-white transition-colors" aria-label="Next">
-                    <SkipForward size={30} fill="currentColor" strokeWidth={0} />
-                  </button>
-
-                  <button
-                    onClick={cycleRepeat}
-                    className={cn('h-10 w-10 flex items-center justify-center rounded-full transition-colors',
-                      repeatMode !== 'off' ? 'text-white' : 'text-white/35 hover:text-white/65')}
-                    aria-label="Repeat"
-                  >
-                    {repeatMode === 'one' ? <Repeat1 size={20} strokeWidth={1.75} /> : <Repeat size={20} strokeWidth={1.75} />}
-                  </button>
-                </div>
+                  {/* Volume controls */}
+                  <div className="flex items-center justify-center gap-3 px-1 mb-3">
+                    <button onClick={toggleMute} className="text-white/35 hover:text-white/70 transition-colors shrink-0">
+                      <VolumeX size={16} />
+                    </button>
+                    <div className="flex-1 tidal-progress-slider">
+                      <Slider
+                        value={[isMuted ? 0 : volume * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => setVolume(v[0] / 100)}
+                        className="w-full cursor-pointer"
+                      />
+                    </div>
+                    <button onClick={toggleMute} className="text-white/35 hover:text-white/70 transition-colors shrink-0">
+                      <Volume2 size={16} />
+                    </button>
+                  </div>
 
                 {/* Bottom extras */}
                 <div className="flex items-center justify-between px-1">

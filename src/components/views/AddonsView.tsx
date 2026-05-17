@@ -2,7 +2,28 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAddonStore } from '@/stores/addonStore';
+import { useStreamingStore } from '@/stores/streamingStore';
 import { useUIStore } from '@/stores/uiStore';
+
+const MONOCHROME_INSTANCES = [
+  // API Instances
+  { id: 'geeked', name: 'Geeked (Hi-Fi)', url: 'https://hifi.geeked.wtf', version: '2.7', author: 'Geeked', type: 'api' },
+  { id: 'eu-central', name: 'EU Central API', url: 'https://eu-central.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'api' },
+  { id: 'us-west', name: 'US West API', url: 'https://us-west.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'api' },
+  { id: 'api-v25', name: 'Standard API (v2.5)', url: 'https://api.monochrome.tf', version: '2.5', author: 'Monochrome', type: 'api' },
+  { id: 'musik-v30', name: 'Musik API (v3.0)', url: 'https://musik.v.api.monochrome.tf', version: '3.0', author: 'V', type: 'api' },
+  
+  // Streaming Servers
+  { id: 'stream-mono', name: 'Monochrome Streaming Server', url: 'https://stream.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'streaming' },
+  { id: 'dl-musik', name: 'Musik DL Server', url: 'https://dl.musik.monochrome.tf', version: '2.8', author: 'Monochrome', type: 'streaming' },
+  { id: 'maus-stream', name: 'Maus Streaming Server', url: 'https://maus.qqdl.site', version: '2.6', author: 'Maus', type: 'streaming' },
+
+  // Qobuz Instances
+  { id: 'qdl-api', name: 'QDL Qobuz API', url: 'https://qdl-api.monochrome.tf', version: '1.0', author: 'Monochrome', type: 'qobuz' },
+  { id: 'qobuz-kennyy', name: 'Kennyy Qobuz API', url: 'https://qobuz.kennyy.com.br', version: '1.0', author: 'Kennyy', type: 'qobuz' },
+  { id: 'qobuz-mono', name: 'Monochrome Qobuz API', url: 'https://qobuz.monochrome.tf', version: '1.1', author: 'Monochrome', type: 'qobuz' },
+  { id: 'qobuz-proxy', name: 'Qobuz Proxy API', url: 'https://qobuz-proxy.monochrome.tf', version: '1.0', author: 'Monochrome', type: 'qobuz' },
+];
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -126,6 +147,8 @@ export default function AddonsView() {
     setSearchQuery,
   } = useUIStore();
 
+  const { addInstance, setSelectedUrl, apiInstances } = useStreamingStore();
+
   const visibleSources = useMemo(
     () => sources.filter((s) => !hiddenModuleSourceIds.includes(s.id)),
     [sources, hiddenModuleSourceIds]
@@ -190,6 +213,24 @@ export default function AddonsView() {
 
     await Promise.all(
       visibleSources.map(async (source) => {
+        if (source.id === 'monochrome-instances') {
+          results[source.id] = {
+            addons: MONOCHROME_INSTANCES.map(inst => ({
+              id: inst.id,
+              name: inst.name,
+              version: inst.version,
+              author: inst.author,
+              description: `Direct Monochrome ${inst.type.toUpperCase()} server at ${inst.url}`,
+              setupUrl: inst.url, // Use setupUrl to store the URL
+              isInstance: true, // Special flag
+              instanceType: inst.type, // Custom property
+            } as any)),
+            loading: false,
+            error: '',
+          };
+          return;
+        }
+
         const fetchUrl = source.registryUrl?.trim()
           ? `/api/addons/store?url=${encodeURIComponent(source.registryUrl.trim())}`
           : '/api/addons/store';
@@ -272,6 +313,14 @@ export default function AddonsView() {
     setInstallError('');
     setEclipseSetup(null);
     try {
+      if ((addon as any).isInstance) {
+        const type = (addon as any).instanceType || 'api';
+        addInstance(type, addon.setupUrl || '', addon.name);
+        setSelectedUrl(type, addon.setupUrl || '');
+        toast({ title: 'Instance Added', description: `${addon.name} is now your active ${type.toUpperCase()} server.` });
+        return;
+      }
+
       const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(installSource);
       addAddon(manifest, { sourceId, installSourceUrl: installSource, eightspineInnerCode, eightspineKind });
     } catch (err: unknown) {
@@ -332,10 +381,17 @@ export default function AddonsView() {
     }
   }, [eclipseTestQuery, search, setSearchQuery, navigateTo]);
 
-  const isInstalled = (row: StoreAddon) =>
-    addons.some((a) =>
+  const isInstalled = (row: StoreAddon) => {
+    if ((row as any).isInstance) {
+      const type = (row as any).instanceType || 'api';
+      if (type === 'api') return apiInstances.some((inst) => inst.url === row.setupUrl);
+      if (type === 'streaming') return streamingInstances.some((inst) => inst.url === row.setupUrl);
+      if (type === 'qobuz') return qobuzInstances.some((inst) => inst.url === row.setupUrl);
+    }
+    return addons.some((a) =>
       storeRowMatchesInstalled(row, a.manifest.id, a.manifest.baseURL, a.installSourceUrl)
     );
+  };
 
   const isInstallingStoreAddon = (sourceId: string, id: string) => installingId === `${sourceId}:${id}`;
 
