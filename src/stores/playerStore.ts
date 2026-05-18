@@ -222,6 +222,13 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         void (async () => {
           try {
             let finalStreamUrl = track.streamURL;
+            const hasAddons = useAddonStore.getState().getPlaybackOrderedSearchAddonIds().length > 0;
+
+            // If the stream URL is an Apple/iTunes preview track, and we have active addons enabled,
+            // we ignore it so we search the addon database for the full-length track instead.
+            if (finalStreamUrl && (finalStreamUrl.includes('itunes.apple.com') || finalStreamUrl.includes('mzstatic.com') || finalStreamUrl.includes('apple-assets')) && hasAddons) {
+              finalStreamUrl = undefined;
+            }
 
             if (!finalStreamUrl) {
               try {

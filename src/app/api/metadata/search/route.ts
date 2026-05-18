@@ -17,10 +17,6 @@ function appleArtworkUrl(item: Record<string, unknown>): string {
 }
 
 function mapAppleTrack(item: Record<string, unknown>) {
-  const preview =
-    (typeof item.previewUrl === 'string' && item.previewUrl) ||
-    (typeof item.trackPreviewUrl === 'string' && item.trackPreviewUrl) ||
-    '';
   const id = String(item.trackId ?? item.collectionId ?? Math.random());
   return {
     id: `apple_${id}`,
@@ -29,7 +25,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     album: String(item.collectionName ?? ''),
     albumCover: appleArtworkUrl(item),
     duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'apple' as const,
     explicit: item.trackExplicitness === 'explicit' || item.trackExplicitness === 'explicit_edited',
   };
@@ -105,7 +101,6 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
   const images = (album?.images as { url?: string; width?: number }[]) || [];
   const bySize = [...images].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
   const artists = (item.artists as { name?: string }[]) || [];
-  const preview = item.preview_url as string | null | undefined;
   return {
     id: `spotify_${String(item.id)}`,
     title: String(item.name ?? ''),
@@ -113,7 +108,7 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
     album: String(album?.name ?? ''),
     albumCover: bySize[0]?.url || images[0]?.url || '',
     duration: Math.round(((item.duration_ms as number) || 0) / 1000),
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'spotify' as const,
     explicit: item.explicit === true,
   };
@@ -201,9 +196,9 @@ async function searchSpotifyArtists(q: string, limit: number, market: string) {
 }
 
 async function getTidalToken(): Promise<TokenResult> {
-  const id = process.env.TIDAL_CLIENT_ID?.trim();
-  const secret = process.env.TIDAL_CLIENT_SECRET?.trim();
-  if (!id || !secret) return { ok: false, error: 'missing_spotify_credentials' }; // Reuse error for simplicity or add missing_tidal
+  const id = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
+  const secret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
+  if (!id || !secret) return { ok: false, error: 'missing_spotify_credentials' };
   
   const auth = Buffer.from(`${id}:${secret}`).toString('base64');
   const res = await fetch('https://auth.tidal.com/v1/oauth2/token', {
