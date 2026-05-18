@@ -1,53 +1,635 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { usePlayerStore } from '@/stores/playerStore';
+import { useLibraryStore } from '@/stores/libraryStore';
+import { useUIStore } from '@/stores/uiStore';
+import { useAudioSettingsStore } from '@/stores/audioSettingsStore';
+import { formatDuration } from '@/lib/demo-data';
+import { cn } from '@/lib/utils';
+import { useDownloadStore } from '@/stores/downloadStore';
+import { seekbarWrapperClass } from '@/lib/seekbar-styles';
+import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
+import { Slider } from '@/components/ui/slider';
+import { PlaybackSeekSlider } from '@/components/player/PlaybackSeekSlider';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useStreamingStore } from '@/stores/streamingStore';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
+  Volume2, Volume1, VolumeX, Heart, ListMusic, Maximize2,
+  Mic2, ChevronUp, ChevronsLeft, ChevronsRight, Disc3, Download, X,
+} from 'lucide-react';
+export default function PlayerBar() {
+  const {
+    currentTrack, isPlaying, isLoadingPlayback, playbackError, currentTime, duration,
+    volume, isMuted, isShuffle, repeatMode,
+    togglePlayPause, nextTrack, previousTrack,
+    setVolume, toggleMute, toggleShuffle, cycleRepeat,
+    setShowNowPlaying,
+    clearPlaybackError,
+  } = usePlayerStore();
+  const { isFavourite, toggleFavourite } = useLibraryStore();
+  const { rightPanel, setRightPanel, playerTheme, setPlayerTheme } = useUIStore();
+  const { openDownload } = useDownloadStore();
+  const { glassEffect } = useStreamingStore();
+  const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
 
-interface PlayerBarProps {
-  song?: {
-    title: string;
-    artist: string;
-    album: string;
-    albumArt?: string;
-    duration?: number;
-    isExplicit?: boolean;
-    isPreview?: boolean;
-  };
-  isPlaying?: boolean;
-  onPlayPause?: () => void;
-  onNext?: () => void;
-  onPrev?: () => void;
-  onShuffle?: () => void;
-  onRepeat?: () => void;
-  onQueue?: () => void;
-  currentTime?: number;
-  onSeek?: (time: number) => void;
-  volume?: number;
-  onVolumeChange?: (vol: number) => void;
+  const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
+  const qualityBadge = getQualityBadgeForTrack(currentTrack ?? undefined);
+  const qualityTip = getQualityTooltip(currentTrack ?? undefined);
+  const showBuffering = Boolean(currentTrack && isLoadingPlayback && !isPlaying);
+
+const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <>
+        {playbackError && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-950/95 text-red-100 text-xs border-b border-red-900/60 shrink-0">
+            <span className="flex-1 min-w-0 truncate text-center">{playbackError}</span>
+            <button
+              type="button"
+              onClick={() => clearPlaybackError()}
+              className="shrink-0 p-1 rounded-md hover:bg-red-900/60 text-red-100"
+              aria-label="Dismiss error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {playerTheme === 'apple' ? (
+          <ApplePlayerBar />
+        ) : playerTheme === 'tidal' ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            data-glass={glassEffect}
+            className="flex-shrink-0 flex flex-col transition-all duration-500 fixed bottom-[6px] left-[6px] right-[6px] h-[88px] bg-[rgba(28,28,30,0.75)] backdrop-blur-2xl border border-white/[0.04] rounded-xl shadow-none text-white overflow-hidden z-[100] md:z-50"
+          >
+            <div className="w-full h-full relative flex flex-col">
+              <div className="tidal-player-grid w-full h-full max-w-full min-w-0 relative z-10 box-border px-5 py-2.5">
+                {/* Track info */}
+                <div className="pb-track tidal-pb-track flex items-center min-w-0 h-full gap-3">
+                  {currentTrack ? (
+                    <>
+                      <div
+                        className="pb-thumb tidal-pb-thumb shrink-0 h-[52px] w-[52px] rounded-[6px] shadow-lg cursor-pointer"
+                        style={{ background: currentTrack.albumCover ? `url(${currentTrack.albumCover}) center/cover` : 'linear-gradient(135deg,#667eea,#764ba2)' }}
+                        onClick={() => setShowNowPlaying(true)}
+                      />
+                      <div className="tidal-pb-meta flex min-w-0 flex-col justify-center">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div
+                            className="tidal-pb-title pb-title min-w-0 cursor-pointer truncate font-bold text-[14px] leading-tight hover:underline text-white"
+                            onClick={() => setShowNowPlaying(true)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            {currentTrack.title}
+                          </div>
+                          {currentTrack.explicit && (
+                            <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
+                          )}
+                          {qualityBadge && (
+                            <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-[2px] bg-white/10 text-white/80 border border-white/10">
+                              {qualityBadge.label}
+                            </span>
+                          )}
+                        </div>
+                        <p className="tidal-pb-artist pb-artist truncate text-[12px] text-white/50 font-medium hover:underline mt-0.5">
+                          {currentTrack.artist} {currentTrack.album && <span className="text-white/30 ml-1 font-normal">&bull; {currentTrack.album}</span>}
+                        </p>
+                      </div>
+                      {/* Heart and Options Buttons right next to meta */}
+                      <div className="flex items-center gap-1 ml-2 shrink-0">
+                        <button 
+                          className={cn("p-1.5 rounded-full hover:bg-white/5 transition-colors", isFav ? "text-cyan-400" : "text-white/40 hover:text-white")}
+                          onClick={() => toggleFavourite(currentTrack)}
+                        >
+                          <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+                        </button>
+                        <button 
+                          className="p-1.5 rounded-full hover:bg-white/5 transition-colors text-white/40 hover:text-white"
+                          onClick={() => currentTrack && openDownload(currentTrack)}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <circle cx="5" cy="12" r="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <circle cx="19" cy="12" r="2" />
+                          </svg>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3 opacity-30">
+                      <div className="h-12 w-12 rounded-[6px] bg-white/10" />
+                      <div className="space-y-1">
+                        <div className="h-3 w-24 bg-white/20 rounded-full" />
+                        <div className="h-2 w-16 bg-white/10 rounded-full" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transport */}
+                <div className="pb-center flex flex-col items-center justify-center h-full gap-0">
+                  {/* Control Buttons */}
+                  <div className="flex items-center gap-4">
+                    <button className="ctrl hover:text-white transition-colors animate-in fade-in" onClick={toggleShuffle} style={{ color: isShuffle ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                      <Shuffle size={16} />
+                    </button>
+                    <button className="ctrl hover:text-white transition-colors" onClick={previousTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      <SkipBack size={20} fill="currentColor" />
+                    </button>
+                    <button className="tidal-play-btn" onClick={togglePlayPause}>
+                      {isPlaying ? <Pause size={26} fill="currentColor" /> : showBuffering ? <Loader2 size={26} className="animate-spin" /> : <Play size={26} fill="currentColor" className="ml-0.5" />}
+                    </button>
+                    <button className="ctrl hover:text-white transition-colors" onClick={nextTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      <SkipForward size={20} fill="currentColor" />
+                    </button>
+                    <button className="ctrl hover:text-white transition-colors" onClick={cycleRepeat} style={{ color: repeatMode !== 'off' ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                      {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+                    </button>
+                  </div>
+                  {/* Apple Music-style progress bar with flanking timestamps */}
+                  <div className="flex items-center gap-2 px-2 w-full justify-center -mt-[6px]">
+                    <span className="text-[11px] tabular-nums text-white/45 w-8 text-right shrink-0">
+                      {currentTrack ? formatDuration(currentTime) : '0:00'}
+                    </span>
+                    <div className="tidal-top-slider-wrapper max-w-[650px] flex-1">
+                      <PlaybackSeekSlider />
+                    </div>
+                    <span className="text-[11px] tabular-nums text-white/45 w-8 text-left shrink-0">
+                      {currentTrack && duration ? formatDuration(duration) : '0:00'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Volume & Actions */}
+                <div className="pb-right flex items-center justify-end h-full gap-3">
+                  {/* Download */}
+                  <button 
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                    onClick={() => currentTrack && openDownload(currentTrack)}
+                    title="Download"
+                  >
+                    <Download size={18} />
+                  </button>
+
+                  {/* Lyrics / Now Playing */}
+                  <button 
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                    onClick={() => setShowNowPlaying(true)}
+                    title="Lyrics"
+                  >
+                    <Mic2 size={18} />
+                  </button>
+
+                  {/* Queue / ListMusic */}
+                  <button 
+                    className={cn("p-2 rounded-full hover:bg-white/5 transition-colors", rightPanel === 'queue' ? 'text-cyan-400' : 'text-white/60 hover:text-white')} 
+                    onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')}
+                    title="Queue"
+                  >
+                    <ListMusic size={18} />
+                  </button>
+
+                  {/* Cycle Style / Maximize2 */}
+                  <button 
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+                    onClick={() => {
+                      const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
+                      const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
+                      setPlayerTheme(next);
+                    }}
+                    title="Cycle Theme"
+                  >
+                    <Maximize2 size={18} />
+                  </button>
+
+                  {/* Volume icon & slider */}
+                  <div className="flex items-center gap-2 group mr-1">
+                    <button onClick={toggleMute} className="text-white/60 hover:text-white transition-colors">
+                      <VolumeIcon size={18} />
+                    </button>
+                    <input 
+                      type="range" 
+                      className="vol-slider w-20 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white" 
+                      min="0" max="100" 
+                      value={isMuted ? 0 : volume * 100} 
+                      onChange={(e) => setVolume(Number(e.target.value) / 100)}
+                      style={{ 
+                        background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.1) ${isMuted ? 0 : volume * 100}%)` 
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.3 }}
+            data-glass={glassEffect}
+            className={cn(
+              'flex-shrink-0 flex flex-col transition-all duration-500',
+              'bg-black/40 backdrop-blur-3xl border-t border-white/5 h-[90px] px-2 sm:px-4 items-center justify-center text-white',
+              'md:z-50'
+            )}
+          >
+            <div className="flex items-center justify-between w-full h-full relative">
+              {/* Left column - Track info */}
+              <div className="flex min-w-0 w-[30%] items-center gap-2 sm:gap-3">
+                <AnimatePresence mode="wait">
+                  {currentTrack ? (
+                    <motion.div
+                      key={currentTrack.id}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+                    >
+                      <div className="w-14 h-14 rounded-md overflow-hidden flex-shrink-0 bg-accent shadow-lg">
+                        {currentTrack.albumCover ? (
+                          <img
+                            src={currentTrack.albumCover}
+                            alt={currentTrack.album}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-accent flex items-center justify-center">
+                            <MusicIcon size={20} className="text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <p className="min-w-0 truncate text-sm font-medium text-white hover:underline cursor-pointer pr-2">
+                            {currentTrack.title}
+                          </p>
+                          {currentTrack.explicit && (
+                            <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
+                          )}
+                          {qualityBadge && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    'shrink-0 text-[8px] font-black px-1 rounded-[1px] h-3.5 flex items-center cursor-default',
+                                    qualityBadge.label === 'HD' && 'bg-[#E5D283] text-black shadow-[0_0_8px_rgba(229,210,131,0.4)]',
+                                    qualityBadge.label === 'HIFI' && 'bg-[#45b7d1] text-black shadow-[0_0_8px_rgba(69,183,209,0.4)]',
+                                    qualityBadge.label === 'HIGH' && 'bg-white/15 text-white/90 border border-white/25',
+                                    qualityBadge.label === 'MP3' && 'bg-white/12 text-white/85 border border-white/20',
+                                    qualityBadge.label === 'AAC' && 'bg-white/12 text-white/85 border border-white/20',
+                                    qualityBadge.label === 'NORMAL' && 'bg-white/10 text-white/60',
+                                    qualityBadge.label === 'LOW' && 'bg-white/5 text-white/35',
+                                    qualityBadge.label === 'ATMOS' && 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
+                                    (!qualityBadge.label || qualityBadge.label.length === 0) && 'hidden'
+                                  )}
+                                >
+                                  {qualityBadge.label === 'ATMOS' ? (
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                                    </svg>
+                                  ) : (
+                                    qualityBadge.label
+                                  )}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs border border-white/15 bg-neutral-950 text-white text-xs px-2 py-1.5">
+                                {qualityTip}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleFavourite(currentTrack)}
+                            className={cn(
+                              'h-6 w-6 shrink-0 p-0 ml-1',
+                              isFav ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'
+                            )}
+                            aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                          >
+                            <Heart size={14} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowNowPlaying(true)}
+                            className="h-6 w-6 shrink-0 p-0 rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white hidden sm:inline-flex ml-1"
+                            aria-label="Open full player"
+                          >
+                            <ChevronUp className="size-3.5" strokeWidth={2} />
+                          </Button>
+                        </div>
+                        <p className="min-h-[1.2em] truncate text-[11px] leading-snug text-white/55 hover:underline cursor-pointer">
+                          {currentTrack.artist}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-14 h-14 rounded-md bg-accent flex items-center justify-center flex-shrink-0">
+                        <MusicIcon size={20} className="text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white/45">No track playing</p>
+                      </div>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Center column - Controls + Progress */}
+              <div className="flex flex-col items-center gap-1 w-[40%] max-w-[722px]">
+                {/* Controls */}
+                <div className="flex items-center gap-5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleShuffle()}
+                        className={cn(
+                          'h-10 w-10 hidden sm:flex',
+                          isShuffle ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'
+                        )}
+                      >
+                        <Shuffle size={20} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>{isShuffle ? 'Disable shuffle' : 'Enable shuffle'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={previousTrack}
+                        className="h-10 w-10 text-white/70 hover:text-white"
+                      >
+                        <SkipBack size={24} fill="currentColor" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>Previous</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* ===== PLAY BUTTON ===== */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={togglePlayPause}
+                        disabled={!currentTrack}
+                        aria-label={isPlaying ? 'Pause' : showBuffering ? 'Loading' : 'Play'}
+                        className={cn(
+                          'h-10 w-10 shrink-0 rounded-full flex items-center justify-center',
+                          'bg-white text-black shadow-lg shadow-black/40',
+                          'transition-transform duration-150 ease-out',
+                          'hover:scale-[1.06] active:scale-[0.96] hover:bg-white',
+                          'disabled:opacity-50 disabled:cursor-not-allowed',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1DB954]/50'
+                        )}
+                      >
+                        {isPlaying ? (
+                          <Pause size={20} fill="black" strokeWidth={0} />
+                        ) : showBuffering ? (
+                          <Loader2 size={20} className="animate-spin text-black" aria-hidden />
+                        ) : (
+                          <Play size={20} fill="black" strokeWidth={0} className="translate-x-[1px]" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>{isPlaying ? 'Pause' : showBuffering ? 'Loading' : 'Play'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={nextTrack}
+                        className="h-10 w-10 text-white/70 hover:text-white"
+                      >
+                        <SkipForward size={24} fill="currentColor" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>Next</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={cycleRepeat}
+                        className={cn(
+                          'h-10 w-10 hidden sm:flex',
+                          repeatMode !== 'off' ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'
+                        )}
+                      >
+                        {repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>{repeatMode === 'off' ? 'Enable repeat' : repeatMode === 'all' ? 'Repeat all' : 'Repeat one'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                {/* Progress bar */}
+                <div className="flex items-center gap-3 w-full max-w-[600px]">
+                  <span className="text-[11px] w-10 text-right tabular-nums text-white/50">
+                    {currentTrack ? formatDuration(currentTime) : ''}
+                  </span>
+                  <div
+                    className={cn(
+                      'flex-1 min-w-0',
+                      seekbarWrapperClass(seekbarStyle),
+                      'spotify-progress'
+                    )}
+                  >
+                    <PlaybackSeekSlider />
+                  </div>
+                  <span className="text-[11px] w-10 tabular-nums text-white/50">
+                    {currentTrack && duration ? formatDuration(duration) : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right column - Volume + Extras */}
+              <div className="flex items-center justify-end gap-1 w-[30%] min-w-[120px]">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!currentTrack}
+                      onClick={() => currentTrack && openDownload(currentTrack)}
+                      className="h-8 w-8 text-white/50 hover:text-white hidden md:flex"
+                      aria-label="Download track"
+                      title="Download"
+                    >
+                      <Download size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                    <p>Download</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowNowPlaying(true)}
+                      className="h-8 w-8 text-white/50 hover:text-white hidden lg:flex"
+                    >
+                      <Mic2 size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                    <p>Now Playing View</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')}
+                      className={cn(
+                        'h-8 w-8 hidden md:flex',
+                        rightPanel === 'queue' ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/50 hover:text-white'
+                      )}
+                    >
+                      <ListMusic size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                    <p>Queue</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="flex items-center gap-1 ml-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
+                          const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
+                          setPlayerTheme(next);
+                        }}
+                        className="h-8 w-8 text-white/50 hover:text-white mr-2"
+                      >
+                        <Maximize2 size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>Cycle player style</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleMute}
+                        className="h-8 w-8 text-white/50 hover:text-white"
+                      >
+                        <VolumeIcon size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
+                      <p>{isMuted ? 'Unmute' : 'Mute'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <div className="w-24 hidden md:block spotify-volume">
+                    <Slider
+                      value={[isMuted ? 0 : volume * 100]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={(value) => setVolume(value[0] / 100)}
+                      className="w-full cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowNowPlaying(true)}
+                  className="h-8 w-8 text-white/50 hover:text-white flex lg:hidden ml-1"
+                >
+                  <ChevronUp size={20} />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </>
+    </TooltipProvider>
+  );
 }
 
-const DEFAULT_SONG = {
-  title: "Ran To Atlanta",
-  artist: "Drake, Future, Molly Santana",
-  album: "ICEMAN",
-  duration: 247,
-  isExplicit: true,
-  isPreview: true,
-};
+function MusicIcon({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </svg>
+  );
+}
 
-export default function PlayerBar({
-  song = DEFAULT_SONG,
-  isPlaying = false,
-  onPlayPause,
-  onNext,
-  onPrev,
-  onShuffle,
-  onRepeat,
-  onQueue,
-  currentTime = 25,
-  onSeek,
-  volume = 0.8,
-  onVolumeChange,
-}: PlayerBarProps) {
+function ApplePlayerBar() {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume,
+    togglePlayPause, nextTrack, previousTrack,
+    setVolume, toggleShuffle, cycleRepeat,
+    setShowNowPlaying,
+  } = usePlayerStore();
+  const { isFavourite, toggleFavourite } = useLibraryStore();
+  const { setRightPanel } = useUIStore();
+
   const [shuffleActive, setShuffleActive] = useState(false);
   const [repeatMode, setRepeatMode] = useState<0 | 1 | 2>(0);
   const [hoveredSeek, setHoveredSeek] = useState(false);
@@ -56,26 +638,32 @@ export default function PlayerBar({
   const progressRef = useRef<HTMLDivElement>(null);
   const volWrapRef = useRef<HTMLDivElement>(null);
 
-  const duration = song.duration ?? 247;
-  const progress = Math.min((currentTime / duration) * 100, 100);
+  const song = currentTrack
+    ? {
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.album ?? 'Unknown',
+        albumArt: currentTrack.albumCover ?? undefined,
+        duration: currentTrack.duration ?? undefined,
+        isExplicit: currentTrack.explicit ?? undefined,
+      }
+    : undefined;
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
+  const dur = song?.duration ?? 247;
+  const progress = Math.min((currentTime / dur) * 100, 100);
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!progressRef.current) return;
       const rect = progressRef.current.getBoundingClientRect();
       const pct = (e.clientX - rect.left) / rect.width;
-      onSeek?.(pct * duration);
+      const playerStore = usePlayerStore.getState();
+      playerStore.seekTo(pct * (song?.duration ?? 247));
     },
-    [duration, onSeek]
+    [song?.duration]
   );
 
-  const cycleRepeat = () => setRepeatMode((m) => ((m + 1) % 3) as 0 | 1 | 2);
+  const cycleLocalRepeat = () => setRepeatMode((m) => ((m + 1) % 3) as 0 | 1 | 2);
 
   useEffect(() => {
     if (!showVolume || !volWrapRef.current) return;
@@ -109,16 +697,16 @@ export default function PlayerBar({
           margin: 0 auto;
           height: 54px;
           border-radius: 27px;
-          background: rgba(28, 28, 30, 0.06);
-          backdrop-filter: blur(32px) saturate(1.8);
-          -webkit-backdrop-filter: blur(32px) saturate(1.8);
-          border: 0.5px solid rgba(255,255,255,0.08);
           display: flex;
           flex-direction: row;
           align-items: center;
           padding: 0 8px;
           gap: 0;
           position: relative;
+          background: rgba(28, 28, 30, 0.06);
+          backdrop-filter: blur(32px) saturate(1.8);
+          -webkit-backdrop-filter: blur(32px) saturate(1.8);
+          border: 0.5px solid rgba(255,255,255,0.08);
           box-shadow: 0 4px 24px rgba(0,0,0,0.35);
         }
         .am-track {
@@ -346,16 +934,14 @@ export default function PlayerBar({
           from { opacity: 0; transform: scale(0.97) translateY(4px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .am-bar { animation: am-pop-in 0.25s cubic-bezier(0.34,1.56,0.64,1) both; }
       `}</style>
 
       <div className="am-bar">
         <div className="am-pill">
-          {/* LEFT: transport controls */}
           <div className="am-controls">
             <button
               className={`am-btn ${shuffleActive ? "active" : "dim"}`}
-              onClick={() => { setShuffleActive(v => !v); onShuffle?.(); }}
+              onClick={() => { setShuffleActive(v => !v); toggleShuffle(); }}
               title="Shuffle"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -365,13 +951,13 @@ export default function PlayerBar({
                 <line x1="15" y1="15" x2="21" y2="21"/>
               </svg>
             </button>
-            <button className="am-btn-transport" onClick={onPrev} title="Previous">
+            <button className="am-btn-transport" onClick={previousTrack} title="Previous">
               <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18 17.5 11.5 12 18 6.5V17.5z"/>
                 <path d="M12 17.5 5.5 12 12 6.5V17.5z"/>
               </svg>
             </button>
-            <button className="am-play-btn" onClick={onPlayPause} title={isPlaying ? "Pause" : "Play"}>
+            <button className="am-play-btn" onClick={togglePlayPause} title={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? (
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="6" y="4" width="4" height="16" rx="1"/>
@@ -383,7 +969,7 @@ export default function PlayerBar({
                 </svg>
               )}
             </button>
-            <button className="am-btn-transport" onClick={onNext} title="Next">
+            <button className="am-btn-transport" onClick={nextTrack} title="Next">
               <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 6.5 12.5 12 6 17.5V6.5z"/>
                 <path d="M12 6.5 18.5 12 12 17.5V6.5z"/>
@@ -391,7 +977,7 @@ export default function PlayerBar({
             </button>
             <button
               className={`am-btn ${repeatMode > 0 ? "active" : "dim"}`}
-              onClick={cycleRepeat}
+              onClick={cycleLocalRepeat}
               title={repeatMode === 0 ? "Repeat off" : repeatMode === 1 ? "Repeat all" : "Repeat one"}
             >
               {repeatMode === 2 ? (
@@ -413,12 +999,11 @@ export default function PlayerBar({
             </button>
           </div>
 
-          {/* CENTER: album info + progress below */}
           <div className="am-left-area">
             <div className={`am-left-top ${hoveredSeek ? "blurred" : ""}`}>
               <div className="am-art">
-                {song.albumArt ? (
-                  <img src={song.albumArt} alt={song.album} />
+                {song?.albumArt ? (
+                  <img src={song.albumArt} alt={song?.album ?? ""} />
                 ) : (
                   <span className="am-art-placeholder">♪</span>
                 )}
@@ -426,13 +1011,13 @@ export default function PlayerBar({
               <div className="am-meta">
                 <div className="am-title-row">
                   <div className="am-title-wrap">
-                    <span className="am-title">{song.title}</span>
+                    <span className="am-title">{song?.title ?? "No track"}</span>
                   </div>
-                  {song.isExplicit && <span className="am-explicit">E</span>}
+                  {song?.isExplicit && <span className="am-explicit">E</span>}
                 </div>
                 <span className="am-artist">
-                  {song.artist}
-                  {song.album && (
+                  {song?.artist ?? ""}
+                  {song?.album && (
                     <span style={{ color: "rgba(255,255,255,0.28)" }}>
                       {" "}— {song.album}
                     </span>
@@ -456,7 +1041,6 @@ export default function PlayerBar({
             </div>
           </div>
 
-          {/* RIGHT: utility */}
           <div className="am-right">
             <button className="am-btn" title="Download">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -465,7 +1049,7 @@ export default function PlayerBar({
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
             </button>
-            <button className="am-btn" onClick={onQueue} title="Queue">
+            <button className="am-btn" onClick={() => setRightPanel('queue')} title="Queue">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="8" y1="6" x2="21" y2="6"/>
                 <line x1="8" y1="12" x2="21" y2="12"/>
@@ -487,7 +1071,7 @@ export default function PlayerBar({
                   onChange={(e) => {
                     const v = parseFloat(e.target.value);
                     setLocalVolume(v);
-                    onVolumeChange?.(v);
+                    setVolume(v);
                   }}
                 />
               </div>

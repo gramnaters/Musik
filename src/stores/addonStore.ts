@@ -629,8 +629,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
           }
         }
 
-        // 3. Last resort: If track already has a direct stream URL from the instance, use it
-        if (track.streamURL) {
+        // 3. Last resort: If track already has a direct stream URL from the instance, use it (and it is not an Apple/iTunes preview track)
+        if (track.streamURL && !(track.streamURL.includes('itunes.apple.com') || track.streamURL.includes('mzstatic.com') || track.streamURL.includes('apple-assets'))) {
           return `/api/stream?url=${encodeURIComponent(track.streamURL)}`;
         }
 

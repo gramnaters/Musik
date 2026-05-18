@@ -7,14 +7,12 @@ type Provider = 'spotify' | 'apple' | 'tidal';
 let spotifyTokenCache: { token: string; expiresAtMs: number } | null = null;
 
 // Initialize Tidal client on the server
-const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim();
-const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim();
-if (tidalClientId && tidalClientSecret) {
-  try {
-    initTidal(tidalClientId, tidalClientSecret);
-  } catch (e) {
-    console.error('Tidal initialization failed:', e);
-  }
+const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
+const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
+try {
+  initTidal(tidalClientId, tidalClientSecret);
+} catch (e) {
+  console.error('Tidal initialization failed:', e);
 }
 
 async function searchTidal(q: string, limit: number) {
@@ -142,7 +140,6 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
   const images = (album?.images as { url?: string; width?: number }[]) || [];
   const bySize = [...images].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
   const artists = (item.artists as { name?: string }[]) || [];
-  const preview = item.preview_url as string | null | undefined;
   return {
     id: `spotify_${String(item.id)}`,
     title: String(item.name ?? ''),
@@ -150,17 +147,13 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
     album: String(album?.name ?? ''),
     albumCover: bySize[0]?.url || images[0]?.url || '',
     duration: Math.round(((item.duration_ms as number) || 0) / 1000),
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'spotify' as const,
     explicit: item.explicit === true,
   };
 }
 
 function mapAppleTrack(item: Record<string, unknown>) {
-  const preview =
-    (typeof item.previewUrl === 'string' && item.previewUrl) ||
-    (typeof item.trackPreviewUrl === 'string' && item.trackPreviewUrl) ||
-    '';
   const id = String(item.trackId ?? item.collectionId ?? Math.random());
   const exp = item.trackExplicitness === 'explicit' || item.trackExplicitness === 'explicit_edited';
   return {
@@ -170,7 +163,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     album: String(item.collectionName ?? ''),
     albumCover: appleArtworkUrl(item),
     duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'apple' as const,
     explicit: Boolean(exp),
   };

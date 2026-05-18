@@ -381,40 +381,35 @@
 
 .tidal-glass-player {
   position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
+  bottom: 6px !important;
+  left: 6px !important;
+  right: 6px !important;
+  width: auto !important;
   height: 88px !important;
-  background: rgba(10, 10, 12, 0.96) !important;
-  backdrop-filter: blur(10px) saturate(140%) brightness(0.85) !important;
-  -webkit-backdrop-filter: blur(10px) saturate(140%) brightness(0.85) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
-  border-radius: 0 !important;
-  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.8) !important;
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  background: rgba(28, 28, 30, 0.75) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  box-shadow: none !important;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-glass="false"] .tidal-glass-player {
   position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
+  bottom: 6px !important;
+  left: 6px !important;
+  right: 6px !important;
+  width: auto !important;
   height: 88px !important;
-  border-radius: 0 !important;
-  background: rgba(10, 10, 12, 1) !important;
+  border-radius: 12px !important;
+  background: rgba(28, 28, 30, 1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  box-shadow: none !important;
 }
 
 /* ====== Custom Tidal Seekbar Progress Slider ====== */
@@ -462,34 +457,63 @@
   transform: scale(1.1) !important;
 }
 
-.tidal-glass-player::before {
-  display: none !important;
-}
-
-.tidal-glass-player::after {
-  display: none !important;
-}
-
 .tidal-play-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #ffffff;
+  width: 40px;
+  height: 40px;
+  background: transparent !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #000000;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  color: #ffffff !important;
+  box-shadow: none !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none !important;
 }
 
 .tidal-play-btn:hover {
-  transform: scale(1.05);
-  background: #f0f0f0;
+  transform: scale(1.08);
+  color: #ffffff !important;
+  background: transparent !important;
 }
 
 .tidal-play-btn:active {
   transform: scale(0.95);
+}
+
+/* Tidal top slider wrapper - Apple Music style */
+.tidal-top-slider-wrapper {
+  display: flex !important;
+  align-items: center !important;
+}
+.tidal-top-slider-wrapper [data-slot="slider-track"] {
+  height: 3px !important;
+  border-radius: 999px !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  transition: height 0.12s ease-in-out;
+}
+.tidal-top-slider-wrapper:hover [data-slot="slider-track"] {
+  height: 4px !important;
+}
+.tidal-top-slider-wrapper [data-slot="slider-range"] {
+  height: 100% !important;
+  background-color: #ffffff !important;
+  border-radius: 999px !important;
+}
+.tidal-top-slider-wrapper [data-slot="slider-thumb"] {
+  display: block !important;
+  width: 12px !important;
+  height: 12px !important;
+  background-color: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 50% !important;
+  opacity: 1 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.tidal-top-slider-wrapper:hover [data-slot="slider-thumb"],
+.tidal-top-slider-wrapper:focus-within [data-slot="slider-thumb"] {
+  transform: scale(1.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 .tidal-nav-item-active {

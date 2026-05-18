@@ -30,7 +30,7 @@ function mapAppleTrack(item: Record<string, unknown>) {
     album: String(item.collectionName ?? ''),
     albumCover: appleArtworkUrl(item),
     duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'apple' as const,
     explicit: Boolean(exp),
   };
@@ -41,7 +41,6 @@ function mapSpotifyTrackFromPlaylistItem(tr: Record<string, unknown>) {
   const images = (album?.images as { url?: string; width?: number }[]) || [];
   const bySize = [...images].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
   const artists = (tr.artists as { name?: string }[]) || [];
-  const preview = tr.preview_url as string | null | undefined;
   return {
     id: `spotify_${String(tr.id)}`,
     title: String(tr.name ?? ''),
@@ -49,7 +48,7 @@ function mapSpotifyTrackFromPlaylistItem(tr: Record<string, unknown>) {
     album: String(album?.name ?? ''),
     albumCover: bySize[0]?.url || images[0]?.url || '',
     duration: Math.round(((tr.duration_ms as number) || 0) / 1000),
-    streamURL: preview || undefined,
+    streamURL: undefined,
     source: 'spotify' as const,
     explicit: tr.explicit === true,
   };
@@ -160,9 +159,8 @@ async function appleAlbumTracks(collectionId: string, country: string) {
 }
 
 async function getTidalToken(): Promise<string | null> {
-  const id = process.env.TIDAL_CLIENT_ID?.trim();
-  const secret = process.env.TIDAL_CLIENT_SECRET?.trim();
-  if (!id || !secret) return null;
+  const id = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
+  const secret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
   
   try {
     const auth = Buffer.from(`${id}:${secret}`).toString('base64');
@@ -254,6 +252,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks: [], error: 'missing_id' }, { status: 400 });
   }
 
+  let spotifyPlaylistId = rawId;
+  if (rawId.startsWith('spotify_pl_')) {
+    spotifyPlaylistId = rawId.slice('spotify_pl_'.length);
+  } else if (rawId.startsWith('spotify_album_')) {
+    spotifyPlaylistId = rawId.slice('spotify_album_'.length);
+  } else if (rawId.startsWith('spotify_')) {
+    spotifyPlaylistId = rawId.replace(/^spotify_/, '');
+  }
+
+  let appleCollectionId = rawId;
+  if (rawId.startsWith('apple_album_')) {
+    appleCollectionId = rawId.slice('apple_album_'.length);
+  }
+
+  let tidalId = rawId;
+  if (rawId.startsWith('tidal_album_')) {
+    tidalId = rawId.slice('tidal_album_'.length);
+  } else if (rawId.startsWith('tidal_pl_')) {
+    tidalId = rawId.slice('tidal_pl_'.length);
+  } else if (rawId.startsWith('tidal_')) {
+    tidalId = rawId.replace(/^tidal_/, '');
+  }
+
   // --- SMART RESOLUTION FALLBACK FOR EXPLORE PAGE ---
   // 1. If it's a Tidal playlist UUID, load it from monochrome's public API
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
@@ -294,15 +315,13 @@ export async function GET(req: NextRequest) {
   // 2. If it's a Tidal album ID (pure number), resolve it via Tidal if configured or fallback to iTunes
   const isNumericAlbum = /^\d+$/.test(rawId) || rawId.includes('album');
   if (isNumericAlbum) {
-    if (process.env.TIDAL_CLIENT_ID && process.env.TIDAL_CLIENT_SECRET) {
-      try {
-        const tracks = await tidalAlbumTracks(tidalId, market);
-        if (tracks && tracks.length > 0) {
-          return NextResponse.json({ tracks, provider: 'tidal' });
-        }
-      } catch (e) {
-        console.error('Tidal album lookup failed, trying iTunes fallback:', e);
+    try {
+      const tracks = await tidalAlbumTracks(tidalId, market);
+      if (tracks && tracks.length > 0) {
+        return NextResponse.json({ tracks, provider: 'tidal' });
       }
+    } catch (e) {
+      console.error('Tidal album lookup failed, trying iTunes fallback:', e);
     }
 
     if (title && artist) {
@@ -331,29 +350,6 @@ export async function GET(req: NextRequest) {
         console.error('Failed to resolve Tidal album via iTunes search fallback:', e);
       }
     }
-  }
-
-  let spotifyPlaylistId = rawId;
-  if (rawId.startsWith('spotify_pl_')) {
-    spotifyPlaylistId = rawId.slice('spotify_pl_'.length);
-  } else if (rawId.startsWith('spotify_album_')) {
-    spotifyPlaylistId = rawId.slice('spotify_album_'.length);
-  } else if (rawId.startsWith('spotify_')) {
-    spotifyPlaylistId = rawId.replace(/^spotify_/, '');
-  }
-
-  let appleCollectionId = rawId;
-  if (rawId.startsWith('apple_album_')) {
-    appleCollectionId = rawId.slice('apple_album_'.length);
-  }
-
-  let tidalId = rawId;
-  if (rawId.startsWith('tidal_album_')) {
-    tidalId = rawId.slice('tidal_album_'.length);
-  } else if (rawId.startsWith('tidal_pl_')) {
-    tidalId = rawId.slice('tidal_pl_'.length);
-  } else if (rawId.startsWith('tidal_')) {
-    tidalId = rawId.replace(/^tidal_/, '');
   }
 
   try {
