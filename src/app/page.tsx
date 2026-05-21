@@ -151,7 +151,7 @@ export default function AppPage() {
         {/* Player sits above mobile tab bar; tab bar is pinned to the bottom (see MobileNav) */}
         <div
           className={cn(
-            'w-full z-20 transition-all duration-500',
+            'w-full z-[200] transition-all duration-500',
             playerTheme === 'tidal' 
               ? 'fixed inset-x-0 bottom-0 pointer-events-none' 
               : 'flex-shrink-0 max-md:fixed max-md:left-0 max-md:right-0 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:relative'

@@ -1,131 +1,107 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
 
-interface LyricLine {
-  time: number;
-  text: string;
+const OFFSET_STORAGE_PREFIX = 'lyrics-offset-';
+
+function getOffsetKey(trackId: string) {
+  return `${OFFSET_STORAGE_PREFIX}${trackId}`;
 }
 
 export default function LyricsView() {
-  const { currentTrack, currentTime } = usePlayerStore();
-  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const activeLineRef = useRef<HTMLDivElement>(null);
+  const { currentTrack, currentTime, seek } = usePlayerStore();
+  const [mounted, setMounted] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lyricsRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!currentTrack) {
-      setLyrics([]);
-      return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = 'https://cdn.jsdelivr.net/npm/@uimaxbai/am-lyrics@1.5.3/dist/src/am-lyrics.min.js';
+    document.head.appendChild(s);
+    return () => { s.remove(); };
+  }, [mounted]);
+
+  useEffect(() => {
+    if (currentTrack?.id) {
+      const saved = localStorage.getItem(getOffsetKey(currentTrack.id));
+      setOffset(saved ? Number(saved) : 0);
     }
-    
-    setIsLoading(true);
-    const fetchLyrics = async () => {
-      try {
-        const url = new URL('/api/lyrics', window.location.origin);
-        url.searchParams.append('track', currentTrack.title);
-        url.searchParams.append('artist', currentTrack.artist);
-        if (currentTrack.album) url.searchParams.append('album', currentTrack.album);
-        if (currentTrack.duration) url.searchParams.append('duration', currentTrack.duration.toString());
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error('Lyrics not found');
-        const data = await res.json();
-
-        if (data.syncedLyrics) {
-          const lines: LyricLine[] = [];
-          const lrcLines = data.syncedLyrics.split('\n');
-          for (const line of lrcLines) {
-            const match = line.match(/\[(\d+):(\d+\.?\d*)\](.*)/);
-            if (match) {
-              const minutes = parseInt(match[1]);
-              const seconds = parseFloat(match[2]);
-              const text = match[3].trim();
-              if (text) {
-                lines.push({ time: minutes * 60 + seconds, text });
-              }
-            }
-          }
-          setLyrics(lines);
-        } else if (data.plainLyrics) {
-          const lines: LyricLine[] = data.plainLyrics.split('\n')
-            .filter((l: string) => l.trim())
-            .map((l: string, i: number) => ({ time: i * 5, text: l.trim() }));
-          setLyrics(lines);
-        } else {
-          setLyrics([]);
-        }
-      } catch (err) {
-        console.error('Lyrics error:', err);
-        setLyrics([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLyrics();
   }, [currentTrack?.id]);
 
   useEffect(() => {
-    if (activeLineRef.current && scrollRef.current) {
-      activeLineRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }
-  }, [currentTime]);
+    if (!containerRef.current || !currentTrack || !mounted) return;
+    const el = document.createElement('am-lyrics');
+    el.setAttribute('song-title', currentTrack.title);
+    el.setAttribute('song-artist', currentTrack.artist);
+    el.setAttribute('song-album', currentTrack.album ?? '');
+    el.setAttribute('song-duration', String((currentTrack.duration ?? 0) * 1000));
+    el.setAttribute('query', `${currentTrack.title} ${currentTrack.artist}`);
+    el.setAttribute('highlight-color', '#ffffff');
+    el.setAttribute('autoscroll', '');
+    el.setAttribute('interpolate', '');
+    el.style.width = '100%';
+    el.style.height = '100%';
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ timestamp: number }>;
+      if (ce.detail?.timestamp != null) seek(ce.detail.timestamp / 1000);
+    };
+    el.addEventListener('line-click', handler);
+    containerRef.current.innerHTML = '';
+    containerRef.current.appendChild(el);
+    lyricsRef.current = el;
+    return () => {
+      el.removeEventListener('line-click', handler);
+    };
+  }, [currentTrack?.id, mounted]);
 
-  const activeIndex = lyrics.reduce((acc, line, idx) => {
-    if (currentTime >= line.time) return idx;
-    return acc;
-  }, -1);
+  useEffect(() => {
+    if (!lyricsRef.current || !mounted) return;
+    lyricsRef.current.currentTime = Math.max(0, currentTime * 1000 + offset);
+  }, [currentTime, offset, mounted]);
+
+  if (!currentTrack || !mounted) return null;
+
+  const adjustOffset = (delta: number) => {
+    if (!currentTrack) return;
+    const newOffset = offset + delta;
+    setOffset(newOffset);
+    localStorage.setItem(getOffsetKey(currentTrack.id), String(newOffset));
+  };
 
   return (
     <div className="flex flex-col h-full w-full">
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-6 py-12 scrollbar-none mask-fade-y"
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-          </div>
-        ) : lyrics.length > 0 ? (
-          <div className="space-y-8 max-w-2xl mx-auto">
-            {lyrics.map((line, idx) => {
-              const isActive = idx === activeIndex;
-              const isPast = idx < activeIndex;
-              
-              return (
-                <div
-                  key={idx}
-                  ref={isActive ? activeLineRef : null}
-                  className={cn(
-                    "text-[28px] md:text-[42px] font-bold transition-all duration-500 ease-out leading-tight cursor-pointer",
-                    isActive 
-                      ? "text-white scale-100 opacity-100 blur-0" 
-                      : isPast 
-                        ? "text-white/30 scale-95 opacity-50 blur-[1px]" 
-                        : "text-white/20 scale-90 opacity-30 blur-[2px] hover:text-white/40"
-                  )}
-                  onClick={() => {
-                    usePlayerStore.getState().seek(line.time);
-                  }}
-                >
-                  {line.text}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-white/30 text-center px-10">
-            <p className="text-xl font-medium">No lyrics available for this track</p>
-            <p className="text-sm mt-2 opacity-60">We're working on expanding our library</p>
-          </div>
+      <div ref={containerRef} className="flex-1 overflow-hidden" />
+      <div className="flex items-center justify-center gap-3 py-3 px-4 border-t border-white/10">
+        <button
+          onClick={() => adjustOffset(-500)}
+          className="h-7 px-2 rounded text-[11px] font-medium text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          -0.5s
+        </button>
+        <span className="text-[11px] font-medium tabular-nums text-white/30">
+          offset {offset > 0 ? '+' : ''}{(offset / 1000).toFixed(1)}s
+        </span>
+        <button
+          onClick={() => adjustOffset(500)}
+          className="h-7 px-2 rounded text-[11px] font-medium text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          +0.5s
+        </button>
+        {offset !== 0 && (
+          <button
+            onClick={() => adjustOffset(-offset)}
+            className="h-7 px-2 rounded text-[11px] font-medium text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            reset
+          </button>
         )}
       </div>
     </div>

@@ -458,26 +458,18 @@
 }
 
 .tidal-play-btn {
-  width: 40px;
-  height: 40px;
   background: transparent !important;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff !important;
-  box-shadow: none !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: none !important;
+  padding: 0;
 }
 
 .tidal-play-btn:hover {
-  transform: scale(1.08);
-  color: #ffffff !important;
   background: transparent !important;
-}
-
-.tidal-play-btn:active {
-  transform: scale(0.95);
+  color: #ffffff !important;
 }
 
 /* Tidal top slider wrapper - Apple Music style */
@@ -486,17 +478,17 @@
   align-items: center !important;
 }
 .tidal-top-slider-wrapper [data-slot="slider-track"] {
-  height: 3px !important;
+  height: 2px !important;
   border-radius: 999px !important;
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
   transition: height 0.12s ease-in-out;
 }
 .tidal-top-slider-wrapper:hover [data-slot="slider-track"] {
-  height: 4px !important;
+  height: 3px !important;
 }
 .tidal-top-slider-wrapper [data-slot="slider-range"] {
   height: 100% !important;
-  background-color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.85) !important;
   border-radius: 999px !important;
 }
 .tidal-top-slider-wrapper [data-slot="slider-thumb"] {

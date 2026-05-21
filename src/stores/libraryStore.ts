@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Track, Playlist } from '@/types/music';
 import { demoPlaylists } from '@/lib/demo-data';
-import { trackListenDedupeKey } from '@/lib/track-identity';
 
 interface LibraryState {
   playlists: Playlist[];
@@ -107,10 +106,9 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
 
       addRecentlyPlayed: (track: Track) => {
         const { recentlyPlayed } = get();
-        const key = trackListenDedupeKey(track);
-        const filtered = recentlyPlayed.filter((t) => trackListenDedupeKey(t) !== key);
+        const filtered = recentlyPlayed.filter((t) => t.id !== track.id);
         set({
-          recentlyPlayed: [{ ...track }, ...filtered].slice(0, 30),
+          recentlyPlayed: [track, ...filtered].slice(0, 30),
         });
       },
 
