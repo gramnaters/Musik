@@ -32,7 +32,7 @@ export default function PlayerBar() {
     volume, isMuted, isShuffle, repeatMode,
     togglePlayPause, nextTrack, previousTrack,
     setVolume, toggleMute, toggleShuffle, cycleRepeat,
-    setShowNowPlaying,
+    showNowPlaying, setShowNowPlaying,
     clearPlaybackError,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
@@ -73,7 +73,9 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
             data-glass={glassEffect}
-            className="flex-shrink-0 flex flex-col transition-all duration-500 fixed bottom-[6px] left-[6px] right-[6px] h-[88px] bg-[rgba(28,28,30,0.75)] backdrop-blur-2xl border border-white/[0.04] rounded-xl shadow-none text-white overflow-hidden z-[100] md:z-50"
+            onClick={() => setShowNowPlaying(!showNowPlaying)}
+            className="flex-shrink-0 flex flex-col transition-all duration-500 fixed bottom-3 left-3 right-3 h-[88px] bg-[rgba(20,20,20,0.55)] backdrop-blur-[24px] backdrop-saturate-[180%] border-t border-white/[0.06] rounded-xl text-white z-[200] cursor-pointer"
+            style={{ isolation: 'isolate' }}
           >
             <div className="w-full h-full relative flex flex-col">
               <div className="tidal-player-grid w-full h-full max-w-full min-w-0 relative z-10 box-border px-5 py-2.5">
@@ -82,15 +84,16 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                   {currentTrack ? (
                     <>
                       <div
-                        className="pb-thumb tidal-pb-thumb shrink-0 h-[52px] w-[52px] rounded-[6px] shadow-lg cursor-pointer"
+                        className="pb-thumb tidal-pb-thumb shrink-0 h-[52px] w-[52px] rounded-[4px] cursor-pointer"
+                        style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.08)' }}
                         style={{ background: currentTrack.albumCover ? `url(${currentTrack.albumCover}) center/cover` : 'linear-gradient(135deg,#667eea,#764ba2)' }}
-                        onClick={() => setShowNowPlaying(true)}
+                        onClick={() => setShowNowPlaying(!showNowPlaying)}
                       />
                       <div className="tidal-pb-meta flex min-w-0 flex-col justify-center">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <div
                             className="tidal-pb-title pb-title min-w-0 cursor-pointer truncate font-bold text-[14px] leading-tight hover:underline text-white"
-                            onClick={() => setShowNowPlaying(true)}
+                            onClick={() => setShowNowPlaying(!showNowPlaying)}
                             role="button"
                             tabIndex={0}
                           >
@@ -105,7 +108,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                             </span>
                           )}
                         </div>
-                        <p className="tidal-pb-artist pb-artist truncate text-[12px] text-white/50 font-medium hover:underline mt-0.5">
+                        <p className="tidal-pb-artist pb-artist truncate text-[12px] text-white/45 font-medium hover:underline mt-0.5">
                           {currentTrack.artist} {currentTrack.album && <span className="text-white/30 ml-1 font-normal">&bull; {currentTrack.album}</span>}
                         </p>
                       </div>
@@ -119,7 +122,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                         </button>
                         <button 
                           className="p-1.5 rounded-full hover:bg-white/5 transition-colors text-white/40 hover:text-white"
-                          onClick={() => currentTrack && openDownload(currentTrack)}
+                          onClick={(e) => { e.stopPropagation(); currentTrack && openDownload(currentTrack); }}
                         >
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                             <circle cx="5" cy="12" r="2" />
@@ -144,24 +147,24 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                 <div className="pb-center flex flex-col items-center justify-center h-full gap-0">
                   {/* Control Buttons */}
                   <div className="flex items-center gap-4">
-                    <button className="ctrl hover:text-white transition-colors animate-in fade-in" onClick={toggleShuffle} style={{ color: isShuffle ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                    <button className="ctrl hover:text-white transition-colors animate-in fade-in" onClick={(e) => { e.stopPropagation(); toggleShuffle(); }} style={{ color: isShuffle ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
                       <Shuffle size={16} />
                     </button>
-                    <button className="ctrl hover:text-white transition-colors" onClick={previousTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    <button className="ctrl hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); previousTrack(); }} style={{ color: '#ffffff' }}>
                       <SkipBack size={20} fill="currentColor" />
                     </button>
-                    <button className="tidal-play-btn" onClick={togglePlayPause}>
-                      {isPlaying ? <Pause size={26} fill="currentColor" /> : showBuffering ? <Loader2 size={26} className="animate-spin" /> : <Play size={26} fill="currentColor" className="ml-0.5" />}
+                    <button className="tidal-play-btn" onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}>
+                      {isPlaying ? <Pause size={31} fill="currentColor" /> : showBuffering ? <Loader2 size={31} className="animate-spin" /> : <Play size={31} fill="currentColor" />}
                     </button>
-                    <button className="ctrl hover:text-white transition-colors" onClick={nextTrack} style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    <button className="ctrl hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); nextTrack(); }} style={{ color: '#ffffff' }}>
                       <SkipForward size={20} fill="currentColor" />
                     </button>
-                    <button className="ctrl hover:text-white transition-colors" onClick={cycleRepeat} style={{ color: repeatMode !== 'off' ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
+                    <button className="ctrl hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); cycleRepeat(); }} style={{ color: repeatMode !== 'off' ? '#00FFFF' : 'rgba(255,255,255,0.4)' }}>
                       {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
                     </button>
                   </div>
                   {/* Apple Music-style progress bar with flanking timestamps */}
-                  <div className="flex items-center gap-2 px-2 w-full justify-center -mt-[6px]">
+                  <div className="flex items-center gap-2 px-2 w-full justify-center -mt-[6px]" onClick={(e) => e.stopPropagation()}>
                     <span className="text-[11px] tabular-nums text-white/45 w-8 text-right shrink-0">
                       {currentTrack ? formatDuration(currentTime) : '0:00'}
                     </span>
@@ -178,8 +181,8 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                 <div className="pb-right flex items-center justify-end h-full gap-3">
                   {/* Download */}
                   <button 
-                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
-                    onClick={() => currentTrack && openDownload(currentTrack)}
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/75 hover:text-white"
+                    onClick={(e) => { e.stopPropagation(); currentTrack && openDownload(currentTrack); }}
                     title="Download"
                   >
                     <Download size={18} />
@@ -187,8 +190,8 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
 
                   {/* Lyrics / Now Playing */}
                   <button 
-                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
-                    onClick={() => setShowNowPlaying(true)}
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/75 hover:text-white"
+                    onClick={(e) => { e.stopPropagation(); setShowNowPlaying(!showNowPlaying); }}
                     title="Lyrics"
                   >
                     <Mic2 size={18} />
@@ -196,8 +199,8 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
 
                   {/* Queue / ListMusic */}
                   <button 
-                    className={cn("p-2 rounded-full hover:bg-white/5 transition-colors", rightPanel === 'queue' ? 'text-cyan-400' : 'text-white/60 hover:text-white')} 
-                    onClick={() => setRightPanel(rightPanel === 'queue' ? 'none' : 'queue')}
+                    className={cn("p-2 rounded-full hover:bg-white/5 transition-colors", rightPanel === 'queue' ? 'text-cyan-400' : 'text-white/75 hover:text-white')} 
+                    onClick={(e) => { e.stopPropagation(); setRightPanel(rightPanel === 'queue' ? 'none' : 'queue'); }}
                     title="Queue"
                   >
                     <ListMusic size={18} />
@@ -205,8 +208,9 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
 
                   {/* Cycle Style / Maximize2 */}
                   <button 
-                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
-                    onClick={() => {
+                    className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/75 hover:text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const themes: ('spotify' | 'tidal' | 'apple')[] = ['spotify', 'tidal', 'apple'];
                       const next = themes[(themes.indexOf(playerTheme) + 1) % themes.length];
                       setPlayerTheme(next);
@@ -218,17 +222,18 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
 
                   {/* Volume icon & slider */}
                   <div className="flex items-center gap-2 group mr-1">
-                    <button onClick={toggleMute} className="text-white/60 hover:text-white transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="text-white/75 hover:text-white transition-colors">
                       <VolumeIcon size={18} />
                     </button>
                     <input 
                       type="range" 
-                      className="vol-slider w-20 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white" 
+                      className="vol-slider w-20 h-1 bg-white/[0.15] rounded-full appearance-none cursor-pointer accent-white" 
                       min="0" max="100" 
                       value={isMuted ? 0 : volume * 100} 
-                      onChange={(e) => setVolume(Number(e.target.value) / 100)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => { e.stopPropagation(); setVolume(Number(e.target.value) / 100); }}
                       style={{ 
-                        background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.1) ${isMuted ? 0 : volume * 100}%)` 
+                        background: `linear-gradient(to right, rgba(255,255,255,0.85) ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.15) ${isMuted ? 0 : volume * 100}%)` 
                       }} 
                     />
                   </div>
@@ -315,7 +320,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => toggleFavourite(currentTrack)}
+                        onClick={(e) => { e.stopPropagation(); toggleFavourite(currentTrack); }}
                             className={cn(
                               'h-6 w-6 shrink-0 p-0 ml-1',
                               isFav ? 'text-[#1DB954] hover:text-[#1DB954]' : 'text-white/55 hover:text-white'
@@ -327,7 +332,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setShowNowPlaying(true)}
+                            onClick={() => setShowNowPlaying(!showNowPlaying)}
                             className="h-6 w-6 shrink-0 p-0 rounded-md border border-white/22 bg-white/[0.07] text-white/75 hover:bg-white/12 hover:text-white hidden sm:inline-flex ml-1"
                             aria-label="Open full player"
                           >
@@ -504,7 +509,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setShowNowPlaying(true)}
+                      onClick={() => setShowNowPlaying(!showNowPlaying)}
                       className="h-8 w-8 text-white/50 hover:text-white hidden lg:flex"
                     >
                       <Mic2 size={16} />
@@ -586,7 +591,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowNowPlaying(true)}
+                  onClick={() => setShowNowPlaying(!showNowPlaying)}
                   className="h-8 w-8 text-white/50 hover:text-white flex lg:hidden ml-1"
                 >
                   <ChevronUp size={20} />
@@ -625,7 +630,7 @@ function ApplePlayerBar() {
     currentTrack, isPlaying, currentTime, duration, volume,
     togglePlayPause, nextTrack, previousTrack,
     setVolume, toggleShuffle, cycleRepeat,
-    setShowNowPlaying,
+    showNowPlaying, setShowNowPlaying,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
   const { setRightPanel } = useUIStore();

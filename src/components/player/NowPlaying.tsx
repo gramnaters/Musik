@@ -1,80 +1,121 @@
 'use client';
 
-import { useState, useRef, MouseEvent } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
-import { useUIStore } from '@/stores/uiStore';
 import { useLibraryStore } from '@/stores/libraryStore';
-import { useAudioSettingsStore } from '@/stores/audioSettingsStore';
-import { formatDuration } from '@/lib/demo-data';
-import { cn } from '@/lib/utils';
-import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
-import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
-  Heart, ListMusic, ChevronDown, Download,
-  MoreHorizontal, Star, Sparkles,
+  Heart, ListMusic, ChevronDown, MoreHorizontal, Sparkles,
+  Maximize2, Music, Users, FileText,
+  X, Plus, Copy, Share2, ExternalLink, ChevronRight,
+  Globe, Lock, Download, PenLine, Radio,
 } from 'lucide-react';
-import { useDownloadStore } from '@/stores/downloadStore';
-import { seekbarWrapperClass } from '@/lib/seekbar-styles';
-import { PlaybackSeekSlider } from '@/components/player/PlaybackSeekSlider';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
-import LyricsView from './LyricsView';
+import { parseLrc, LrcLine } from '@/lib/lrc-parser';
+
+const colorPalettes: [string, string][] = [
+  ['#8B1A1A', '#4A0E0E'],
+  ['#1A3A5C', '#0A1F35'],
+  ['#2D5A1B', '#152B0D'],
+  ['#5C3A1A', '#2E1C0D'],
+  ['#3A1A5C', '#1C0D2E'],
+  ['#1A4A4A', '#0D2525'],
+  ['#5C4A1A', '#2E250D'],
+  ['#4A1A3A', '#250D1C'],
+];
 
 export default function NowPlaying() {
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
-  const [isHovering, setIsHovering] = useState(false);
-  const [view, setView] = useState<'artwork' | 'lyrics'>('artwork');
-  const [spotifyLivingArt, setSpotifyLivingArt] = useState(true);
-  const tidalAlbumRef = useRef<HTMLDivElement>(null);
-
-  const handleTidalAlbumMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!tidalAlbumRef.current) return;
-    const rect = tidalAlbumRef.current.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = (e.clientX - cx) / (rect.width / 2);
-    const dy = (e.clientY - cy) / (rect.height / 2);
-    setTilt({ x: dy * -14, y: dx * 14 });
-    const sx = ((e.clientX - rect.left) / rect.width) * 100;
-    const sy = ((e.clientY - rect.top) / rect.height) * 100;
-    setShine({ x: sx, y: sy, opacity: 0.42 });
-  };
-
-  const handleTidalAlbumLeave = () => {
-    setIsHovering(false);
-    setTilt({ x: 0, y: 0 });
-    setShine((s) => ({ ...s, opacity: 0 }));
-  };
-
-  const handleTidalAlbumEnter = () => {
-    setIsHovering(true);
-  };
-
   const {
     currentTrack, isPlaying, currentTime, duration,
-    isShuffle, repeatMode,
-    togglePlayPause, nextTrack, previousTrack,
-    toggleShuffle, cycleRepeat,
     showNowPlaying, setShowNowPlaying,
   } = usePlayerStore();
-  const { setRightPanel, playerTheme } = useUIStore();
-  const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
   const { isFavourite, toggleFavourite } = useLibraryStore();
+  const { playlists, addToPlaylist, createPlaylist } = useLibraryStore();
+
+  const [isHovering, setIsHovering] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [showCredits, setShowCredits] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const [showPlaylistSub, setShowPlaylistSub] = useState(false);
+  const [showShareSub, setShowShareSub] = useState(false);
+  const [lyrics, setLyrics] = useState<LrcLine[]>([]);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyricsOffset, setLyricsOffset] = useState(0);
+  const [activeLyricIdx, setActiveLyricIdx] = useState(-1);
+  const [color1, setColor1] = useState('#1A3A5C');
+  const [color2, setColor2] = useState('#0A1F35');
+
+  const albumRef = useRef<HTMLDivElement>(null);
+  const albumInnerRef = useRef<HTMLDivElement>(null);
+  const albumGlowRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+
+  useEffect(() => {
+    const palette = colorPalettes[Math.floor(Math.random() * colorPalettes.length)];
+    setColor1(palette[0]);
+    setColor2(palette[1]);
+  }, [currentTrack?.id]);
+
+  useEffect(() => {
+    if (!showLyrics || !currentTrack) return;
+    setLyricsLoading(true);
+    const params = new URLSearchParams({ track: currentTrack.title, artist: currentTrack.artist });
+    if (currentTrack.album) params.set('album', currentTrack.album);
+    if (currentTrack.duration) params.set('duration', String(currentTrack.duration));
+    fetch(`/api/lyrics?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.syncedLyrics) setLyrics(parseLrc(data.syncedLyrics));
+        else setLyrics([]);
+      })
+      .catch(() => setLyrics([]))
+      .finally(() => setLyricsLoading(false));
+  }, [showLyrics, currentTrack?.id]);
+
+  useEffect(() => {
+    if (!lyrics.length) { setActiveLyricIdx(-1); return; }
+    const adjTime = currentTime + lyricsOffset;
+    let idx = -1;
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      if (adjTime >= lyrics[i].time) { idx = i; break; }
+    }
+    setActiveLyricIdx(idx);
+  }, [currentTime, lyricsOffset, lyrics]);
+
+  useEffect(() => {
+    if (activeLyricIdx < 0 || !lyricsContainerRef.current) return;
+    const el = lyricRefs.current[activeLyricIdx];
+    if (!el) return;
+    const container = lyricsContainerRef.current;
+    const targetTop = el.offsetTop - container.clientHeight * 0.35;
+    container.scrollTo({ top: targetTop, behavior: 'smooth' });
+  }, [activeLyricIdx]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false); setShowPlaylistSub(false); setShowShareSub(false);
+      }
+    };
+    if (showMenu) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowMenu(false); setShowPlaylistSub(false); setShowShareSub(false);
+        if (showLyrics) setShowLyrics(false);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [showLyrics]);
+
+  lyricRefs.current = [];
 
   const shareOrCopyNowPlaying = async () => {
     if (!currentTrack) return;
@@ -86,803 +127,387 @@ export default function NowPlaying() {
         await navigator.clipboard.writeText(text);
         toast({ title: 'Copied', description: 'Track info copied to clipboard.' });
       }
-    } catch {
-      /* user cancelled share or clipboard blocked */
+    } catch { /* user cancelled */ }
+  };
+
+  const handleAlbumMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!albumRef.current) return;
+    const rect = albumRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    const rx = dy * -10;
+    const ry = dx * 10;
+    if (albumInnerRef.current) {
+      albumInnerRef.current.style.transition = 'transform 0.5s cubic-bezier(0.23, 1, 0.32, 1)';
+      albumInnerRef.current.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    }
+    const sx = ((e.clientX - rect.left) / rect.width) * 100;
+    const sy = ((e.clientY - rect.top) / rect.height) * 100;
+    if (albumGlowRef.current) {
+      albumGlowRef.current.style.background = `radial-gradient(circle 180px at ${sx}% ${sy}%, rgba(255,255,255,0.04), transparent)`;
     }
   };
 
-  const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
-  const qualityBadge = getQualityBadgeForTrack(currentTrack ?? undefined);
-  const qualityTip = getQualityTooltip(currentTrack ?? undefined);
-  const remainingTime = duration > 0 ? Math.max(0, duration - currentTime) : 0;
+  const handleAlbumLeave = () => {
+    if (albumInnerRef.current) {
+      albumInnerRef.current.style.transition = 'transform 0.8s cubic-bezier(0.23, 1, 0.32, 1)';
+      albumInnerRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    }
+    if (albumGlowRef.current) {
+      albumGlowRef.current.style.background = 'radial-gradient(circle 180px at 50% 50%, transparent, transparent)';
+    }
+  };
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    setShowMenu((v) => !v);
+    setShowPlaylistSub(false);
+    setShowShareSub(false);
+  };
+
+  const seekToLyric = (time: number) => {
+    usePlayerStore.getState().seekTo(time);
+  };
+
+  const artistName = currentTrack?.artist || '';
+  const artistAvatarUrl = currentTrack?.albumCover || '';
+
+  const topPills = [
+    { label: 'Similar tracks', fn: () => toast({ title: 'Similar tracks' }) },
+    { label: 'Credits', fn: () => setShowCredits(true) },
+    { label: 'Lyrics', fn: () => setShowLyrics((v) => !v) },
+  ];
+
+  const renderAlbumArt = () => (
+    <div
+      ref={albumRef}
+      onMouseMove={handleAlbumMove}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={handleAlbumLeave}
+      className="relative cursor-pointer"
+      style={{ perspective: '1500px', transformStyle: 'preserve-3d' }}
+    >
+      <div
+        ref={albumInnerRef}
+        className="w-[580px] h-[590px] min-w-[580px] min-h-[590px] max-[1200px]:w-[420px] max-[1200px]:h-[430px] max-[1200px]:min-w-[420px] max-[1200px]:min-h-[430px] overflow-hidden"
+        style={{
+          transform: 'rotateX(0deg) rotateY(0deg)',
+          transition: 'transform 0.6s cubic-bezier(0.23,1,0.32,1)',
+          boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+        }}
+      >
+        {currentTrack.albumCover ? (
+          <img src={currentTrack.albumCover} alt={currentTrack.album} className="w-full h-full object-cover object-center" style={{ imageRendering: '-webkit-optimize-contrast' }} />
+        ) : (
+          <div className="w-full h-full bg-white/5 flex items-center justify-center"><Music size={80} className="text-white/20" /></div>
+        )}
+        <div
+          ref={albumGlowRef}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle 180px at 50% 50%, transparent, transparent)',
+            transition: 'background 0.15s ease-out',
+          }}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <AnimatePresence>
       {showNowPlaying && currentTrack && (
-        <TooltipProvider delayDuration={200}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="fixed inset-0 z-[100]"
         >
+          {/* Background: solid color from album palette */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(135deg, ${color1}, ${color2})`,
+            }}
+          />
 
-          {/* ═══════════════════════════════════════════════════════════
-              APPLE MUSIC — exact match to apple.com/apple-music web player
-              Background: blurred album art, dark vignette overlay
-              Layout: centred column, album square, slim controls below
-          ═══════════════════════════════════════════════════════════ */}
-           {playerTheme === 'apple' && (
-             <div className="absolute inset-0 flex flex-col h-full">
-               {/* Blurred album bg */}
-               <div className="absolute inset-0 overflow-hidden">
-                 {currentTrack.albumCover && (
-                   <img
-                     src={currentTrack.albumCover}
-                     alt=""
-                     aria-hidden
-                     className="absolute inset-0 w-full h-full object-cover scale-110"
-                     style={{ filter: 'blur(48px) saturate(1.6) brightness(0.45)' }}
-                   />
-                 )}
-                 {/* Apple-style deep dark vignette */}
-                  <div className="absolute inset-0 bg-black/50" />
-                 <div className="absolute inset-x-0 bottom-0 h-2/3"
-                   style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.78) 55%, rgba(0,0,0,0.94) 100%)' }} />
-               </div>
-               {/* Soft mesh (Apple Music web–like haze over blurred art) */}
-                <div className="apple-bg-gradient absolute inset-0">
-                  <div className="apple-blob apple-blob-1" />
-                  <div className="apple-blob apple-blob-2" />
-                  <div className="apple-blob apple-blob-3" />
-                  <div className="apple-blob apple-blob-4" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/55" />
-                  <div className="absolute inset-0 bg-black/35 backdrop-blur-[56px]" />
-                </div>
-
-               {/* Content */}
-              <div className="relative z-10 flex flex-col h-full max-w-[540px] mx-auto w-full px-6 pb-10 pt-4">
-                {/* Top bar */}
-                <div className="flex items-center justify-between py-3">
-                  <button
-                    onClick={() => setShowNowPlaying(false)}
-                    className="h-8 w-8 flex items-center justify-center text-white/70 hover:text-white rounded-full transition-colors"
-                    aria-label="Close"
-                  >
-                    <ChevronDown size={22} strokeWidth={2.5} />
-                  </button>
-                  {/* "Now Playing" label — Apple Music uses this exactly */}
-                  <div className="text-center">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55 leading-none">
-                      Now Playing
-                    </p>
+          {/* Content layer — clipped to stay above player bar */}
+          <div className="absolute inset-x-0 top-0 bottom-[100px] flex flex-col overflow-hidden">
+            <div className="relative z-10 flex flex-col h-full">
+              {/* ─── TOP BAR ─── */}
+              <div className="flex items-center justify-between px-8 pt-6 pb-2 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-white/20 bg-white/10">
+                    {artistAvatarUrl ? (
+                      <img src={artistAvatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/50 text-xs font-bold">{artistName.charAt(0)}</div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
-                    className="h-8 w-8 flex items-center justify-center text-white/70 hover:text-white rounded-full transition-colors"
-                    aria-label="Queue"
-                  >
-                    <ListMusic size={18} strokeWidth={2} />
-                  </button>
+                  <span className="text-sm font-semibold text-white/90 hover:underline cursor-pointer">{artistName}</span>
                 </div>
-
-                 {/* Content Area */}
-                 <div className="flex-1 flex items-center justify-center py-4 overflow-hidden">
-                   <AnimatePresence mode="wait">
-                     {view === 'artwork' ? (
-                       <motion.div
-                         key="artwork"
-                         initial={{ opacity: 0, scale: 0.98 }}
-                         animate={{ opacity: 1, scale: 1 }}
-                         exit={{ opacity: 0, scale: 0.95 }}
-                         transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-                         className="relative w-full max-w-[min(80vw,400px)] aspect-square rounded-[10px] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
-                       >
-                         {currentTrack.albumCover ? (
-                           <img
-                             src={currentTrack.albumCover}
-                             alt={currentTrack.album}
-                             className="w-full h-full object-cover"
-                           />
-                         ) : (
-                           <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                             <svg className="w-24 h-24 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                               <path d="M9 18V5l12-2v13" />
-                               <circle cx="6" cy="18" r="3" />
-                               <circle cx="18" cy="16" r="3" />
-                             </svg>
-                           </div>
-                         )}
-                       </motion.div>
-                     ) : (
-                       <motion.div
-                         key="lyrics"
-                         initial={{ opacity: 0, y: 20 }}
-                         animate={{ opacity: 1, y: 0 }}
-                         exit={{ opacity: 0, y: -20 }}
-                         className="w-full h-full"
-                       >
-                         <LyricsView />
-                       </motion.div>
-                     )}
-                   </AnimatePresence>
-                 </div>
-
-                {/* Track info — Apple Music web: title row + star / more; subtitle line */}
-                <div className="mb-3 space-y-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 flex items-center gap-2">
-                      <h2 className="text-[22px] font-semibold text-white tracking-[-0.02em] truncate leading-tight">
-                        {currentTrack.title}
-                      </h2>
-                      {currentTrack.explicit && (
-                        <span className="shrink-0 text-[10px] font-bold px-1 py-px rounded border border-white/35 text-white/90 leading-none">
-                          E
-                        </span>
-                      )}
-                      {qualityBadge && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={cn(
-                              "shrink-0 text-[9px] font-black px-1 py-0.5 rounded-[2px] tracking-wide border leading-none cursor-default",
-                              qualityBadge.label === 'HD' ? 'bg-[#E5D283] text-black border-[#E5D283] shadow-[0_0_8px_rgba(229,210,131,0.4)]' :
-                              qualityBadge.label === 'HIFI' ? 'bg-[#45b7d1] text-black border-[#45b7d1] shadow-[0_0_8px_rgba(69,183,209,0.4)]' :
-                              qualityBadge.label === 'HIGH' ? 'bg-white/15 text-white/90 border-white/25' :
-                              'bg-black/80 text-white border-white/20'
-                            )}>
-                              {qualityBadge.label}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5">
-                            {qualityTip}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleFavourite(currentTrack)}
-                        className={cn(
-                          'h-9 w-9 flex items-center justify-center rounded-full text-white/55 hover:text-white transition-colors duration-200',
-                          isFav && 'text-white'
-                        )}
-                        aria-label="Favorite"
-                      >
-                        <Star size={20} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
-                      </button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="h-9 w-9 flex items-center justify-center rounded-full text-white/55 hover:text-white transition-colors duration-200 outline-none"
-                            aria-label="More options"
-                          >
-                            <MoreHorizontal size={20} strokeWidth={1.75} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-neutral-950 text-white">
-                          <DropdownMenuItem
-                            className="focus:bg-white/10"
-                            onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                          >
-                            Download
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="focus:bg-white/10"
-                            onClick={() => {
-                              setShowNowPlaying(false);
-                              setRightPanel('queue');
-                            }}
-                          >
-                            View queue
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="focus:bg-white/10" onClick={() => void shareOrCopyNowPlaying()}>
-                            Share or copy
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-white/10" />
-                          <DropdownMenuItem className="focus:bg-white/10" onClick={() => setShowNowPlaying(false)}>
-                            Close
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  <p className="text-[13px] text-white/50 font-medium truncate pr-2">
-                    {currentTrack.album?.trim()
-                      ? `${currentTrack.title} — ${currentTrack.album} · ${currentTrack.artist}`
-                      : `${currentTrack.title} — Single · ${currentTrack.artist}`}
-                  </p>
-                </div>
-
-                {/* Seekbar — Apple Music web */}
-                <div className="mb-1">
-                  <div className={cn('w-full apple-progress apple-nowplaying-scrubber', seekbarWrapperClass(seekbarStyle))}>
-                    <PlaybackSeekSlider />
-                  </div>
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-[11px] font-medium tabular-nums text-white/45">{formatDuration(currentTime)}</span>
-                    <span className="text-[11px] font-medium tabular-nums text-white/45">
-                      -{formatDuration(remainingTime)}
-                    </span>
-                  </div>
-                </div>
-
-                 {/* Main controls — Apple Music: play button only, centered */}
-                  <div className="flex items-center justify-center px-2 mb-5">
+                <div className="flex items-center gap-2">
+                  {topPills.map((pill) => (
                     <button
-                      type="button"
-                      onClick={togglePlayPause}
-                      aria-label={isPlaying ? 'Pause' : 'Play'}
-                      className="w-16 h-16 shrink-0 flex items-center justify-center text-white rounded-full border-0 bg-transparent shadow-none outline-none transition-transform duration-200 ease-out hover:scale-[1.04] active:scale-[0.96]"
-                    >
-                      <span className="w-10 h-10 flex items-center justify-center pointer-events-none">
-                        {isPlaying ? (
-                          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                            <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
-                            <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
-                          </svg>
-                        ) : (
-                          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                            <path d="M8 5.5v13L19 12 8 5.5z" />
-                          </svg>
-                        )}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Volume — Apple Music: speaker icons flanking a slim slider */}
-                  <div className="flex items-center justify-center gap-3 px-1 mb-4">
-                    <button onClick={toggleMute} className="text-white/40 hover:text-white/70 transition-colors shrink-0">
-                      <VolumeX size={16} />
-                    </button>
-                    <div className="flex-1 apple-progress">
-                      <Slider
-                        value={[isMuted ? 0 : volume * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => setVolume(v[0] / 100)}
-                        className="w-full cursor-pointer"
-                      />
-                    </div>
-                    <button onClick={toggleMute} className="text-white/40 hover:text-white/70 transition-colors shrink-0">
-                      <Volume2 size={16} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-10 px-1">
-                    <button
-                      type="button"
-                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                      className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
-                      aria-label="Download"
-                    >
-                      <Download size={18} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowNowPlaying(false);
-                        setRightPanel('queue');
+                      key={pill.label}
+                      onClick={pill.fn}
+                      style={{
+                        padding: '7px 18px',
+                        borderRadius: '999px',
+                        background: pill.label === 'Lyrics' && showLyrics
+                          ? 'rgba(255,255,255,0.25)'
+                          : 'rgba(255,255,255,0.1)',
+                        border: `1px solid ${
+                          pill.label === 'Lyrics' && showLyrics
+                            ? 'rgba(255,255,255,0.5)'
+                            : 'rgba(255,255,255,0.22)'
+                        }`,
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        letterSpacing: '0.01em',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                        whiteSpace: 'nowrap',
                       }}
-                      className="h-9 w-9 flex items-center justify-center text-white/45 hover:text-white/85 transition-colors duration-200"
-                      aria-label="Queue"
+                      onMouseEnter={(e) => {
+                        if (!(pill.label === 'Lyrics' && showLyrics)) {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.18)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background =
+                          pill.label === 'Lyrics' && showLyrics
+                            ? 'rgba(255,255,255,0.25)'
+                            : 'rgba(255,255,255,0.1)';
+                      }}
                     >
-                      <ListMusic size={18} />
+                      {pill.label}
                     </button>
-                  </div>
+                  ))}
+                  <button className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white transition-colors">
+                    <Maximize2 size={15} />
+                  </button>
+                  <button
+                    onClick={() => setShowNowPlaying(false)}
+                    className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                  >
+                    <ChevronDown size={18} />
+                  </button>
                 </div>
               </div>
-            )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              SPOTIFY — exact match to open.spotify.com web player
-              Background: album-tinted gradient fading to near-black
-              Layout: large art, left-aligned text, white play circle
-          ═══════════════════════════════════════════════════════════ */}
-          {playerTheme === 'spotify' && (
-            <div className="absolute inset-0 flex flex-col h-full">
-              {/* Spotify: blurred album colour washes from top */}
-              <div className="absolute inset-0">
-                {currentTrack.albumCover && (
-                  <img
-                    src={currentTrack.albumCover}
-                    alt=""
-                    aria-hidden
-                    className="absolute inset-0 w-full h-full object-cover scale-110"
-                    style={{ filter: 'blur(60px) saturate(2.2) brightness(0.38)' }}
-                  />
-                )}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 55%, #121212 100%)' }} />
-              </div>
-
-              <div className="relative z-10 flex flex-col h-full max-w-[540px] mx-auto w-full px-6 pb-8 pt-2">
-                {/* Top bar — Spotify: down chevron centre-ish, three dots right */}
-                <div className="flex items-center justify-between py-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowNowPlaying(false)}
-                    className="h-8 w-8 shrink-0 flex items-center justify-center text-white hover:text-white/70 transition-colors"
-                    aria-label="Close"
-                  >
-                    <ChevronDown size={24} strokeWidth={2.5} />
-                  </button>
-                  <div className="text-center min-w-0 flex-1 px-2">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/70 truncate">
-                      {currentTrack.album || 'Now Playing'}
-                    </p>
+              {/* ─── CENTER ─── */}
+              {showLyrics ? (
+                <div className="flex-1 grid min-h-0" style={{ gridTemplateColumns: '45% 55%' }}>
+                  {/* Left: album section */}
+                  <div className="flex flex-col items-center justify-center p-10">
+                    {renderAlbumArt()}
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => setSpotifyLivingArt((v) => !v)}
-                          className={cn(
-                            'h-8 w-8 flex items-center justify-center rounded-lg transition-colors',
-                            spotifyLivingArt ? 'text-[#1DB954] bg-white/10' : 'text-white/55 hover:text-white'
-                          )}
-                          aria-label={spotifyLivingArt ? 'Turn off living artwork' : 'Turn on living artwork'}
-                        >
-                          <Sparkles size={18} strokeWidth={2} />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs border border-white/15 bg-zinc-900 text-white text-xs">
-                        <p className="font-medium">Living artwork</p>
-                        <p className="text-white/70 mt-1">
-                          Gentle zoom animation on the cover. Spotify &quot;Canvas&quot; video loops are not exposed through the Web API,
-                          so real Canvas clips cannot be loaded here.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="h-8 w-8 flex items-center justify-center text-white hover:text-white/70 transition-colors outline-none"
-                          aria-label="More options"
-                        >
-                          <MoreHorizontal size={22} />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-zinc-950 text-white">
-                        <DropdownMenuItem
-                          className="focus:bg-white/10"
-                          onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                        >
-                          Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="focus:bg-white/10"
-                          onClick={() => {
-                            setShowNowPlaying(false);
-                            setRightPanel('queue');
+
+                  {/* Right: lyrics panel */}
+                  <div
+                    ref={lyricsContainerRef}
+                    style={{
+                      padding: '60px 60px 60px 40px',
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-start',
+                      maskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%)',
+                    }}
+                  >
+                    <style>{`#lrc-panel::-webkit-scrollbar { display: none; }`}</style>
+                    {/* Lyrics header */}
+                    <div
+                      style={{
+                        padding: '20px 60px 0 40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '32px',
+                      }}
+                    >
+                      <span style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Lyrics</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button onClick={() => setLyricsOffset((o) => Math.max(-10, o - 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">&minus;</button>
+                        <span style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.5)', width: '48px', textAlign: 'center', fontWeight: 500 }}>
+                          {lyricsOffset >= 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
+                        </span>
+                        <button onClick={() => setLyricsOffset((o) => Math.min(10, o + 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">+</button>
+                        {lyricsOffset !== 0 && (
+                          <button onClick={() => setLyricsOffset(0)} className="h-6 px-2 text-[10px] text-white/40 hover:text-white rounded hover:bg-white/10">↺</button>
+                        )}
+                        <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+                        <button className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><Globe size={12} /></button>
+                        <button className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><Lock size={12} /></button>
+                        <button onClick={() => setShowLyrics(false)} className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><X size={13} /></button>
+                      </div>
+                    </div>
+
+                    {/* Lyric lines */}
+                    {lyricsLoading ? (
+                      <div className="flex items-center justify-center h-40" style={{ marginTop: '40px' }}>
+                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      </div>
+                    ) : lyrics.length === 0 ? (
+                      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px', marginTop: '40px' }}>No synced lyrics available</p>
+                    ) : (
+                      lyrics.map((line, i) => (
+                        <p
+                          key={i}
+                          ref={(el) => { lyricRefs.current[i] = el; }}
+                          onClick={() => seekToLyric(line.time)}
+                          style={{
+                            width: '100%',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            overflow: 'visible',
+                            fontSize: i === activeLyricIdx ? '32px' : '26px',
+                            fontWeight: i === activeLyricIdx ? 700 : 500,
+                            lineHeight: 1.5,
+                            marginBottom: '18px',
+                            color: i === activeLyricIdx ? '#ffffff' : 'rgba(255,255,255,0.28)',
+                            filter: i === activeLyricIdx ? 'none' : 'blur(0.6px)',
+                            cursor: 'pointer',
+                            transition: 'all 0.35s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
                           }}
                         >
-                          View queue
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="focus:bg-white/10" onClick={() => void shareOrCopyNowPlaying()}>
-                          Share or copy
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-white/10" />
-                        <DropdownMenuItem className="focus:bg-white/10" onClick={() => setShowNowPlaying(false)}>
-                          Close
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-
-                {/* Content Area */}
-                <div className="flex items-center justify-center py-6 flex-1 overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    {view === 'artwork' ? (
-                      <motion.div
-                        key="artwork"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.85 }}
-                        transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-                        className="w-full aspect-square max-w-[min(75vw,360px)] rounded-[8px] overflow-hidden"
-                        style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}
-                      >
-                        {currentTrack.albumCover ? (
-                          <motion.div
-                            className="relative w-full h-full"
-                            animate={
-                              spotifyLivingArt && isPlaying
-                                ? { scale: [1, 1.035, 1] }
-                                : { scale: 1 }
-                            }
-                            transition={
-                              spotifyLivingArt && isPlaying
-                                ? { duration: 14, repeat: Infinity, ease: 'easeInOut' }
-                                : { duration: 0.3 }
-                            }
-                          >
-                            <motion.img
-                              src={currentTrack.albumCover}
-                              alt={currentTrack.album || ''}
-                              className="w-full h-full object-cover"
-                              animate={
-                                spotifyLivingArt && isPlaying
-                                  ? { scale: [1, 1.08, 1] }
-                                  : { scale: 1 }
-                              }
-                              transition={
-                                spotifyLivingArt && isPlaying
-                                  ? { duration: 18, repeat: Infinity, ease: 'easeInOut' }
-                                  : { duration: 0.3 }
-                              }
-                            />
-                          </motion.div>
-                        ) : (
-                          <div className="w-full h-full bg-[#282828] flex items-center justify-center">
-                            <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                            </svg>
-                          </div>
-                        )}
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="lyrics"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="w-full h-full"
-                      >
-                        <LyricsView />
-                      </motion.div>
+                          {line.text}
+                        </p>
+                      ))
                     )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Track info + heart — Spotify: left-aligned, heart right */}
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-[22px] font-bold text-white tracking-[-0.01em] truncate leading-tight">
-                      {currentTrack.title}
-                    </h2>
-                    <p className="text-[15px] text-white/65 truncate mt-0.5 font-normal">{currentTrack.artist}</p>
-                  </div>
-                  <button
-                    onClick={() => toggleFavourite(currentTrack)}
-                    className={cn('shrink-0 transition-colors', isFav ? 'text-[#1DB954]' : 'text-white/40 hover:text-white/70')}
-                    aria-label={isFav ? 'Remove from liked' : 'Like'}
-                  >
-                    <Heart size={24} strokeWidth={1.8} fill={isFav ? 'currentColor' : 'none'} />
-                  </button>
-                </div>
-
-                {/* Seekbar — Spotify: gray track, green fill, shows thumb on hover */}
-                <div className="mb-1">
-                  <div className={cn('w-full spotify-progress', seekbarWrapperClass(seekbarStyle))}>
-                    <PlaybackSeekSlider sliderClassName="w-full" />
-                  </div>
-                  <div className="flex justify-between mt-2">
-                    <span className="text-[11px] font-medium tabular-nums text-white/55">{formatDuration(currentTime)}</span>
-                    <span className="text-[11px] font-medium tabular-nums text-white/55">
-                      -{formatDuration(remainingTime)}
-                    </span>
                   </div>
                 </div>
-
-                 {/* Main controls — Spotify: play button only, centered */}
-                 <div className="flex items-center justify-center px-2 mt-2 mb-5">
-                   <button
-                     type="button"
-                     onClick={togglePlayPause}
-                     aria-label={isPlaying ? 'Pause' : 'Play'}
-                     className="h-14 w-14 shrink-0 rounded-full bg-[#1DB954] text-black flex items-center justify-center transition-transform duration-150 hover:scale-[1.05] active:scale-[0.96] focus-visible:outline-none shadow-lg shadow-black/30"
-                   >
-                     {isPlaying ? (
-                       <Pause size={24} fill="black" strokeWidth={0} />
-                     ) : (
-                       <Play size={24} fill="black" strokeWidth={0} className="translate-x-[1px]" />
-                     )}
-                   </button>
-                 </div>
-
-                {/* Bottom row — Spotify: devices left, queue right */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => setView(view === 'artwork' ? 'lyrics' : 'artwork')}
-                      className={cn(
-                        "h-8 w-8 flex items-center justify-center transition-colors",
-                        view === 'lyrics' ? "text-[#1DB954]" : "text-white/50 hover:text-white/80"
-                      )}
-                      aria-label="Lyrics"
-                    >
-                      <Sparkles size={18} />
-                    </button>
-                    <button
-                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                      className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors"
-                      aria-label="Download"
-                    >
-                      <Download size={18} />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
-                    className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors"
-                    aria-label="Queue"
-                  >
-                    <ListMusic size={18} />
-                  </button>
+              ) : (
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                  {renderAlbumArt()}
                 </div>
-              </div>
+              )}
+
             </div>
+          </div>
+
+          {/* Overlays */}
+          {showMenu && (
+            <ContextMenuOverlay
+              menuRef={menuRef}
+              currentTrack={currentTrack}
+              menuPos={menuPos}
+              showPlaylistSub={showPlaylistSub}
+              showShareSub={showShareSub}
+              setShowMenu={setShowMenu}
+              setShowPlaylistSub={setShowPlaylistSub}
+              setShowShareSub={setShowShareSub}
+              toggleFavourite={toggleFavourite}
+              playlists={playlists}
+              addToPlaylist={addToPlaylist}
+              createPlaylist={createPlaylist}
+              shareOrCopyNowPlaying={shareOrCopyNowPlaying}
+              setShowCredits={setShowCredits}
+              toast={toast}
+            />
           )}
-
-          {/* ═══════════════════════════════════════════════════════════
-              TIDAL — exact match to tidal.com web player expanded view
-              Background: album art full-bleed, heavy blur + dark overlay
-              Layout: title at bottom-left over art, controls below
-          ═══════════════════════════════════════════════════════════ */}
-          {playerTheme === 'tidal' && (
-            <div className="absolute inset-0 flex flex-col h-full">
-              {/* Tidal: blurred album art + subtle moving mesh (closer to tidal.com) */}
-              <div className="absolute inset-0 overflow-hidden">
-                {currentTrack.albumCover ? (
-                  <img
-                    src={currentTrack.albumCover}
-                    alt=""
-                    aria-hidden
-                    className="absolute inset-0 w-full h-full object-cover scale-110 tidal-nowplaying-artwash"
-                  />
-                ) : null}
-                <div className="absolute inset-0 bg-black/55" />
-                <div className="tidal-nowplaying-bg tidal-nowplaying-bg--over-art">
-                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-1" />
-                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-2" />
-                  <div className="tidal-nowplaying-blob tidal-nowplaying-blob-3" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/65" />
-                </div>
-              </div>
-
-<div className="now-playing-tidal tidal-nowplaying-glass relative z-10 flex flex-col h-full max-w-[600px] mx-auto w-full px-6 pb-10 pt-3">
-                  {/* Top bar — Tidal: down chevron left, queue right */}
-                  <div className="flex items-center justify-between py-3">
-                    <button
-                      onClick={() => setShowNowPlaying(false)}
-                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
-                      aria-label="Close"
-                    >
-                      <ChevronDown size={20} strokeWidth={2.5} />
-                    </button>
-                    <div className="text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Now Playing</p>
-                    </div>
-                    <button
-                      onClick={() => { setShowNowPlaying(false); setRightPanel('queue'); }}
-                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/18 transition-colors backdrop-blur-sm border border-white/10"
-                      aria-label="Queue"
-                    >
-                      <ListMusic size={17} />
-                    </button>
-                  </div>
-
-                {/* Content Area */}
-                <div className="flex items-center justify-center flex-1 py-4 overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    {view === 'artwork' ? (
-                      <motion.div
-                        key="artwork"
-                        initial={{ opacity: 0, scale: 0.94 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
-                        className="relative flex flex-col items-center"
-                      >
-                        <div
-                          ref={tidalAlbumRef}
-                          onMouseMove={handleTidalAlbumMove}
-                          onMouseEnter={handleTidalAlbumEnter}
-                          onMouseLeave={handleTidalAlbumLeave}
-                          className="relative cursor-pointer"
-                          style={{ perspective: '900px', transformStyle: 'preserve-3d' }}
-                        >
-                          <div
-                            className="relative w-full max-w-[min(88vw,520px)] aspect-square rounded-xl overflow-hidden"
-                            style={{
-                              transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovering ? 1.03 : 1})`,
-                              transition: isHovering
-                                ? 'transform 0.08s ease-out, box-shadow 0.2s'
-                                : 'transform 0.55s cubic-bezier(0.23,1,0.32,1), box-shadow 0.45s',
-                              boxShadow: isHovering
-                                ? `${-tilt.y * 1.2}px ${tilt.x * 1.2}px 56px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12), 0 40px 90px rgba(0,0,0,0.65)`
-                                : '0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)',
-                              transformStyle: 'preserve-3d',
-                            }}
-                          >
-                            {currentTrack.albumCover ? (
-                              <img src={currentTrack.albumCover} alt={currentTrack.album} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                                <svg className="w-20 h-20 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                                </svg>
-                              </div>
-                            )}
-                            <div
-                              className="absolute inset-0 pointer-events-none"
-                              style={{
-                                background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,${shine.opacity}) 0%, rgba(255,255,255,0.04) 42%, transparent 72%)`,
-                                mixBlendMode: 'overlay',
-                              }}
-                            />
-                            <div
-                              className="absolute inset-0 pointer-events-none rounded-xl"
-                              style={{
-                                background: `linear-gradient(${128 + tilt.y * 3}deg, rgba(255,255,255,${isHovering ? 0.14 : 0.03}) 0%, transparent 42%, rgba(0,0,0,${isHovering ? 0.2 : 0.08}) 100%)`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="lyrics"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="w-full h-full"
-                      >
-                        <LyricsView />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Track info — Tidal: title left bold, heart right */}
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-[22px] font-bold text-white tracking-[-0.025em] truncate leading-tight">
-                      {currentTrack.title}
-                    </h2>
-                    <p className="text-[14px] text-white/55 truncate mt-1 font-normal">{currentTrack.artist}</p>
-                    {currentTrack.album?.trim() && (
-                      <p className="text-[12px] text-white/38 truncate mt-0.5">{currentTrack.album}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 pt-1">
-                    {qualityBadge && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={cn(
-                            "text-[9px] font-black px-1.5 py-0.5 rounded-[2px] tracking-wide leading-none cursor-default border",
-                            qualityBadge.label === 'HD' ? 'bg-[#E5D283] text-black border-[#E5D283] shadow-[0_0_8px_rgba(229,210,131,0.4)]' :
-                            qualityBadge.label === 'HIFI' ? 'bg-[#45b7d1] text-black border-[#45b7d1] shadow-[0_0_8px_rgba(69,183,209,0.4)]' :
-                            qualityBadge.label === 'HIGH' ? 'bg-white/15 text-white/90 border-white/25' :
-                            'bg-cyan-500 text-black border-cyan-500'
-                          )}>
-                            {qualityBadge.label}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5">
-                          {qualityTip}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    <button
-                      onClick={() => toggleFavourite(currentTrack)}
-                      className={cn('transition-colors', isFav ? 'text-pink-400' : 'text-white/35 hover:text-white/70')}
-                      aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
-                    >
-                      <Heart size={22} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Seekbar — Tidal web: solid round playhead */}
-                <div className="mb-1">
-                  <div
-                    className={cn(
-                      'w-full tidal-progress-slider tidal-nowplaying-scrubber',
-                      seekbarWrapperClass(seekbarStyle)
-                    )}
-                  >
-                    <PlaybackSeekSlider />
-                  </div>
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-[11px] tabular-nums text-white/40 font-medium">{formatDuration(currentTime)}</span>
-                    <span className="text-[11px] tabular-nums text-white/40 font-medium">
-                      -{formatDuration(remainingTime)}
-                    </span>
-                  </div>
-                </div>
-
-                 {/* Main controls — Tidal: play button only, centered */}
-                 <div className="flex items-center justify-center px-1 mt-3 mb-5">
-                    <button
-                      onClick={togglePlayPause}
-                      aria-label={isPlaying ? 'Pause' : 'Play'}
-                      className="h-[64px] w-[64px] rounded-full bg-white flex items-center justify-center transition-all duration-150 hover:scale-[1.05] active:scale-[0.97] focus-visible:outline-none shadow-[0_4px_20px_rgba(255,255,255,0.2)]"
-                    >
-                      {isPlaying ? (
-                        <Pause size={28} fill="black" strokeWidth={0} />
-                      ) : (
-                        <Play size={28} fill="black" strokeWidth={0} className="translate-x-[2px]" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Volume controls */}
-                  <div className="flex items-center justify-center gap-3 px-1 mb-3">
-                    <button onClick={toggleMute} className="text-white/35 hover:text-white/70 transition-colors shrink-0">
-                      <VolumeX size={16} />
-                    </button>
-                    <div className="flex-1 tidal-progress-slider">
-                      <Slider
-                        value={[isMuted ? 0 : volume * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => setVolume(v[0] / 100)}
-                        className="w-full cursor-pointer"
-                      />
-                    </div>
-                    <button onClick={toggleMute} className="text-white/35 hover:text-white/70 transition-colors shrink-0">
-                      <Volume2 size={16} />
-                    </button>
-                  </div>
-
-                {/* Bottom extras */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-5">
-                    <button
-                      onClick={() => setView(view === 'artwork' ? 'lyrics' : 'artwork')}
-                      className={cn(
-                        "h-8 w-8 flex items-center justify-center transition-colors",
-                        view === 'lyrics' ? "text-cyan-400" : "text-white/35 hover:text-white/70"
-                      )}
-                      aria-label="Lyrics"
-                    >
-                      <Sparkles size={17} />
-                    </button>
-                    <button
-                      onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                      className="h-8 w-8 flex items-center justify-center text-white/35 hover:text-white/70 transition-colors"
-                      aria-label="Download"
-                    >
-                      <Download size={17} />
-                    </button>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="h-8 w-8 flex items-center justify-center text-white/35 hover:text-white/70 transition-colors outline-none"
-                        aria-label="More options"
-                      >
-                        <MoreHorizontal size={17} />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52 border border-white/15 bg-zinc-950 text-white">
-                      <DropdownMenuItem
-                        className="focus:bg-white/10"
-                        onClick={() => useDownloadStore.getState().openDownload(currentTrack)}
-                      >
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="focus:bg-white/10" onClick={() => void shareOrCopyNowPlaying()}>
-                        Share or copy
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-white/10" />
-                      <DropdownMenuItem className="focus:bg-white/10" onClick={() => setShowNowPlaying(false)}>
-                        Close
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
+          {showCredits && currentTrack && (
+            <CreditsModal currentTrack={currentTrack} onClose={() => setShowCredits(false)} />
           )}
-
         </motion.div>
-        </TooltipProvider>
       )}
     </AnimatePresence>
+  );
+}
+
+/* ─── Sub-components ─── */
+
+function ContextMenuOverlay({ menuRef, currentTrack, menuPos, showPlaylistSub, showShareSub, setShowMenu, setShowPlaylistSub, setShowShareSub, toggleFavourite, playlists, addToPlaylist, createPlaylist, shareOrCopyNowPlaying, setShowCredits, toast: _toast }: any) {
+  return (
+    <div ref={menuRef} className="fixed z-[300] w-72 rounded-xl border border-white/10 bg-zinc-950/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+      style={{ left: Math.min(menuPos.x, window.innerWidth - 300), top: menuPos.y }}>
+      {!showPlaylistSub && !showShareSub && (
+        <div>
+          <div className="flex items-center gap-3 p-3 border-b border-white/10">
+            {currentTrack?.albumCover ? <img src={currentTrack.albumCover} alt="" className="w-10 h-10 rounded object-cover" /> : <div className="w-10 h-10 rounded bg-white/10" />}
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{currentTrack?.title}</p>
+              <p className="text-xs text-white/50 truncate">{currentTrack?.artist}</p>
+            </div>
+          </div>
+          {[
+            { icon: Plus, label: 'Add to playlist', right: <ChevronRight size={14} />, fn: () => setShowPlaylistSub(true) },
+            { icon: Heart, label: 'Add to My Collection', fn: () => { currentTrack && toggleFavourite(currentTrack); setShowMenu(false); } },
+            { icon: Sparkles, label: 'Go to track radio', fn: () => { _toast({ title: 'Track Radio' }); setShowMenu(false); } },
+            { icon: Music, label: 'Go to album', fn: () => { setShowMenu(false); } },
+            { icon: FileText, label: 'Credits', fn: () => { setShowCredits(true); setShowMenu(false); } },
+            { icon: Users, label: 'Go to artist', fn: () => { setShowMenu(false); } },
+            { icon: Share2, label: 'Share', right: <ChevronRight size={14} />, fn: () => setShowShareSub(true) },
+          ].map((item: any) => (
+            <button key={item.label} onClick={item.fn} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08] transition-colors text-left">
+              <item.icon size={15} className="text-white/40 flex-shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {item.right}
+            </button>
+          ))}
+          <div className="border-t border-white/10">
+            <button onClick={() => { window.location.href = `tidal://track/${currentTrack?.id}`; setShowMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08] transition-colors">
+              <ExternalLink size={15} className="text-white/40 flex-shrink-0" /> Open in Desktop app <span className="text-[10px] font-bold text-white/20 tracking-wider ml-auto">TIDAL</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {showPlaylistSub && (
+        <div>
+          <button onClick={() => setShowPlaylistSub(false)} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white/60 hover:bg-white/[0.08] border-b border-white/10"><ChevronRight size={14} className="rotate-180" /> Back</button>
+          <button onClick={() => { const name = prompt('Playlist name:'); if (name && currentTrack) { const pl = createPlaylist(name); addToPlaylist(pl.id, currentTrack); _toast({ title: 'Added', description: `Added to "${name}"` }); } setShowMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08]"><Plus size={15} className="text-white/40" /> New playlist</button>
+          {playlists.filter((p: any) => p.id !== 'liked').map((pl: any) => (
+            <button key={pl.id} onClick={() => { if (currentTrack) { addToPlaylist(pl.id, currentTrack); _toast({ title: 'Added', description: `Added to "${pl.name}"` }); } setShowMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08]"><ListMusic size={15} className="text-white/40" /> {pl.name}</button>
+          ))}
+        </div>
+      )}
+      {showShareSub && (
+        <div>
+          <button onClick={() => setShowShareSub(false)} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white/60 hover:bg-white/[0.08] border-b border-white/10"><ChevronRight size={14} className="rotate-180" /> Back</button>
+          <button onClick={() => { if (currentTrack) navigator.clipboard?.writeText(`${currentTrack.title} — ${currentTrack.artist}`); _toast({ title: 'Copied' }); setShowMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08]"><Copy size={15} className="text-white/40" /> Copy link</button>
+          <button onClick={() => { void shareOrCopyNowPlaying(); setShowMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.08]"><Share2 size={15} className="text-white/40" /> Share</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreditsModal({ currentTrack, onClose }: { currentTrack: any; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-zinc-900 rounded-2xl border border-white/10 w-[420px] max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-white">Credits</h3>
+          <button onClick={onClose} className="h-8 w-8 flex items-center justify-center text-white/50 hover:text-white rounded-full hover:bg-white/10"><X size={16} /></button>
+        </div>
+        <p className="text-white/40 text-sm">{currentTrack.title} &mdash; {currentTrack.artist}</p>
+        <div className="mt-6 space-y-4">
+          {[{role:'Producers', names:['—']},{role:'Writers', names:['—']},{role:'Mixing Engineers', names:['—']}].map((s) => (
+            <div key={s.role}>
+              <p className="text-[11px] uppercase tracking-widest text-white/30 mb-1">{s.role}</p>
+              <p className="text-sm text-white/70">{s.names.join(', ')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

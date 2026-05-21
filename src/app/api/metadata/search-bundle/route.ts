@@ -32,7 +32,7 @@ function mapTidalTrack(item: any) {
     title: String(item.title ?? ''),
     artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
     album: String(item.album?.title ?? ''),
-    albumCover: item.album?.cover ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    albumCover: item.album?.cover ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
     duration: typeof item.duration === 'number' ? item.duration : 0,
     source: 'tidal' as const,
     explicit: Boolean(item.explicit),
@@ -45,7 +45,7 @@ function mapTidalAlbum(item: any) {
     id: `tidal_album_${item.id}`,
     title: String(item.title ?? ''),
     artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
     year: item.releaseDate?.slice(0, 4),
     trackCount: item.numberOfTracks,
     source: 'tidal' as const,
@@ -57,7 +57,7 @@ function mapTidalArtist(item: any) {
   return {
     id: `tidal_${item.id}`,
     name: String(item.name ?? ''),
-    image: item.picture ? `https://resources.tidal.com/images/${item.picture.replace(/-/g, '/')}/640x640.jpg` : '',
+    image: item.picture ? `https://resources.tidal.com/images/${item.picture.replace(/-/g, '/')}/1920x1920.jpg` : '',
   };
 }
 
@@ -66,7 +66,7 @@ function mapTidalPlaylist(item: any) {
     id: `tidal_pl_${item.id}`,
     name: String(item.title ?? ''),
     description: 'Tidal Playlist',
-    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/640x640.jpg` : '',
+    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
     source: 'tidal' as const,
   };
 }
@@ -129,10 +129,10 @@ function appleArtworkUrl(item: Record<string, unknown>): string {
     '';
   if (!raw) return '';
   return raw
-    .replace(/100x100bb/gi, '600x600bb')
-    .replace(/60x60bb/gi, '600x600bb')
-    .replace(/100x100/gi, '600x600')
-    .replace(/60x60/gi, '600x600');
+    .replace(/100x100bb/gi, '3000x3000bb')
+    .replace(/60x60bb/gi, '3000x3000bb')
+    .replace(/100x100/gi, '3000x3000')
+    .replace(/60x60/gi, '3000x3000');
 }
 
 function mapSpotifyTrack(item: Record<string, unknown>) {

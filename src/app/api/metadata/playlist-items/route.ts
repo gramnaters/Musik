@@ -10,10 +10,10 @@ function appleArtworkUrl(item: Record<string, unknown>): string {
     '';
   if (!raw) return '';
   return raw
-    .replace(/100x100bb/gi, '600x600bb')
-    .replace(/60x60bb/gi, '600x600bb')
-    .replace(/100x100/gi, '600x600')
-    .replace(/60x60/gi, '600x600');
+    .replace(/100x100bb/gi, '3000x3000bb')
+    .replace(/60x60bb/gi, '3000x3000bb')
+    .replace(/100x100/gi, '3000x3000')
+    .replace(/60x60/gi, '3000x3000');
 }
 
 function mapAppleTrack(item: Record<string, unknown>) {
@@ -187,7 +187,7 @@ function mapTidalTrack(item: any) {
     artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
     album: item.album?.title || '',
     albumCover: item.album?.cover 
-      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` 
+      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` 
       : '',
     duration: item.duration || 0,
     streamURL: undefined,
@@ -297,7 +297,7 @@ export async function GET(req: NextRequest) {
             artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || item.artist || '',
             album: item.album?.title || '',
             albumCover: item.album?.cover 
-              ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/640x640.jpg` 
+              ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` 
               : '',
             duration: item.duration || 0,
             streamURL: undefined,

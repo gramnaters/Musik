@@ -11,35 +11,45 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const url = new URL('https://lrclib.net/api/get');
-    url.searchParams.append('artist_name', artist);
-    url.searchParams.append('track_name', track);
-    if (album) url.searchParams.append('album_name', album);
-    if (duration) url.searchParams.append('duration', duration);
+    // Helper: strip parentheticals like (feat...), (Remix), etc.
+    const clean = (s: string) => s.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/feat\.?\s*\S*/gi, '').trim();
 
-    const res = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'BeatBossPlayer/1.0 (https://github.com/gramnaters/Musik)' },
-    });
+    // Strategy 1: exact match with all params
+    const tryExact = async () => {
+      const url = new URL('https://lrclib.net/api/get');
+      url.searchParams.append('artist_name', artist);
+      url.searchParams.append('track_name', track);
+      if (album) url.searchParams.append('album_name', album);
+      if (duration) url.searchParams.append('duration', duration);
+      const res = await fetch(url.toString(), {
+        headers: { 'User-Agent': 'BeatBossPlayer/1.0 (https://github.com/gramnaters/Musik)' },
+      });
+      if (res.ok) return res.json();
+      return null;
+    };
 
-    if (!res.ok) {
-      if (res.status === 404) {
-        // Try search as fallback
-        const searchUrl = new URL('https://lrclib.net/api/search');
-        searchUrl.searchParams.append('q', `${artist} ${track}`);
-        const sRes = await fetch(searchUrl.toString());
-        if (sRes.ok) {
-          const sData = await sRes.json();
-          if (sData.length > 0) {
-            return NextResponse.json(sData[0]);
-          }
-        }
-        return NextResponse.json({ error: 'Lyrics not found' }, { status: 404 });
+    // Strategy 2: search by "artist track"
+    const trySearch = async (q: string) => {
+      const url = new URL('https://lrclib.net/api/search');
+      url.searchParams.append('q', q);
+      const res = await fetch(url.toString());
+      if (res.ok) {
+        const data = await res.json();
+        return data.length > 0 ? data[0] : null;
       }
-      throw new Error(`LRCLIB HTTP ${res.status}`);
+      return null;
+    };
+
+    let result = await tryExact();
+    if (!result) result = await trySearch(`${artist} ${track}`);
+    if (!result) result = await trySearch(`${clean(artist)} ${clean(track)}`);
+    if (!result) result = await trySearch(track);
+
+    if (!result) {
+      return NextResponse.json({ error: 'Lyrics not found' }, { status: 404 });
     }
 
-    const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

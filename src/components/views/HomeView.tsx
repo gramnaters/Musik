@@ -260,6 +260,11 @@ export default function HomeView() {
       }
 
       const res = await fetch('/api/hot');
+      if (!res.ok) {
+        let detail = '';
+        try { const e = await res.json(); detail = e.error || `HTTP ${res.status}`; } catch { detail = `HTTP ${res.status}`; }
+        throw new Error(detail);
+      }
       const data = await res.json();
       setExploreData(data);
     } catch (e) {

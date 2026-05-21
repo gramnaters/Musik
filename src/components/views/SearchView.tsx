@@ -61,6 +61,7 @@ export default function SearchView() {
   const [catalogTab, setCatalogTab] = useState('tracks');
   const [catalogBundle, setCatalogBundle] = useState<CatalogBundle | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [catalogHub, setCatalogHub] = useState<{
     kind: 'playlist' | 'album' | 'artist';
     title: string;
@@ -181,6 +182,7 @@ export default function SearchView() {
         setHasSearched(false);
         setCatalogBundle(null);
         setCatalogHub(null);
+        setCatalogError(null);
       }
     },
     [addonSearchId, doAddonSearch, addonError, clearError, setSearchQuery]
@@ -217,6 +219,7 @@ export default function SearchView() {
     const t = setTimeout(() => {
       void (async () => {
         setCatalogLoading(true);
+        setCatalogError(null);
         try {
           const res = await fetch(
             metadataSearchBundleUrl({
@@ -228,6 +231,11 @@ export default function SearchView() {
             }),
             { signal: ac.signal }
           );
+          if (!res.ok) {
+            let detail = '';
+            try { const e = await res.json(); detail = e.error || `HTTP ${res.status}`; } catch { detail = `HTTP ${res.status}`; }
+            throw new Error(detail);
+          }
           const data = (await res.json()) as {
             tracks?: Record<string, unknown>[];
             albums?: Record<string, unknown>[];
@@ -254,8 +262,11 @@ export default function SearchView() {
             podcasts: data.podcasts || [],
             playlistResultsSource: data.playlistResultsSource,
           });
-        } catch {
-          if (!ac.signal.aborted) setCatalogBundle(null);
+        } catch (err) {
+          if (!ac.signal.aborted) {
+            setCatalogBundle(null);
+            setCatalogError(err instanceof Error ? err.message : 'Search failed');
+          }
         } finally {
           if (!ac.signal.aborted) setCatalogLoading(false);
         }
@@ -594,12 +605,23 @@ export default function SearchView() {
               </div>
             )}
 
-            {addonError && hasSearched && (
+            {(addonError && hasSearched) && (
               <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/15 text-red-200 text-sm border border-red-500/30">
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium">Search failed</p>
                   <p className="text-xs opacity-90 mt-1">{addonError}</p>
+                </div>
+              </div>
+            )}
+
+            {catalogError && hasSearched && !addonSearchId && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/15 text-amber-200 text-sm border border-amber-500/30">
+                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Search unavailable</p>
+                  <p className="text-xs opacity-90 mt-1">{catalogError}.</p>
+                  <p className="text-xs opacity-70 mt-1">Check Settings → Metadata provider or try again later.</p>
                 </div>
               </div>
             )}
