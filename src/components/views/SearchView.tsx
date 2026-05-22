@@ -719,9 +719,17 @@ export default function SearchView() {
                       )}
 
                       {showBlockingLoader && (
-                        <div className="flex items-center gap-3 py-8 justify-center">
-                          <Loader2 size={20} className="animate-spin text-white" />
-                          <span className="text-sm text-white/60">Searching…</span>
+                        <div className="space-y-1">
+                          {Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="skeleton-track">
+                              <div className="skeleton skeleton-track-cover" />
+                              <div className="skeleton-track-info">
+                                <div className="skeleton skeleton-track-title" />
+                                <div className="skeleton skeleton-track-artist" />
+                              </div>
+                              <div className="skeleton skeleton-track-duration" />
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -749,8 +757,14 @@ export default function SearchView() {
 
                     <TabsContent value="albums" className="mt-4">
                       {catalogLoading && !(displayCatalogBundle?.albums?.length) ? (
-                        <div className="flex justify-center py-12">
-                          <Loader2 className="animate-spin text-white/60" size={22} />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
+                          {Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="skeleton-card">
+                              <div className="skeleton skeleton-card-image" />
+                              <div className="skeleton skeleton-card-title" />
+                              <div className="skeleton skeleton-card-subtitle" />
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">

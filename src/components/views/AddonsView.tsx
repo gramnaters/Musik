@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAddonStore } from '@/stores/addonStore';
+import { useAddonStore, getEightspineApi } from '@/stores/addonStore';
 import { useStreamingStore } from '@/stores/streamingStore';
 import { useUIStore } from '@/stores/uiStore';
+import { addonTrackToTrack } from '@/lib/addon-track-map';
+import { pickStreamUrlFromEightspineResult } from '@/lib/eightspine-runtime';
+import { usePlayerStore } from '@/stores/playerStore';
+import type { Track } from '@/types/music';
 
 const MONOCHROME_INSTANCES = [
   // API Instances
@@ -23,6 +27,19 @@ const MONOCHROME_INSTANCES = [
   { id: 'qobuz-kennyy', name: 'Kennyy Qobuz API', url: 'https://qobuz.kennyy.com.br', version: '1.0', author: 'Kennyy', type: 'qobuz' },
   { id: 'qobuz-mono', name: 'Monochrome Qobuz API', url: 'https://qobuz.monochrome.tf', version: '1.1', author: 'Monochrome', type: 'qobuz' },
   { id: 'qobuz-proxy', name: 'Qobuz Proxy API', url: 'https://qobuz-proxy.monochrome.tf', version: '1.0', author: 'Monochrome', type: 'qobuz' },
+];
+
+const RICKY_MODULES: StoreAddon[] = [
+  {
+    id: 'ricky-all-in-one',
+    name: 'All-In-One',
+    author: 'Ricky',
+    version: '1.0.7',
+    description: 'HiFi, SoundCloud, Internet Archive, Podcasts, Audiobooks and Radio in one module.',
+    eightspineOnly: true,
+    eightspinePackageUrl: 'https://all-in-one.rickyaddons.dpdns.org/8spine.js',
+    tags: ['High Quality', 'Multi-Source', 'Radio', 'Settings'],
+  },
 ];
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -60,8 +77,12 @@ import {
   ChevronUp,
   ChevronDown,
   RotateCcw,
+  Music,
+  List,
+  Box,
+  GripHorizontal,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, Reorder } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
 import { resolveAssetUrl, parentDirUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
 
@@ -133,8 +154,11 @@ export default function AddonsView() {
     hiddenModuleSourceIds,
     getPlaybackOrderedSearchAddonIds,
     movePlaybackPriority,
+    setPlaybackPriorityIds,
     playbackPriorityIds,
     cleanupBrokenAddons,
+    searchWithAddon,
+    resolveStreamUrl,
   } = useAddonStore();
 
 
@@ -147,7 +171,7 @@ export default function AddonsView() {
     setSearchQuery,
   } = useUIStore();
 
-  const { addInstance, setSelectedUrl, apiInstances } = useStreamingStore();
+  const { addInstance, setSelectedUrl, apiInstances, streamingInstances, qobuzInstances } = useStreamingStore();
 
   const visibleSources = useMemo(
     () => sources.filter((s) => !hiddenModuleSourceIds.includes(s.id)),
@@ -184,6 +208,10 @@ export default function AddonsView() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [bulkInstalling, setBulkInstalling] = useState(false);
+  const [showReorder, setShowReorder] = useState(false);
+  const [reorderItems, setReorderItems] = useState<string[]>([]);
+  const [useModulesOnGo, setUseModulesOnGo] = useState(false);
+  const [useModuleFallback, setUseModuleFallback] = useState(false);
 
   const [catalogBySource, setCatalogBySource] = useState<
     Record<string, { addons: StoreAddon[]; loading: boolean; error: string }>
@@ -193,9 +221,12 @@ export default function AddonsView() {
   const [eclipseManifestUrl, setEclipseManifestUrl] = useState('');
   const [eclipseDialogBusy, setEclipseDialogBusy] = useState(false);
   const [eclipseQuality, setEclipseQuality] = useState('max');
+  const [eclipseFallback, setEclipseFallback] = useState('flexible');
   const [eclipseUnowned, setEclipseUnowned] = useState(true);
   const [eclipseTestQuery, setEclipseTestQuery] = useState('');
   const [eclipseTestBusy, setEclipseTestBusy] = useState(false);
+  const [eclipseTestResults, setEclipseTestResults] = useState<Track[]>([]);
+  const [eclipsePlayingTestId, setEclipsePlayingTestId] = useState<string | null>(null);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceUrl, setNewSourceUrl] = useState('');
@@ -221,10 +252,19 @@ export default function AddonsView() {
               version: inst.version,
               author: inst.author,
               description: `Direct Monochrome ${inst.type.toUpperCase()} server at ${inst.url}`,
-              setupUrl: inst.url, // Use setupUrl to store the URL
-              isInstance: true, // Special flag
-              instanceType: inst.type, // Custom property
+              setupUrl: inst.url,
+              isInstance: true,
+              instanceType: inst.type,
             } as any)),
+            loading: false,
+            error: '',
+          };
+          return;
+        }
+
+        if (source.id === 'ricky-8spine') {
+          results[source.id] = {
+            addons: RICKY_MODULES,
             loading: false,
             error: '',
           };
@@ -289,12 +329,44 @@ export default function AddonsView() {
     }
 
     const instBase = (baseURL || '').replace(/\/$/, '');
-    if (!instBase) return false;
 
-    for (const raw of rowUrls) {
-      const trimmed = raw.replace(/\/$/, '');
-      if (trimmed && trimmed === instBase) return true;
+    // Direct URL match
+    if (instBase) {
+      for (const raw of rowUrls) {
+        const trimmed = raw.replace(/\/$/, '');
+        if (trimmed && trimmed === instBase) return true;
+      }
     }
+
+    // Match by last dotted segment — only when both IDs use dot notation (e.g. com.eclipse.community.spotiflac)
+    const midSegments = mid.split('.');
+    const ridSegments = rid.split('.');
+    if (midSegments.length >= 2 && ridSegments.length >= 2) {
+      const midLast = midSegments.pop();
+      const ridLast = ridSegments.pop();
+      if (midLast && ridLast && midLast === ridLast) return true;
+    }
+
+    // Origin match — only for token-based URLs where path looks like a token hex
+    if (instBase) {
+      try {
+        const instUrl = new URL(instBase);
+        const instOrigin = instUrl.origin.toLowerCase();
+        // Only match by origin if the installed baseURL has a token-like path
+        const hasTokenPath = /\/[a-f0-9]{10,}/i.test(instUrl.pathname);
+        if (hasTokenPath) {
+          for (const raw of rowUrls) {
+            if (raw) {
+              const rowOrigin = new URL(raw).origin.toLowerCase();
+              if (rowOrigin === instOrigin) return true;
+            }
+          }
+        }
+      } catch {
+        // ignore invalid URLs
+      }
+    }
+
     return false;
   };
 
@@ -309,6 +381,11 @@ export default function AddonsView() {
     const installSource = rowInstallUrl(addon);
     if (!installSource) return;
 
+    const setupOnly =
+      !addon.eightspineOnly &&
+      (addon.setupUrl || '').trim() &&
+      !(addon.manifestUrl || '').trim();
+
     setInstallingId(`${sourceId}:${addon.id}`);
     setInstallError('');
     setEclipseSetup(null);
@@ -321,15 +398,25 @@ export default function AddonsView() {
         return;
       }
 
+      if (setupOnly) {
+        // Try to auto-resolve manifest, then show setup dialog
+        let autoUrl = '';
+        try {
+          const { manifest } = await fetchManifest(installSource);
+          autoUrl = manifest.baseURL ? manifest.baseURL + '/manifest.json' : installSource;
+        } catch {
+          autoUrl = '';
+        }
+        setEclipseSetup({ sourceId, addon });
+        setEclipseManifestUrl(autoUrl);
+        return;
+      }
+
       const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(installSource);
       addAddon(manifest, { sourceId, installSourceUrl: installSource, eightspineInnerCode, eightspineKind });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install addon';
       setInstallError(message);
-      const setupOnly =
-        !addon.eightspineOnly &&
-        (addon.setupUrl || '').trim() &&
-        !(addon.manifestUrl || '').trim();
       if (setupOnly) {
         setEclipseSetup({ sourceId, addon });
         setEclipseManifestUrl('');
@@ -361,15 +448,84 @@ export default function AddonsView() {
     }
   };
 
+  /** Resolve the addon's functional base URL — calls fetchManifest if needed for token-based addons. */
+  const resolveEclipseBase = useCallback(async (): Promise<string> => {
+    // Prefer manifestUrl from the dialog
+    const mu = eclipseManifestUrl.trim();
+    if (mu) {
+      const u = new URL(mu);
+      return u.origin + u.pathname.replace(/\/[^/]*$/, '/');
+    }
+    // Fall back to setupUrl, but try to generate a token first
+    const su = eclipseSetup?.addon.setupUrl?.trim();
+    if (!su) throw new Error('No setup URL configured');
+    try {
+      const { manifest } = await fetchManifest(su);
+      if (manifest.baseURL) return manifest.baseURL.replace(/\/$/, '') + '/';
+    } catch {
+      // Generate failed — use setupUrl directly (may 404 for token-based addons)
+    }
+    const u = new URL(su);
+    return u.origin + u.pathname.replace(/\/[^/]*$/, '/');
+  }, [eclipseManifestUrl, eclipseSetup, fetchManifest]);
+
   const runEclipseTestSearch = useCallback(async () => {
     const q = eclipseTestQuery.trim();
     if (!q) return;
     setEclipseTestBusy(true);
+    setEclipseTestResults([]);
+    setInstallError('');
     try {
-      setSearchQuery(q);
-      await search(q);
-      navigateTo('search');
-      toast({ title: 'Search', description: `Results for "${q}" on Search.` });
+      const installed = eclipseSetup ? addons.find((a) => a.manifest.id === eclipseSetup.addon.id) : null;
+      if (installed?.eightspineInnerCode) {
+        const api = await getEightspineApi(installed);
+        if (typeof api.searchTracks !== 'function') {
+          throw new Error('Module has no searchTracks() function');
+        }
+        const results = await searchWithAddon(installed.manifest.id, q);
+        const storeError = useAddonStore.getState().error;
+        if (storeError) throw new Error(storeError);
+        const tracks = (results.tracks || []).map(addonTrackToTrack);
+        setEclipseTestResults(tracks);
+        if (tracks.length === 0) {
+          toast({ title: 'No results', description: `No tracks found for "${q}".` });
+        }
+      } else {
+        const base = await resolveEclipseBase();
+        const proxyUrl = `/api/addons/proxy?url=${encodeURIComponent(`${base}search?q=${encodeURIComponent(q)}&limit=10`)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(`Search returned HTTP ${res.status}${body ? ': ' + body.slice(0, 80) : ''}`);
+        }
+        const data = await res.json();
+        const rawTracks: any[] = data.tracks || data.data?.items || data.items || data.results || [];
+        const tracks: Track[] = rawTracks.map((t: any, i: number) => ({
+          id: String(t.id ?? t.trackId ?? i),
+          title: String(t.title ?? t.name ?? 'Unknown'),
+          artist: String(t.artist ?? t.artistName ?? t.artists?.[0]?.name ?? 'Unknown'),
+          album: t.album ? (typeof t.album === 'string' ? t.album : t.album.title ?? t.album.name) : undefined,
+          albumCover: t.artworkURL ?? t.albumCover ?? t.album?.cover ?? t.cover,
+          duration: typeof t.duration === 'number' ? t.duration : undefined,
+          addonTrackId: String(t.id ?? ''),
+          streamURL: t.streamURL ?? t.url,
+          quality: t.audioQuality ?? t.quality,
+        }));
+        setEclipseTestResults(tracks);
+        if (tracks.length === 0) {
+          const hasOther = Array.isArray(data.albums) && data.albums.length > 0 ||
+            Array.isArray(data.artists) && data.artists.length > 0 ||
+            Array.isArray(data.playlists) && data.playlists.length > 0;
+          if (hasOther) {
+            toast({
+              title: 'No tracks',
+              description: `No tracks found, but the addon returned ${data.albums?.length || 0} album(s), ${data.artists?.length || 0} artist(s), ${data.playlists?.length || 0} playlist(s). Try a different query.`,
+            });
+          } else {
+            toast({ title: 'No results', description: `No tracks found for "${q}".` });
+          }
+        }
+      }
     } catch (e: unknown) {
       toast({
         title: 'Search failed',
@@ -379,7 +535,53 @@ export default function AddonsView() {
     } finally {
       setEclipseTestBusy(false);
     }
-  }, [eclipseTestQuery, search, setSearchQuery, navigateTo]);
+  }, [eclipseTestQuery, resolveEclipseBase, eclipseSetup, addons, searchWithAddon]);
+
+  const playEclipseTestTrack = useCallback(async (track: Track) => {
+    if (!track.id) return;
+    setEclipsePlayingTestId(track.addonTrackId || track.id);
+    try {
+      const installed = eclipseSetup ? addons.find((a) => a.manifest.id === eclipseSetup.addon.id) : null;
+      let streamUrl = '';
+      if (installed?.eightspineInnerCode) {
+        const api = await getEightspineApi(installed);
+        const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
+        if (typeof getTrackStreamUrl === 'function') {
+          const targetId = track.addonTrackId || track.id;
+          const out = getTrackStreamUrl.length >= 3
+            ? await getTrackStreamUrl(targetId, 'HIGH', { settings: {} })
+            : getTrackStreamUrl.length >= 2
+              ? await getTrackStreamUrl(targetId, 'HIGH')
+              : await getTrackStreamUrl(targetId);
+          streamUrl = pickStreamUrlFromEightspineResult(out);
+        }
+        if (!streamUrl) throw new Error('Module did not return a stream URL');
+        if (!streamUrl.startsWith('/api/') && !streamUrl.startsWith('blob:')) {
+          streamUrl = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+        }
+      } else {
+        const base = await resolveEclipseBase();
+        const qualityParam = eclipseQuality ? `?quality=${encodeURIComponent(eclipseQuality)}` : '';
+        const proxyUrl = `/api/addons/proxy?url=${encodeURIComponent(`${base}stream/${track.addonTrackId || track.id}${qualityParam}`)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const data = await res.json();
+          streamUrl = data.url ?? data.streamURL ?? data.streamUrl ?? '';
+        }
+        if (!streamUrl) throw new Error('Could not resolve stream URL');
+      }
+      const playTrack: Track = { ...track, streamURL: streamUrl };
+      usePlayerStore.getState().play(playTrack, [playTrack], 0);
+    } catch (e: unknown) {
+      toast({
+        title: 'Playback failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setEclipsePlayingTestId(null);
+    }
+  }, [resolveEclipseBase, eclipseQuality, eclipseSetup, addons]);
 
   const isInstalled = (row: StoreAddon) => {
     if ((row as any).isInstance) {
@@ -611,16 +813,13 @@ export default function AddonsView() {
                 <Button variant="outline" className="rounded-full border-white/25" onClick={() => setSourceDialogOpen(false)}>
                   Cancel
                 </Button>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
-  const moduleCard =
-    'rounded-2xl border border-zinc-800 bg-[#1a1a1a] shadow-none';
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
   return (
     <>
@@ -628,198 +827,196 @@ export default function AddonsView() {
         <div className="p-4 md:p-6 space-y-5 pb-40 bg-black text-white min-h-full">
         {connectionsScreen === 'home' && (
           <>
-            <div className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-1 pt-1">
-              <span className="w-9" aria-hidden />
-              <h1 className="text-center text-base font-semibold tracking-tight text-white">Modules</h1>
+            {/* Header */}
+            <div className="flex items-center justify-between pt-1 pb-1">
+              <button
+                type="button"
+                onClick={() => navigateTo('home')}
+                className="h-10 w-10 flex items-center justify-center -ml-1.5 text-white hover:bg-white/5 rounded-full transition-colors"
+                aria-label="Back"
+              >
+                <ChevronLeft size={22} strokeWidth={2} />
+              </button>
+              <h1 className="text-base font-semibold tracking-tight text-white">Modules</h1>
               <button
                 type="button"
                 onClick={() => setConnectionsScreen('sources')}
-                className="rounded-full bg-white text-black text-xs font-semibold px-3 py-1.5 hover:bg-white/90 shrink-0"
+                className="rounded-full bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-white/90 shrink-0"
               >
                 Sources
               </button>
             </div>
+
             {addons.length === 0 ? (
-              <p className="text-sm text-zinc-500 text-center py-10 rounded-2xl border border-dashed border-zinc-800">
+              <p className="text-sm text-zinc-500 text-center py-10 rounded-3xl border border-dashed border-zinc-800">
                 No modules installed. Tap Install module to browse catalogs.
               </p>
             ) : (
-              <div className="space-y-3">
-                {orderedPlaybackSearchIds.length >= 2 && (
-                  <div className="rounded-2xl border border-zinc-800 bg-[#141414] p-4 space-y-3">
-                    <div>
-                      <p className="text-sm font-semibold text-white">Playback & search priority</p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        When resolving a stream or searching, the app tries modules from top to bottom. If one fails,
-                        the next is used. Home uses this order when “Prefer modules for Home” is on in Settings.
-                      </p>
+              <div className="space-y-6">
+                {/* Section 1 — Global Settings */}
+                <div className="bg-[#121212] rounded-[24px] p-5 space-y-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Music className="w-[18px] h-[18px] text-white mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white leading-snug">Use modules to play music on the go</p>
+                        <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">Stream unowned tracks using installed modules</p>
+                      </div>
                     </div>
-                    <ul className="space-y-1.5">
-                      {orderedPlaybackSearchIds.map((id) => {
-                        const addon = addons.find((a) => a.manifest.id === id);
-                        if (!addon) return null;
-                        return (
-                          <li
-                            key={id}
-                            className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#1a1a1a] px-3 py-2"
-                          >
-                            <span className="flex-1 min-w-0 text-sm text-zinc-200 truncate">
-                              {addon.manifest.name}
-                            </span>
-                            <div className="flex flex-col gap-0.5 shrink-0">
-                              <button
-                                type="button"
-                                className="h-7 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white"
-                                aria-label={`Move ${addon.manifest.name} up`}
-                                onClick={() => movePlaybackPriority(id, -1)}
-                              >
-                                <ChevronUp className="size-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="h-7 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white"
-                                aria-label={`Move ${addon.manifest.name} down`}
-                                onClick={() => movePlaybackPriority(id, 1)}
-                              >
-                                <ChevronDown className="size-4" />
-                              </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <Switch checked={useModulesOnGo} onCheckedChange={setUseModulesOnGo} />
                   </div>
-                )}
-                {addons.map((addon) => {
-                  const shortId = addon.manifest.id.split('.').pop() || addon.manifest.id.slice(0, 8);
-                  const tagList = (addon.manifest.resources || []).slice(0, 8);
-                  return (
-                    <div
-                      key={addon.manifest.id}
-                      className={cn('rounded-2xl border border-zinc-800 bg-[#1a1a1a] p-4 space-y-3', moduleCard)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex gap-3 min-w-0 flex-1">
-                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0 flex items-center justify-center">
-                            {(() => {
-                              const raw = addon.manifest.icon?.trim();
-                              const imgSrc = addonIconImgSrc(raw, addon.manifest.baseURL || '');
-                              if (imgSrc) {
-                                return (
-                                  <img
-                                    src={imgSrc}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                );
-                              }
-                              if (raw && raw.length <= 4) {
-                                return <span className="text-2xl leading-none select-none">{raw}</span>;
-                              }
-                              return <Puzzle className="w-6 h-6 text-zinc-500" />;
-                            })()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{addon.manifest.name}</p>
-                            <p className="text-[11px] text-zinc-500 mt-0.5">
-                              <span className="inline-block rounded-md bg-zinc-900 border border-zinc-700 px-1.5 py-0.5 mr-1">
-                                #{shortId}
-                              </span>
-                              <span>v{addon.manifest.version}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                          <Switch checked={addon.enabled} onCheckedChange={() => toggleAddon(addon.manifest.id)} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-zinc-500">Installed user module.</p>
-                      {tagList.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {tagList.map((t) => (
-                            <span
-                              key={t}
-                              className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-white/25 text-white/90 bg-black/40"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2 pt-1">
-                        {confirmDelete === addon.manifest.id ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="flex-1 h-10 rounded-full"
-                              onClick={() => {
-                                removeAddon(addon.manifest.id);
-                                setConfirmDelete(null);
-                              }}
-                            >
-                              Confirm remove
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-10 rounded-full border-zinc-700"
-                              onClick={() => setConfirmDelete(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="flex-1 h-10 rounded-full border-zinc-700 bg-[#262626] text-zinc-200 hover:bg-zinc-800"
-                              onClick={() => setConfirmDelete(addon.manifest.id)}
-                            >
-                              Uninstall
-                            </Button>
-                            <Button
-                              type="button"
-                              className="flex-1 h-10 rounded-full bg-white text-black font-semibold hover:bg-white/90"
-                              onClick={() => {
-                                const u = addon.manifest.baseURL?.trim();
-                                if (u) {
-                                  window.open(
-                                    u.startsWith('http') ? u : `https://${u}`,
-                                    '_blank',
-                                    'noopener,noreferrer'
-                                  );
-                                } else {
-                                  setActiveAddon(addon.manifest.id);
-                                  setConnectionsScreen('browse');
-                                  setConnectionsCatalogSourceId(null);
-                                }
-                              }}
-                            >
-                              Open
-                            </Button>
-                          </>
-                        )}
-                      </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white leading-snug">Module Fallback (beta)</p>
+                      <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">If playback fails, try the next active module</p>
                     </div>
-                  );
-                })}
+                    <Switch checked={useModuleFallback} onCheckedChange={setUseModuleFallback} />
+                  </div>
+
+                  <div className="h-px bg-zinc-800" />
+
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full"
+                    onClick={() => {
+                      setReorderItems([...orderedPlaybackSearchIds]);
+                      setShowReorder(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <List className="w-4 h-4 text-white" />
+                      <span className="text-xs font-semibold text-white">Reorder Active Modules</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#8A8A8A]" />
+                  </button>
+                </div>
+
+                {/* Section 2 — Installed Modules */}
+                <div>
+                  <h2 className="text-[13px] font-semibold tracking-[0.04em] text-[#8A8A8A] px-0.5 uppercase">Installed Modules</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+                    {addons.map((addon) => {
+                      const shortId = addon.manifest.id.split('.').pop() || addon.manifest.id.slice(0, 8);
+                      const tagList = (addon.manifest.resources || []).slice(0, 8);
+                      return (
+                        <div
+                          key={addon.manifest.id}
+                          className="bg-[#1A1A1A] rounded-[24px] p-5 space-y-4"
+                        >
+                          {/* Top row */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-11 h-11 rounded-2xl bg-[#262626] flex items-center justify-center shrink-0">
+                                <Box className="w-[18px] h-[18px] text-zinc-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-white truncate max-w-[140px]">{addon.manifest.name}</p>
+                                  <span className="shrink-0 text-[10px] text-zinc-400 bg-zinc-800 rounded-md px-2 py-0.5 font-medium">#{shortId}</span>
+                                  <span className="shrink-0 text-[11px] text-zinc-500">v{addon.manifest.version}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                              <Switch checked={addon.enabled} onCheckedChange={() => toggleAddon(addon.manifest.id)} />
+                            </div>
+                          </div>
+
+                          <p className="text-[13px] text-[#8A8A8A]">Installed user module.</p>
+
+                          {tagList.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {tagList.map((t) => (
+                                <span
+                                  key={t}
+                                  className="text-[11px] font-medium text-[#CCCCCC] bg-[#262626] rounded-full px-3 py-1.5"
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Bottom actions */}
+                          <div className="flex gap-3 pt-1">
+                            {confirmDelete === addon.manifest.id ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="flex-1 h-12 rounded-[20px] font-semibold text-sm"
+                                  onClick={() => {
+                                    removeAddon(addon.manifest.id);
+                                    setConfirmDelete(null);
+                                  }}
+                                >
+                                  Confirm remove
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-12 rounded-[20px] border-zinc-700 font-semibold text-sm"
+                                  onClick={() => setConfirmDelete(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex-1 h-12 rounded-[20px] border-zinc-700 bg-[#262626] text-zinc-300 hover:bg-zinc-700 font-semibold text-sm"
+                                  onClick={() => setConfirmDelete(addon.manifest.id)}
+                                >
+                                  Uninstall
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className="flex-1 h-12 rounded-[20px] bg-white text-black font-semibold text-sm hover:bg-white/90"
+                                  onClick={() => {
+                                    const s = sources.find((s2) => s2.id === addon.sourceId) || sources[0];
+                                    setEclipseSetup({ sourceId: s?.id || 'custom', addon: {
+                                      id: addon.manifest.id,
+                                      name: addon.manifest.name,
+                                      description: addon.manifest.description,
+                                      version: addon.manifest.version,
+                                      author: addon.manifest.author,
+                                      eightspineOnly: !!addon.eightspineInnerCode,
+                                      setupUrl: addon.manifest.baseURL,
+                                      manifestUrl: addon.manifest.baseURL ? addon.manifest.baseURL + '/manifest.json' : undefined,
+                                    } as StoreAddon });
+                                    setEclipseManifestUrl(addon.manifest.baseURL ? addon.manifest.baseURL + '/manifest.json' : '');
+                                    setEclipseQuality(String(addon.config?.quality || 'max'));
+                                    setEclipseFallback(String(addon.config?.fallback || 'flexible'));
+                                    setEclipseUnowned(addon.config?.unowned !== false);
+                                  }}
+                                >
+                                  Open
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Install module */}
             <div className="pt-2">
               <Button
                 type="button"
-                className="w-full h-12 rounded-2xl bg-[#262626] border border-zinc-700 text-white font-medium hover:bg-zinc-800"
+                className="w-full h-14 rounded-[20px] bg-[#1A1A1A] border border-zinc-800 text-white font-semibold text-sm hover:bg-[#262626]"
                 onClick={() => {
                   setConnectionsScreen('browse');
                   setConnectionsCatalogSourceId(null);
                 }}
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-5 h-5 mr-2" />
                 Install module
               </Button>
             </div>
@@ -1169,6 +1366,15 @@ export default function AddonsView() {
                               </span>
                             ) : currentlyInstalling ? (
                               <Loader2 size={18} className="text-white animate-spin" />
+                            ) : addon.setupUrl && !addon.manifestUrl ? (
+                              <Button
+                                type="button"
+                                className="rounded-full bg-white text-black font-semibold px-5 py-2 h-auto hover:bg-white/90 shadow-none border-0"
+                                onClick={() => void handleStoreInstall(addon, source.id)}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 shrink-0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                Configure
+                              </Button>
                             ) : (
                               <Button
                                 type="button"
@@ -1221,160 +1427,500 @@ export default function AddonsView() {
       </div>
       </ScrollArea>
 
-      <Dialog
-        open={eclipseSetup != null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEclipseSetup(null);
-            setEclipseManifestUrl('');
-            setEclipseDialogBusy(false);
-            setEclipseTestQuery('');
-            setEclipseQuality('max');
-            setEclipseUnowned(true);
-          }
-        }}
-      >
-        <DialogContent className="bg-black border-zinc-800 text-white sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-center text-base font-semibold leading-snug">
-              {eclipseSetup?.addon.name}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-zinc-500 text-center leading-relaxed -mt-1">
-            Connect to external music sources and stream tracks through this player after install.
-          </p>
-
-          <div className="rounded-2xl border border-zinc-800 bg-[#1a1a1a] p-3 space-y-2 mt-2">
-            <p className="text-xs font-semibold text-zinc-400 flex items-center gap-2">
-              <span className="inline-block w-3.5 h-3.5 rounded-full border border-zinc-500" aria-hidden />
-              Settings
-            </p>
-            <p className="text-[11px] text-zinc-500">Preferred streaming quality (stored on this device only).</p>
-            <div className="grid grid-cols-1 gap-2">
-              {[
-                { id: 'mp3', label: 'MP3 320kbps' },
-                { id: 'cd', label: 'CD — FLAC 16bit/44.1kHz' },
-                { id: 'hi', label: 'Hi-Res — 24bit/44.1kHz–96kHz' },
-                { id: 'max', label: 'Hi-Res Max — 24bit/192kHz' },
-              ].map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => setEclipseQuality(o.id)}
-                  className={cn(
-                    'w-full text-left text-sm font-medium rounded-xl px-3 py-2.5 border transition-colors',
-                    eclipseQuality === o.id
-                      ? 'bg-white text-black border-white'
-                      : 'bg-zinc-900/80 text-zinc-300 border-zinc-700 hover:border-zinc-500'
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 py-3 border-b border-zinc-800">
-            <div>
-              <p className="text-sm font-medium text-white">Use for unowned media</p>
-              <p className="text-[11px] text-zinc-500">Stream unowned tracks using this module</p>
-            </div>
-            <Switch checked={eclipseUnowned} onCheckedChange={setEclipseUnowned} />
-          </div>
-
-          <div className="space-y-2 pt-1">
-            <p className="text-sm font-semibold text-white flex items-center gap-2">
-              <Search size={16} className="text-zinc-400" />
-              Test the module
-            </p>
-            <Input
-              value={eclipseTestQuery}
-              onChange={(e) => setEclipseTestQuery(e.target.value)}
-              placeholder="Search for songs…"
-              className="bg-zinc-900 border-zinc-700 rounded-xl text-white placeholder:text-zinc-600"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && eclipseTestQuery.trim()) void runEclipseTestSearch();
-              }}
-            />
-            <Button
-              type="button"
-              className="w-full rounded-full bg-zinc-700 text-white font-semibold hover:bg-zinc-600"
-              disabled={eclipseTestBusy || !eclipseTestQuery.trim()}
-              onClick={() => void runEclipseTestSearch()}
-            >
-              {eclipseTestBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
-            </Button>
-          </div>
-
-          <p className="text-[11px] text-zinc-500 pt-2 border-t border-zinc-800">
-            If the catalog only lists a setup URL, open the provider page and paste the manifest URL below.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full rounded-full border-zinc-700 bg-zinc-900 text-white justify-center"
+      {/* Module Settings right-side panel */}
+      {eclipseSetup != null && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/60"
             onClick={() => {
-              const u = eclipseSetup?.addon.setupUrl;
-              if (u) window.open(u, '_blank', 'noopener,noreferrer');
+              setEclipseSetup(null);
+              setEclipseManifestUrl('');
+              setEclipseDialogBusy(false);
+              setEclipseTestQuery('');
+              setEclipseTestResults([]);
+              setEclipsePlayingTestId(null);
+              setEclipseQuality('max');
+              setEclipseFallback('flexible');
+              setEclipseUnowned(true);
             }}
+          />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+            className="fixed right-0 top-0 bottom-0 z-[110] w-full max-w-md bg-black border-l border-white/10 flex flex-col"
           >
-            <ExternalLink className="w-4 h-4 mr-2 shrink-0" />
-            Open setup page
-          </Button>
-          <div className="space-y-1.5">
-            <label className="text-xs text-zinc-500">Manifest URL</label>
-            <Input
-              value={eclipseManifestUrl}
-              onChange={(e) => setEclipseManifestUrl(e.target.value)}
-              placeholder="https://…/manifest.json"
-              className="bg-zinc-900 border-zinc-700 rounded-xl text-white"
-            />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button
-              type="button"
-              className="flex-1 rounded-full bg-white text-black hover:bg-white/90 font-semibold"
-              disabled={eclipseDialogBusy}
-              onClick={async () => {
-                if (!eclipseSetup) return;
-                const tryUrl = eclipseManifestUrl.trim() || eclipseSetup.addon.setupUrl?.trim() || '';
-                if (!tryUrl) return;
-                setEclipseDialogBusy(true);
-                setInstallError('');
-                try {
-                  const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(tryUrl);
-                  addAddon(manifest, {
-                    sourceId: eclipseSetup.sourceId,
-                    installSourceUrl: tryUrl,
-                    eightspineInnerCode,
-                    eightspineKind,
-                  });
-                  toast({ title: 'Installed', description: `${manifest.name} is ready. Try Test above or open Search.` });
-                  setEclipseSetup(null);
-                  setEclipseManifestUrl('');
-                } catch (e: unknown) {
-                  setInstallError(e instanceof Error ? e.message : 'Install failed');
-                } finally {
-                  setEclipseDialogBusy(false);
-                }
-              }}
-            >
-              {eclipseDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Install'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full border-zinc-700 text-white"
-              onClick={() => {
-                setEclipseSetup(null);
-                setEclipseManifestUrl('');
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <div className="flex flex-col h-full">
+              <div className="shrink-0 px-5 pt-12 pb-3">
+                <div className="flex items-center justify-center relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEclipseSetup(null);
+                      setEclipseManifestUrl('');
+                      setEclipseTestResults([]);
+                      setEclipsePlayingTestId(null);
+                    }}
+                    className="absolute left-0 h-9 w-9 flex items-center justify-center text-white hover:bg-white/5 rounded-full transition-colors"
+                    aria-label="Back"
+                  >
+                    <ChevronLeft size={22} strokeWidth={2} />
+                  </button>
+                  <h2 className="text-lg font-medium text-white tracking-tight">
+                    {eclipseSetup?.addon.name}
+                  </h2>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-[18px] custom-scrollbar">
+                {/* Module Info Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-[#121212] rounded-[28px] p-6 space-y-4 border border-white/[0.05]"
+                >
+                  <div className="flex gap-4">
+                    <div className="w-[72px] h-[72px] rounded-2xl bg-[#262626] flex items-center justify-center shrink-0 border border-zinc-800">
+                      <Box className="w-7 h-7 text-zinc-400" />
+                    </div>
+                    <div className="min-w-0 flex-1 pt-1">
+                      <p className="text-[17px] font-semibold text-white leading-tight">
+                        {eclipseSetup?.addon.name}
+                      </p>
+                      <p className="text-[13px] text-zinc-500 mt-0.5">
+                        Version {eclipseSetup?.addon.version} by {eclipseSetup?.addon.author}
+                      </p>
+                    </div>
+                  </div>
+                  {(() => {
+                    const chips = eclipseSetup?.addon.tags;
+                    if (!chips || chips.length === 0) {
+                      const inst = addons.find(a => a.manifest.id === eclipseSetup?.addon.id);
+                      const res = inst?.manifest.resources;
+                      if (!res || res.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap gap-2">
+                          {res.map(r => (
+                            <span key={r} className="text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 text-white/90 bg-black/30">
+                              {r === 'search' ? 'Search' : r === 'stream' ? 'Stream' : r === 'catalog' ? 'Catalog' : r}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {chips.map(t => (
+                          <span key={t} className="text-[10px] font-semibold tracking-wide px-3 py-1 rounded-full border border-white/20 text-white/90 bg-black/30">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  <p className="text-[13px] text-zinc-400 leading-relaxed">
+                    {eclipseSetup?.addon.description || 'Connect to external music sources and stream tracks directly.'}
+                  </p>
+                </motion.div>
+
+                {/* Settings Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.05 }}
+                  className="bg-[#121212] rounded-[28px] p-6 space-y-4 border border-white/[0.05]"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">Settings</p>
+                    <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                      Preferred streaming quality (stored locally on device only)
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      { id: 'mp3', label: 'MP3 320Kbps' },
+                      { id: 'cd', label: 'CD — FLAC 16bit / 44.1kHz' },
+                      { id: 'hi', label: 'Hi-Res — 24bit / 44.1–96kHz' },
+                      { id: 'max', label: 'Hi-Res Max — 24bit / 192kHz' },
+                    ].map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setEclipseQuality(o.id)}
+                        className={cn(
+                          'w-full text-left text-sm font-medium rounded-[18px] px-4 py-3 border transition-all duration-150',
+                          eclipseQuality === o.id
+                            ? 'bg-white text-black border-white'
+                            : 'bg-transparent text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                        )}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Quality Fallback */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.1 }}
+                  className="bg-[#121212] rounded-[28px] p-6 space-y-4 border border-white/[0.05]"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">Quality Fallback</p>
+                    <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                      Allow fallback if preferred quality is unavailable
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      { id: 'flexible', label: 'Flexible' },
+                      { id: 'strict', label: 'Strict' },
+                    ].map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setEclipseFallback(o.id)}
+                        className={cn(
+                          'w-full text-left text-sm font-medium rounded-[18px] px-4 py-3 border transition-all duration-150',
+                          eclipseFallback === o.id
+                            ? 'bg-white text-black border-white'
+                            : 'bg-transparent text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                        )}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Use for unowned media */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.15 }}
+                  className="flex items-center justify-between gap-3 bg-[#121212] rounded-[28px] px-6 py-5 border border-white/[0.05]"
+                >
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Download className="w-[18px] h-[18px] text-white mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white leading-snug">Use for unowned media</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">Stream unowned tracks using this module</p>
+                    </div>
+                  </div>
+                  <Switch checked={eclipseUnowned} onCheckedChange={setEclipseUnowned} />
+                </motion.div>
+
+                {/* Test the module */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.2 }}
+                  className="bg-[#121212] rounded-[28px] p-6 space-y-4 border border-white/[0.05]"
+                >
+                  <p className="text-sm font-semibold text-white flex items-center gap-2">
+                    <Search size={16} className="text-zinc-400" />
+                    Test the module
+                  </p>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        value={eclipseTestQuery}
+                        onChange={(e) => setEclipseTestQuery(e.target.value)}
+                        placeholder="Search for songs..."
+                        className="bg-black border-zinc-700 rounded-[14px] text-white placeholder:text-zinc-600 h-14 pr-9 text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && eclipseTestQuery.trim()) void runEclipseTestSearch();
+                        }}
+                      />
+                      {eclipseTestQuery && (
+                        <button
+                          type="button"
+                          onClick={() => { setEclipseTestQuery(''); setEclipseTestResults([]); }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      className="shrink-0 rounded-[14px] bg-white text-black font-semibold px-5 h-14 hover:bg-white/90 shadow-none border-0"
+                      disabled={eclipseTestBusy || !eclipseTestQuery.trim()}
+                      onClick={() => void runEclipseTestSearch()}
+                    >
+                      {eclipseTestBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+                    </Button>
+                  </div>
+
+                  {eclipseTestResults.length > 0 && (
+                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar -mx-1 px-1">
+                      <p className="text-[11px] text-zinc-500 font-medium">{eclipseTestResults.length} results</p>
+                      {eclipseTestResults.slice(0, 8).map((t, i) => (
+                        <button
+                          key={t.id || i}
+                          type="button"
+                          className="w-full flex items-center gap-3 py-2.5 rounded-[14px] hover:bg-zinc-800/50 transition-colors text-left group"
+                          onClick={() => void playEclipseTestTrack(t)}
+                        >
+                          <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+                            {t.albumCover ? (
+                              <img src={t.albumCover} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <Music className="w-5 h-5 text-zinc-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium text-white truncate leading-snug">{t.title}</p>
+                            <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                              {t.artist}{t.album ? ` · ${t.album}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {t.quality && (
+                              <span className={cn(
+                                'text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md',
+                                t.quality === 'LOSSLESS' || t.quality === 'HI-RES'
+                                  ? 'bg-emerald-900/50 text-emerald-300'
+                                  : 'bg-zinc-800 text-zinc-400'
+                              )}>
+                                {t.quality === 'HI-RES' ? 'HI-RES' : t.quality}
+                              </span>
+                            )}
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                              {eclipsePlayingTestId === (t.addonTrackId || t.id) ? (
+                                <Loader2 size={14} className="animate-spin text-white" />
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-white ml-0.5"><polygon points="5,3 19,12 5,21"/></svg>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {eclipseTestResults.length === 0 && !eclipseTestBusy && (
+                    <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
+                      <Music className="w-10 h-10 mb-3" />
+                      <p className="text-sm font-medium text-zinc-500">Search for music</p>
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Setup / Manifest — hidden for 8SPINE modules */}
+                {!eclipseSetup?.addon.eightspineOnly && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 0.25 }}
+                    className="bg-[#121212] rounded-[28px] p-6 space-y-4 border border-white/[0.05]"
+                  >
+                    <p className="text-xs text-zinc-500 leading-relaxed">
+                      If setup URL exists, open provider page and paste manifest.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full rounded-[18px] border-zinc-700 bg-zinc-900/50 text-white justify-center h-11 text-sm"
+                      onClick={() => {
+                        const u = eclipseManifestUrl || eclipseSetup?.addon.setupUrl;
+                        if (u) try { window.open(new URL(u).origin, '_blank', 'noopener,noreferrer'); } catch {}
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2 shrink-0" />
+                      Open setup page
+                    </Button>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] text-zinc-500 font-medium">Manifest URL</label>
+                      <Input
+                        value={eclipseManifestUrl}
+                        onChange={(e) => setEclipseManifestUrl(e.target.value)}
+                        placeholder="https://.../manifest.json"
+                        className="bg-black border-zinc-700 rounded-[14px] text-white text-sm h-11"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Fixed footer */}
+              <div className="shrink-0 px-5 pt-3 pb-5 border-t border-zinc-800/50">
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded-[18px] border-zinc-700 text-white h-14 text-sm font-semibold"
+                    onClick={() => {
+                      setEclipseSetup(null);
+                      setEclipseManifestUrl('');
+                      setEclipseTestResults([]);
+                      setEclipsePlayingTestId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 rounded-[18px] bg-white text-black hover:bg-white/90 font-semibold h-14 text-sm"
+                    disabled={eclipseDialogBusy}
+                    onClick={async () => {
+                      if (!eclipseSetup) return;
+                      setEclipseDialogBusy(true);
+                      setInstallError('');
+                      try {
+                        const isReconfig = addons.some(a => a.manifest.id === eclipseSetup.addon.id);
+                        if (eclipseSetup.addon.eightspineOnly) {
+                          const existing = addons.find(a => a.manifest.id === eclipseSetup.addon.id);
+                          if (existing) {
+                            addAddon(existing.manifest, {
+                              sourceId: eclipseSetup.sourceId,
+                              installSourceUrl: existing.installSourceUrl,
+                              eightspineInnerCode: existing.eightspineInnerCode,
+                              eightspineKind: existing.eightspineKind,
+                              config: {
+                                quality: eclipseQuality,
+                                fallback: eclipseFallback,
+                                unowned: eclipseUnowned,
+                              },
+                            });
+                          }
+                          toast({ title: 'Configured', description: `${eclipseSetup.addon.name} settings saved.` });
+                          setEclipseSetup(null);
+                          setEclipseManifestUrl('');
+                          setEclipseTestResults([]);
+                          setEclipsePlayingTestId(null);
+                        } else {
+                          const tryUrl = eclipseManifestUrl.trim() || eclipseSetup.addon.setupUrl?.trim() || '';
+                          if (!tryUrl) throw new Error('No manifest URL configured');
+                          const { manifest, eightspineInnerCode, eightspineKind } = await fetchManifest(tryUrl);
+                          addAddon(manifest, {
+                            sourceId: eclipseSetup.sourceId,
+                            installSourceUrl: tryUrl,
+                            eightspineInnerCode,
+                            eightspineKind,
+                            config: {
+                              quality: eclipseQuality,
+                              fallback: eclipseFallback,
+                              unowned: eclipseUnowned,
+                            },
+                          });
+                          toast({ title: isReconfig ? 'Configured' : 'Installed', description: `${manifest.name} is ready.` });
+                          setEclipseSetup(null);
+                          setEclipseManifestUrl('');
+                          setEclipseTestResults([]);
+                          setEclipsePlayingTestId(null);
+                        }
+                      } catch (e: unknown) {
+                        setInstallError(e instanceof Error ? e.message : 'Install failed');
+                      } finally {
+                        setEclipseDialogBusy(false);
+                      }
+                    }}
+                  >
+                    {eclipseDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : (addons.some(a => a.manifest.id === (eclipseSetup?.addon.id || '')) ? 'Save' : 'Install')}
+                  </Button>
+                </div>
+                {installError && (
+                  <p className="text-[11px] text-red-400 text-center mt-2">{installError}</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+
+      {/* Reorder Modules right-side panel */}
+      {showReorder && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/60"
+            onClick={() => setShowReorder(false)}
+          />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+            className="fixed right-0 top-0 bottom-0 z-[110] w-full max-w-md bg-black border-l border-white/10 flex flex-col"
+          >
+            <div className="flex items-center justify-between px-5 pt-12 pb-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReorder(false)}
+                className="h-9 w-9 flex items-center justify-center -ml-1 text-white hover:bg-white/5 rounded-full transition-colors"
+                aria-label="Back"
+              >
+                <ChevronLeft size={22} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaybackPriorityIds(reorderItems);
+                  setShowReorder(false);
+                }}
+                className="text-white font-semibold text-sm hover:text-white/80 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+
+            <h1 className="text-[28px] font-bold text-white px-5 mt-0 leading-tight shrink-0">
+              Reorder Modules
+            </h1>
+
+            <p className="text-[13px] text-white/65 px-5 mt-2 leading-relaxed shrink-0">
+              Drag to change priority. Top module is used first.
+            </p>
+
+            <div className="flex-1 overflow-y-auto px-5 mt-5 custom-scrollbar">
+              {reorderItems.length === 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-10">
+                  No modules available to reorder.
+                </p>
+              ) : (
+                <Reorder.Group axis="y" values={reorderItems} onReorder={setReorderItems} className="space-y-3 pb-10">
+                  {reorderItems.map((id) => {
+                    const a = addons.find((ad) => ad.manifest.id === id);
+                    if (!a) return null;
+                    return (
+                      <Reorder.Item key={id} value={id} className="list-none">
+                        <motion.div
+                          whileDrag={{
+                            scale: 1.02,
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                            zIndex: 10,
+                          }}
+                          className="rounded-[20px] bg-gradient-to-b from-[#111111] to-[#141414] border border-[rgba(255,255,255,.06)] h-[72px] flex items-center px-4 gap-3 select-none cursor-grab active:cursor-grabbing"
+                        >
+                          <GripHorizontal className="w-5 h-5 text-zinc-500 shrink-0" />
+                          <span className="flex-1 text-[16px] font-medium text-white leading-tight truncate min-w-0">
+                            {a.manifest.name}
+                          </span>
+                          <span className="text-[11px] text-zinc-500 shrink-0 whitespace-nowrap">
+                            #{addons.indexOf(a) + 1}
+                          </span>
+                        </motion.div>
+                      </Reorder.Item>
+                    );
+                  })}
+                </Reorder.Group>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
     </>
   );
 }

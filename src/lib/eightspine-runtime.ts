@@ -89,7 +89,7 @@ export function extractEightspineInner(fullSource: string): string {
 
 
 
-async function withProxiedFetch<T>(fn: () => Promise<T>): Promise<T> {
+export async function withProxiedFetch<T>(fn: () => Promise<T>): Promise<T> {
   if (typeof window === 'undefined') {
     throw new Error('8SPINE modules can only run in the browser');
   }

@@ -87,7 +87,11 @@ export function eightspineRegistryToStoreRows(registryUrl: string, data: Record<
       const pkgUrl = joinPackageUrl(base, download);
       const id = String(m.pkg || m.id || download).replace(/\s+/g, '_');
       const ver = String(m.version ?? '0').replace(/^v+/i, '');
-      const tags = Array.isArray(m.tags) ? (m.tags as unknown[]).map(String).filter(Boolean) : [];
+      const tags = (() => {
+        if (Array.isArray(m.tags)) return (m.tags as unknown[]).map(String).filter(Boolean);
+        if (typeof m.labels === 'string' && m.labels.trim()) return m.labels.trim().split(/\s+/).filter(Boolean);
+        return [];
+      })();
       const descParts = [
         m.description ? String(m.description) : '',
         tags.length ? `Tags: ${tags.join(', ')}` : '',

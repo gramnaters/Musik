@@ -136,13 +136,13 @@ export default function HomeView() {
   const { playerTheme, setSelectedPlaylistId } = useUIStore();
 
   const { getHome } = useAddonStore();
-  const { catalogProvider } = useMetadataStore();
+  const { catalogProvider, appleStorefront } = useMetadataStore();
 
   const getImageUrl = (item: any) => {
     if (!item) return '';
     let uuid = item.squareImage || item.image || item.picture || item.album?.cover || item.cover || item.artworkURL;
     if (typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
-      return `https://resources.tidal.com/images/${uuid.replace(/-/g, '/')}/640x640.jpg`;
+      return `/api/cover?id=${uuid}&size=640`;
     }
     
     let resolved = typeof uuid === 'string' ? uuid : '';
@@ -214,7 +214,9 @@ export default function HomeView() {
           id: item.id || item.uuid, 
           provider: catalogProvider,
           title: item.title || item.name || '',
-          artist: item.artist?.name || item.artists?.[0]?.name || item.artist || ''
+          artist: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+          country: appleStorefront || 'US',
+          type: type === 'artist' ? 'album' : type,
         });
         const res = await fetch(`/api/metadata/playlist-items?${params}`);
         if (res.ok) {
@@ -259,7 +261,12 @@ export default function HomeView() {
         return;
       }
 
-      const res = await fetch('/api/hot');
+      const params = new URLSearchParams();
+      if (catalogProvider === 'apple' || catalogProvider === 'spotify') {
+        params.set('provider', catalogProvider);
+        params.set('country', appleStorefront || 'US');
+      }
+      const res = await fetch(`/api/hot?${params}`);
       if (!res.ok) {
         let detail = '';
         try { const e = await res.json(); detail = e.error || `HTTP ${res.status}`; } catch { detail = `HTTP ${res.status}`; }
@@ -272,13 +279,13 @@ export default function HomeView() {
     } finally {
       setExploreLoading(false);
     }
-  }, [catalogProvider, getHome]);
+  }, [catalogProvider, getHome, appleStorefront]);
 
   useEffect(() => {
-    if (activeTab === 'explore' && !exploreData) {
+    if (!exploreData) {
       fetchExplore();
     }
-  }, [activeTab, exploreData, fetchExplore]);
+  }, [exploreData, fetchExplore]);
 
   const loadGenre = async (id: string, name: string) => {
     setCollectionHub(null);
@@ -343,13 +350,46 @@ export default function HomeView() {
 
         <section>
           <SectionHeader title="Recommendations" />
-          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 rounded-3xl border border-white/5 group hover:border-white/10 transition-colors">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <ListMusic className="text-white/20" size={32} />
+          {exploreData?.top_tracks?.length > 0 || exploreData?.top_albums?.length > 0 ? (
+            <div className="space-y-8">
+              {exploreData.top_tracks?.length > 0 && (
+                <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                  <TrackList
+                    tracks={exploreData.top_tracks.slice(0, 5).map(mapItemToTrack)}
+                    showAlbumArt
+                    showIndex
+                  />
+                </div>
+              )}
+              {exploreData.top_albums?.length > 0 && (
+                <Grid>
+                  {exploreData.top_albums.slice(0, 5).map((item: any) => (
+                    <Card
+                      key={item.id}
+                      title={item.title}
+                      subtitle={item.artist?.name || item.artist}
+                      image={getImageUrl(item)}
+                      onClick={() => loadCollection(item, 'album')}
+                    />
+                  ))}
+                </Grid>
+              )}
             </div>
-            <p className="text-white font-semibold mb-1">Personalized Mixes</p>
-            <p className="text-white/40 text-sm max-w-xs text-center">Connect your accounts in Settings to see your daily mixes and picks.</p>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 rounded-3xl border border-white/5 group hover:border-white/10 transition-colors">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <ListMusic className="text-white/20" size={32} />
+              </div>
+              <p className="text-white font-semibold mb-1">Personalized Mixes</p>
+              <p className="text-white/40 text-sm max-w-xs text-center">
+                {catalogProvider === 'spotify'
+                  ? 'Configure a Spotify token in Settings &gt; Instances to enable recommendations.'
+                  : catalogProvider === 'addon'
+                    ? 'Install an addon with home feed support to see curated content here.'
+                    : 'Trending content unavailable right now. Check your connection and try again.'}
+              </p>
+            </div>
+          )}
         </section>
       </div>
     );
@@ -566,25 +606,8 @@ export default function HomeView() {
           </div>
         ) : (
           <>
-            {exploreData?.top_albums && (
-              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <SectionHeader title="Trending Albums" />
-                <Grid>
-                  {exploreData.top_albums.map((item: any) => (
-                    <Card 
-                      key={item.id}
-                      title={item.title}
-                      subtitle={item.artist?.name || item.artist}
-                      image={getImageUrl(item)}
-                      onClick={() => loadCollection(item, 'album')}
-                    />
-                  ))}
-                </Grid>
-              </section>
-            )}
-
             {exploreData?.top_tracks && (
-              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[100ms]">
+              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <SectionHeader title="Trending Tracks" />
                 <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
                   <TrackList 
@@ -593,6 +616,56 @@ export default function HomeView() {
                     showIndex 
                   />
                 </div>
+              </section>
+            )}
+
+            {(() => {
+              const artistMap = new Map<string, any>();
+              (exploreData.top_tracks || []).forEach((t: any) => {
+                const a = t.artist;
+                const name = typeof a === 'string' ? a : a?.name || t.artists?.[0]?.name;
+                if (name && !artistMap.has(name)) {
+                  artistMap.set(name, {
+                    id: t.artists?.[0]?.id || name,
+                    name,
+                    image: t.albumCover || '',
+                    artist: { name },
+                  });
+                }
+              });
+              const topArtists = [...artistMap.values()].slice(0, 10);
+              return topArtists.length > 0 ? (
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[50ms]">
+                  <SectionHeader title="Top Artists" />
+                  <Grid>
+                    {topArtists.map((item: any) => (
+                      <Card
+                        key={item.id}
+                        title={item.name}
+                        image={item.image}
+                        onClick={() => loadCollection(item, 'artist')}
+                        type="artist"
+                      />
+                    ))}
+                  </Grid>
+                </section>
+              ) : null;
+            })()}
+
+            {exploreData?.top_albums && exploreData.top_albums.length > 0 && (
+              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[100ms]">
+                <SectionHeader title="Trending Albums" />
+                <Grid>
+                  {exploreData.top_albums.map((item: any) => (
+                    <Card 
+                      key={item.id}
+                      title={item.title}
+                      subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
+                      image={getImageUrl(item)}
+                      onClick={() => loadCollection(item, 'album')}
+                    />
+                  ))}
+                </Grid>
               </section>
             )}
 
@@ -617,26 +690,39 @@ export default function HomeView() {
             {exploreData?.sections?.map((section: any, idx: number) => (
               <section key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-[200ms]">
                 <SectionHeader title={section.title} />
-                <Grid>
-                  {section.items.map((item: any, i: number) => (
-                    <Card 
-                      key={item.id || item.uuid || i}
-                      title={item.title || item.name}
-                      subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
-                      image={getImageUrl(item)}
-                      onClick={() => {
-                        if (section.type === 'TRACK') {
-                          play(mapItemToTrack(item));
-                        } else if (section.type === 'ARTIST_LIST') {
-                          loadCollection(item, 'artist');
-                        } else {
-                          loadCollection(item, 'album');
-                        }
-                      }}
-                      type={section.type === 'ARTIST_LIST' ? 'artist' : 'album'}
+                {section.type === 'TRACK_LIST' ? (
+                  <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                    <TrackList 
+                      tracks={section.items.map(mapItemToTrack)} 
+                      showAlbumArt 
+                      showIndex 
                     />
-                  ))}
-                </Grid>
+                  </div>
+                ) : (
+                  <Grid>
+                    {section.items.map((item: any, i: number) => (
+                      <Card 
+                        key={item.id || item.uuid || i}
+                        title={item.title || item.name}
+                        subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
+                        image={getImageUrl(item)}
+                        onClick={() => {
+                          if (section.type === 'TRACK' || !section.type) {
+                            play(mapItemToTrack(item));
+                          } else if (section.type === 'ARTIST_LIST') {
+                            loadCollection(item, 'artist');
+                          } else {
+                            loadCollection(item, section.type === 'PLAYLIST_LIST' ? 'playlist' : 'album');
+                          }
+                        }}
+                        type={
+                          section.type === 'ARTIST_LIST' ? 'artist' :
+                          section.type === 'PLAYLIST_LIST' ? 'playlist' : 'album'
+                        }
+                      />
+                    ))}
+                  </Grid>
+                )}
               </section>
             ))}
           </>
@@ -686,7 +772,7 @@ export default function HomeView() {
       </div>
 
       <ScrollArea className="h-full custom-scrollbar">
-        <div className="p-8 pb-32">
+        <div className="p-8 pb-44">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

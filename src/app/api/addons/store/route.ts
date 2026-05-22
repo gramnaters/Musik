@@ -114,18 +114,6 @@ export async function GET(request: NextRequest) {
       data.addons = data.addons.map(normalizeStoreAddonRow);
     }
 
-    if (data.addons && Array.isArray(data.addons) && target === DEFAULT_REGISTRY) {
-      data.addons.unshift({
-        id: 'all-in-one',
-        name: 'All in One',
-        description: 'Eclipse, JioSaavn, YT Music, and more in one addon.',
-        version: '1.0.0',
-        author: 'musik',
-        icon: '🌍',
-        manifestUrl: 'https://all-in-one.cyrusna29.workers.dev/manifest.json',
-      });
-    }
-
     cache.set(target, { payload: data, ts: Date.now() });
     return NextResponse.json(data);
   } catch (err: unknown) {

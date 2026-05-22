@@ -8,7 +8,7 @@ import {
   Heart, ListMusic, ChevronDown, MoreHorizontal, Sparkles,
   Maximize2, Music, Users, FileText,
   X, Plus, Copy, Share2, ExternalLink, ChevronRight,
-  Globe, Lock, Download, PenLine, Radio,
+  Download, PenLine, Radio,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { parseLrc, LrcLine } from '@/lib/lrc-parser';
@@ -310,90 +310,78 @@ export default function NowPlaying() {
                     {renderAlbumArt()}
                   </div>
 
-                  {/* Right: lyrics panel */}
-                  <div
-                    ref={lyricsContainerRef}
-                    style={{
-                      padding: '60px 60px 60px 40px',
-                      overflowY: 'auto',
-                      overflowX: 'hidden',
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-start',
-                      maskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%)',
-                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%)',
-                    }}
-                  >
-                    <style>{`#lrc-panel::-webkit-scrollbar { display: none; }`}</style>
-                    {/* Lyrics header */}
-                    <div
-                      style={{
-                        padding: '20px 60px 0 40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '32px',
-                      }}
-                    >
-                      <span style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Lyrics</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button onClick={() => setLyricsOffset((o) => Math.max(-10, o - 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">&minus;</button>
-                        <span style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.5)', width: '48px', textAlign: 'center', fontWeight: 500 }}>
-                          {lyricsOffset >= 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
-                        </span>
-                        <button onClick={() => setLyricsOffset((o) => Math.min(10, o + 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">+</button>
-                        {lyricsOffset !== 0 && (
-                          <button onClick={() => setLyricsOffset(0)} className="h-6 px-2 text-[10px] text-white/40 hover:text-white rounded hover:bg-white/10">↺</button>
+                  {/* Right: lyrics panel - monochrome style */}
+                  <aside className="flex items-stretch justify-start overflow-hidden min-w-0" style={{ opacity: 1, transform: 'translateX(0)' }}>
+                    <div style={{ width: 'min(860px, 100%)', minHeight: 0 }}>
+                      <div
+                        ref={lyricsContainerRef}
+                        style={{
+                          height: '100%',
+                          position: 'relative',
+                          paddingLeft: 'clamp(0.5rem, 1.6vw, 1.5rem)',
+                          overflowY: 'auto',
+                          overflowX: 'hidden',
+                          scrollbarWidth: 'none',
+                          msOverflowStyle: 'none',
+                        }}
+                        className="lyrics-scroll"
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6" style={{ paddingRight: 'clamp(1rem, 2vw, 2rem)' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Lyrics</span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setLyricsOffset((o) => Math.max(-10, o - 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">&minus;</button>
+                            <span style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.5)', width: '48px', textAlign: 'center', fontWeight: 500 }}>
+                              {lyricsOffset >= 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
+                            </span>
+                            <button onClick={() => setLyricsOffset((o) => Math.min(10, o + 0.1))} className="h-6 w-6 flex items-center justify-center text-sm text-white/50 hover:text-white rounded hover:bg-white/10">+</button>
+                            {lyricsOffset !== 0 && (
+                              <button onClick={() => setLyricsOffset(0)} className="h-6 px-2 text-[10px] text-white/40 hover:text-white rounded hover:bg-white/10">↺</button>
+                            )}
+                            <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+                            <button onClick={() => setShowLyrics(false)} className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><X size={13} /></button>
+                          </div>
+                        </div>
+
+                        {/* Lyric lines */}
+                        {lyricsLoading ? (
+                          <div className="flex items-center justify-center h-40">
+                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          </div>
+                        ) : lyrics.length === 0 ? (
+                          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>No synced lyrics available</p>
+                        ) : (
+                          <div className="lyrics-list">
+                            {lyrics.map((line, i) => (
+                              <p
+                                key={i}
+                                ref={(el) => { lyricRefs.current[i] = el; }}
+                                onClick={() => seekToLyric(line.time)}
+                                style={{
+                                  fontSize: i === activeLyricIdx ? '32px' : '26px',
+                                  fontWeight: i === activeLyricIdx ? 700 : 500,
+                                  lineHeight: 1.5,
+                                  marginBottom: '18px',
+                                  color: i === activeLyricIdx ? '#ffffff' : 'rgba(255,255,255,0.28)',
+                                  filter: i === activeLyricIdx ? 'none' : 'blur(0.6px)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.35s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
+                                }}
+                              >
+                                {line.text}
+                              </p>
+                            ))}
+                          </div>
                         )}
-                        <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-                        <button className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><Globe size={12} /></button>
-                        <button className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><Lock size={12} /></button>
-                        <button onClick={() => setShowLyrics(false)} className="h-6 w-6 flex items-center justify-center text-white/40 hover:text-white rounded hover:bg-white/10"><X size={13} /></button>
                       </div>
                     </div>
-
-                    {/* Lyric lines */}
-                    {lyricsLoading ? (
-                      <div className="flex items-center justify-center h-40" style={{ marginTop: '40px' }}>
-                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      </div>
-                    ) : lyrics.length === 0 ? (
-                      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px', marginTop: '40px' }}>No synced lyrics available</p>
-                    ) : (
-                      lyrics.map((line, i) => (
-                        <p
-                          key={i}
-                          ref={(el) => { lyricRefs.current[i] = el; }}
-                          onClick={() => seekToLyric(line.time)}
-                          style={{
-                            width: '100%',
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word',
-                            overflow: 'visible',
-                            fontSize: i === activeLyricIdx ? '32px' : '26px',
-                            fontWeight: i === activeLyricIdx ? 700 : 500,
-                            lineHeight: 1.5,
-                            marginBottom: '18px',
-                            color: i === activeLyricIdx ? '#ffffff' : 'rgba(255,255,255,0.28)',
-                            filter: i === activeLyricIdx ? 'none' : 'blur(0.6px)',
-                            cursor: 'pointer',
-                            transition: 'all 0.35s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (i !== activeLyricIdx) e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
-                          }}
-                        >
-                          {line.text}
-                        </p>
-                      ))
-                    )}
-                  </div>
+                  </aside>
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center min-h-0">

@@ -12,6 +12,7 @@ import {
   runBareEightspineModule,
   runEightspineModule,
   pickStreamUrlFromEightspineResult,
+  withProxiedFetch,
 } from '@/lib/eightspine-runtime';
 import {
   baseUrlFromSuccessfulManifestUrl,
@@ -31,7 +32,7 @@ export type FetchManifestResult = {
 
 const eightspineApiCache = new Map<string, Record<string, unknown>>();
 
-async function getEightspineApi(installed: InstalledAddon): Promise<Record<string, unknown>> {
+export async function getEightspineApi(installed: InstalledAddon): Promise<Record<string, unknown>> {
   const key = installed.manifest.id;
   const hit = eightspineApiCache.get(key);
   if (hit) return hit;
@@ -40,10 +41,16 @@ async function getEightspineApi(installed: InstalledAddon): Promise<Record<strin
   }
   const kind = installed.eightspineKind ?? 'wrapped';
   const src = installed.eightspineInnerCode;
-  const api =
+  const rawApi =
     kind === 'bare'
       ? await runBareEightspineModule(src)
       : await runEightspineModule(src);
+  // Wrap each function so external fetch calls go through the proxy (avoids CORS)
+  const api: Record<string, unknown> = {};
+  for (const k of Object.keys(rawApi)) {
+    const v = rawApi[k];
+    api[k] = typeof v === 'function' ? (...args: unknown[]) => withProxiedFetch(() => (v as Function)(...args)) : v;
+  }
   eightspineApiCache.set(key, api);
   return api;
 }
@@ -62,29 +69,23 @@ const DEFAULT_SOURCES: AddonSource[] = [
     builtIn: true,
   },
   {
-    id: 'monochrome-modules',
-    name: 'Monochrome Modules',
-    registryUrl: 'https://raw.githubusercontent.com/monochrometf/monochrome/main/modules/index.json',
+    id: 'jimmy-source',
+    name: 'Jimmy',
+    registryUrl: 'https://jimmy-iota.vercel.app/index.json',
     builtIn: true,
   },
   {
-    id: 'ricky-source',
-    name: 'Ricky Cyrus (AIO)',
-    registryUrl: 'https://all-in-one.cyrusna29.workers.dev/8spine-source.json',
+    id: '8spine-community',
+    name: '8SPINE Community',
+    registryUrl: 'https://8spine-modules.vercel.app/index.json',
     builtIn: true,
   },
   {
-    id: 'doc-source',
-    name: 'Doc\'s Modules',
-    registryUrl: 'https://raw.githubusercontent.com/DocSavage-8spine/modules/main/index.json',
+    id: 'ricky-8spine',
+    name: 'Ricky 8SPINE',
+    registryUrl: '', // Static catalog — entries injected by fetchAllCatalogs
     builtIn: true,
   },
-  {
-    id: '8spine-official',
-    name: '8SPINE Official',
-    registryUrl: 'https://8spine.club/index.json',
-    builtIn: true,
-  }
 ];
 
 
@@ -109,6 +110,7 @@ interface AddonActions {
       installSourceUrl?: string;
       eightspineInnerCode?: string;
       eightspineKind?: 'wrapped' | 'bare';
+      config?: Record<string, string | boolean | number>;
     }
   ) => void;
   addSource: (name: string, registryUrl: string) => void;
@@ -136,6 +138,7 @@ interface AddonActions {
   /** Enabled search modules: custom order first, then any not listed. */
   getPlaybackOrderedSearchAddonIds: () => string[];
   movePlaybackPriority: (addonId: string, delta: -1 | 1) => void;
+  setPlaybackPriorityIds: (ids: string[]) => void;
   cleanupBrokenAddons: () => void;
 }
 
@@ -185,12 +188,14 @@ export const useAddonStore = create<AddonState & AddonActions>()(
           installSourceUrl?: string;
           eightspineInnerCode?: string;
           eightspineKind?: 'wrapped' | 'bare';
+          config?: Record<string, string | boolean | number>;
         }
       ) => {
         const sourceId = opts?.sourceId ?? 'custom';
         const inner = opts?.eightspineInnerCode;
         const kindOpt = opts?.eightspineKind;
         const installSrc = opts?.installSourceUrl?.trim();
+        const config = opts?.config;
         
         eightspineApiCache.delete(manifest.id);
 
@@ -216,6 +221,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                   manifest,
                   sourceId: opts?.sourceId ?? a.sourceId,
                   ...(installSrc ? { installSourceUrl: installSrc } : {}),
+                  ...(config ? { config } : {}),
                   eightspineInnerCode: nextEight,
                   eightspineKind: nextKind,
                 };
@@ -235,6 +241,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
             ...(installSrc ? { installSourceUrl: installSrc } : {}),
             ...(inner !== undefined ? { eightspineInnerCode: inner || undefined } : {}),
             ...(kindOpt ? { eightspineKind: kindOpt } : {}),
+            ...(config ? { config } : {}),
           };
 
           return {
@@ -435,9 +442,11 @@ export const useAddonStore = create<AddonState & AddonActions>()(
               ? { tracks: rawOut }
               : ((rawOut ?? {}) as Record<string, unknown>);
 
-            const rawTracks = payload.tracks;
+            const rawTracks = ['tracks', 'items', 'results', 'data']
+              .map((k) => payload[k])
+              .find((v) => Array.isArray(v));
             const tracks: AddonTrack[] = Array.isArray(rawTracks)
-              ? rawTracks.map((t: Record<string, unknown>) =>
+              ? (rawTracks as unknown[]).map((t: Record<string, unknown>) =>
                   normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, baseURL)
                 )
               : [];
@@ -485,7 +494,22 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                 }))
               : [];
 
-            const results: AddonSearchResults = { tracks, albums, artists, playlists: [] };
+            const rawPlaylists = payload.playlists;
+            const playlists = Array.isArray(rawPlaylists)
+              ? rawPlaylists.map((p: Record<string, unknown>) => ({
+                  id: String(p.id ?? ''),
+                  name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
+                  title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
+                  description: p.description ? String(p.description) : undefined,
+                  artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+                  cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+                  author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
+                  creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
+                  trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
+                }))
+              : [];
+
+            const results: AddonSearchResults = { tracks, albums, artists, playlists };
 
             set((state) => ({
               addons: state.addons.map((a) =>
@@ -506,9 +530,12 @@ export const useAddonStore = create<AddonState & AddonActions>()(
 
           const raw: Record<string, unknown> = await res.json();
 
-          // Parse tracks with field normalization
-          const tracks: AddonTrack[] = Array.isArray(raw.tracks)
-            ? raw.tracks.map((t: Record<string, unknown>) =>
+          // Parse tracks with field normalization (try multiple keys)
+          const rawTrackList = ['tracks', 'items', 'results', 'data']
+            .map((k) => raw[k])
+            .find((v) => Array.isArray(v));
+          const tracks: AddonTrack[] = Array.isArray(rawTrackList)
+            ? (rawTrackList as unknown[]).map((t: Record<string, unknown>) =>
                 normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, baseURL)
               )
             : [];
@@ -539,7 +566,22 @@ export const useAddonStore = create<AddonState & AddonActions>()(
               }))
             : [];
 
-          const results: AddonSearchResults = { tracks, albums, artists, playlists: [] };
+          // Parse playlists
+          const playlists = Array.isArray(raw.playlists)
+            ? raw.playlists.map((p: Record<string, unknown>) => ({
+                id: String(p.id ?? ''),
+                name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
+                title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
+                description: p.description ? String(p.description) : undefined,
+                artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+                cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+                author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
+                creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
+                trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
+              }))
+            : [];
+
+          const results: AddonSearchResults = { tracks, albums, artists, playlists };
           
           // Update lastUsed
           set((state) => ({
@@ -549,7 +591,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
             searchResults: results,
             isSearching: false,
           }));
-
+          
           return results;
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : 'Search failed';
@@ -571,10 +613,16 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       resolveStreamUrl: async (track: AddonTrack & { source?: string }): Promise<string> => {
         const { addons, getPlaybackOrderedSearchAddonIds } = get();
         let url: string | undefined;
+
+        // Read quality from global streaming setting, then check per-addon config
+        const globalQuality = useStreamingStore.getState().streamingQuality;
+        const nativeAddon = track.addonId ? addons.find((a) => a.manifest.id === track.addonId && a.enabled) : null;
+        const addonQuality = nativeAddon?.config?.quality ?? nativeAddon?.config?.eclipseQuality ?? null;
+        const effectiveQuality = addonQuality || globalQuality?.toLowerCase() || undefined;
         
         // 1. Try the track's native addon resolution first (if it came from an addon)
         if (track.addonId) {
-          const addon = addons.find((a) => a.manifest.id === track.addonId && a.enabled);
+          const addon = nativeAddon;
           if (addon) {
             try {
               const targetId = (track as any).addonTrackId || track.id;
@@ -582,15 +630,16 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                 const api = await getEightspineApi(addon);
                 const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
                 if (typeof getTrackStreamUrl === 'function') {
-                  const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, undefined, { settings: {} })
-                           : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, undefined)
+                  const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, effectiveQuality, { settings: {} })
+                           : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, effectiveQuality)
                            : await getTrackStreamUrl(targetId);
                   url = pickStreamUrlFromEightspineResult(out);
                 }
               }
               if (!url) {
                 const baseURL = addon.manifest.baseURL || '';
-                const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/stream/${targetId}`)}`);
+                const qualityParam = effectiveQuality ? `?quality=${encodeURIComponent(effectiveQuality)}` : '';
+                const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/stream/${targetId}${qualityParam}`)}`);
                 if (res.ok) {
                   const data = await res.json();
                   url = pickStreamUrlFromEightspineResult(data);
@@ -914,6 +963,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         [next[idx], next[j]] = [next[j], next[idx]];
         set({ playbackPriorityIds: next });
       },
+
+      setPlaybackPriorityIds: (ids) => set({ playbackPriorityIds: ids }),
 
       clearError: () => set({ error: null }),
 

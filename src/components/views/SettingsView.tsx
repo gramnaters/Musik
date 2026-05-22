@@ -1015,44 +1015,6 @@ export default function SettingsView() {
                     </Button>
                   </div>
 
-                  {/* Credentials */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] px-1">Provider Credentials</h4>
-                    <div className="rounded-2xl border border-border/40 bg-card/20 p-4 space-y-4 shadow-sm">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Tidal Auth Token</Label>
-                          <Input 
-                            value={tidalToken || ''} 
-                            onChange={(e) => setTidalToken(e.target.value)}
-                            placeholder="Token" 
-                            type="password"
-                            className="h-9 bg-background/50"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Qobuz User Token</Label>
-                          <Input 
-                            value={qobuzToken || ''} 
-                            onChange={(e) => setQobuzToken(e.target.value)}
-                            placeholder="Token" 
-                            type="password"
-                            className="h-9 bg-background/50"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Deezer Token (arl)</Label>
-                          <Input 
-                            value={deezerToken || ''} 
-                            onChange={(e) => setDeezerToken(e.target.value)}
-                            placeholder="ARL" 
-                            type="password"
-                            className="h-9 bg-background/50"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -1075,7 +1037,7 @@ export default function SettingsView() {
                           <SelectContent>
                             <SelectItem value="apple">Apple Music</SelectItem>
                             <SelectItem value="spotify">Spotify (API)</SelectItem>
-                            <SelectItem value="tidal">Tidal (Official)</SelectItem>
+                            <SelectItem value="tidal">Tidal</SelectItem>
                             <SelectItem value="addon">Addon (Community)</SelectItem>
                           </SelectContent>
                         </Select>

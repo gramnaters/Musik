@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { searchTracks, searchTracksExplicit, searchArtists as mcSearchArtists, searchPlaylists as mcSearchPlaylists, getTrackInfo, mapMonochromeTrack, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
 
-type Provider = 'spotify' | 'apple' | 'tidal';
+type Provider = 'spotify' | 'apple' | 'tidal' | 'monochrome';
 
 function appleArtworkUrl(item: Record<string, unknown>): string {
   const raw =
@@ -222,7 +223,7 @@ function mapTidalTrack(item: any) {
     artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
     album: item.album?.title || '',
     albumCover: item.album?.cover 
-      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` 
+      ? `/api/cover?id=${item.album.cover}&size=1920` 
       : '',
     duration: item.duration || 0,
     streamURL: undefined,
@@ -256,7 +257,7 @@ async function searchTidalArtists(q: string, limit: number) {
   const artists = (data.artists?.items || []).map((a: any) => ({
     id: `tidal_${a.id}`,
     name: a.name,
-    image: a.picture ? `https://resources.tidal.com/images/${a.picture.replace(/-/g, '/')}/1920x1920.jpg` : '',
+    image: a.picture ? `/api/cover?id=${a.picture}&size=1920` : '',
   }));
   return { artists, error: undefined, detail: undefined };
 }
@@ -451,6 +452,11 @@ export async function GET(req: NextRequest) {
         const { artists, error, detail } = await searchTidalArtists(q, limit);
         return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'tidal', error, detail });
       }
+      if (provider === 'monochrome') {
+        const data = await mcSearchArtists(q);
+        const artists = (data.artists || []).map(mapMonochromeArtist);
+        return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'monochrome' });
+      }
       const { artists, error, detail } = await searchSpotifyArtists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'spotify', error, detail });
     }
@@ -470,6 +476,11 @@ export async function GET(req: NextRequest) {
          // Tidal playlist search not implemented here for simplicity, fallback to empty
          return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'tidal' });
       }
+      if (provider === 'monochrome') {
+        const data = await mcSearchPlaylists(q);
+        const playlists = (data.playlists || []).map(mapMonochromePlaylist);
+        return NextResponse.json({ tracks: [], artists: [], playlists, provider: 'monochrome' });
+      }
       const { playlists, error, detail } = await searchSpotifyPlaylists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists: [], playlists, provider: 'spotify', error, detail });
     }
@@ -481,6 +492,11 @@ export async function GET(req: NextRequest) {
     if (provider === 'tidal') {
       const { tracks, error, detail } = await searchTidal(q, limit);
       return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'tidal', error, detail });
+    }
+    if (provider === 'monochrome') {
+      const data = await searchTracks(q, limit);
+      const tracks = (data.tracks || []).map(mapMonochromeTrack);
+      return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
     }
     const { tracks, error, detail } = await searchSpotify(q, spotifyLimit, market);
     return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'spotify', error, detail });

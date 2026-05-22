@@ -66,15 +66,14 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
         )}
 
         {playerTheme === 'apple' ? (
-          <ApplePlayerBar />
+          <ApplePlayerBar visible={Boolean(currentTrack)} />
         ) : playerTheme === 'tidal' ? (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
+            animate={{ y: currentTrack ? 0 : 300 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 28, mass: 1 }}
             data-glass={glassEffect}
             onClick={() => setShowNowPlaying(!showNowPlaying)}
-            className="flex-shrink-0 flex flex-col transition-all duration-500 fixed bottom-3 left-3 right-3 h-[88px] bg-[rgba(20,20,20,0.55)] backdrop-blur-[24px] backdrop-saturate-[180%] border-t border-white/[0.06] rounded-xl text-white z-[200] cursor-pointer"
+            className="flex-shrink-0 flex flex-col fixed bottom-3 left-3 right-3 h-[88px] bg-[rgba(20,20,20,0.55)] backdrop-blur-[24px] backdrop-saturate-[180%] border-t border-white/[0.06] rounded-xl text-white z-[200] cursor-pointer"
             style={{ isolation: 'isolate' }}
           >
             <div className="w-full h-full relative flex flex-col">
@@ -164,14 +163,14 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                     </button>
                   </div>
                   {/* Apple Music-style progress bar with flanking timestamps */}
-                  <div className="flex items-center gap-2 px-2 w-full justify-center -mt-[6px]" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-[11px] tabular-nums text-white/45 w-8 text-right shrink-0">
+                  <div className="seek-container flex items-center gap-2 px-2 w-full justify-center -mt-[6px]" onClick={(e) => e.stopPropagation()}>
+                    <span className="seek-timestamp text-[11px] tabular-nums text-white/45 w-8 text-right shrink-0">
                       {currentTrack ? formatDuration(currentTime) : '0:00'}
                     </span>
                     <div className="tidal-top-slider-wrapper max-w-[650px] flex-1">
                       <PlaybackSeekSlider />
                     </div>
-                    <span className="text-[11px] tabular-nums text-white/45 w-8 text-left shrink-0">
+                    <span className="seek-timestamp text-[11px] tabular-nums text-white/45 w-8 text-left shrink-0">
                       {currentTrack && duration ? formatDuration(duration) : '0:00'}
                     </span>
                   </div>
@@ -625,7 +624,7 @@ function MusicIcon({ size, className }: { size: number; className?: string }) {
   );
 }
 
-function ApplePlayerBar() {
+function ApplePlayerBar({ visible }: { visible: boolean }) {
   const {
     currentTrack, isPlaying, currentTime, duration, volume,
     togglePlayPause, nextTrack, previousTrack,
@@ -679,7 +678,10 @@ function ApplePlayerBar() {
   }, [showVolume]);
 
   return (
-    <>
+    <motion.div
+      animate={{ y: visible ? 0 : 300 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 28, mass: 1 }}
+    >
       <style>{`
         @keyframes scroll-title {
           0%, 20% { transform: translateX(0); }
@@ -1099,6 +1101,6 @@ function ApplePlayerBar() {
           </div>
         </div>
       </div>
-    </>
+    </motion.div>
   );
 }

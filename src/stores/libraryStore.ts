@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { Track, Playlist } from '@/types/music';
 import { demoPlaylists } from '@/lib/demo-data';
 
+let _lastAddedTrackId: string | null = null;
+
 interface LibraryState {
   playlists: Playlist[];
   favourites: string[]; // track IDs
@@ -32,7 +34,7 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
       recentlyPlayed: [],
 
       initializeDefaults: () => {
-        const { playlists } = get();
+        const { playlists, recentlyPlayed } = get();
         if (playlists.length === 0) {
           set({
             playlists: demoPlaylists.map((p) => ({
@@ -40,6 +42,19 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
               tracks: p.tracks?.map((t) => ({ ...t })) || [],
             })),
           });
+        }
+        // Deduplicate recently played on init
+        if (recentlyPlayed.length > 0) {
+          const seen = new Set<string>();
+          const deduped = recentlyPlayed.filter((t) => {
+            const key = String(t.id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          if (deduped.length !== recentlyPlayed.length) {
+            set({ recentlyPlayed: deduped });
+          }
         }
       },
 
@@ -105,10 +120,17 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
       },
 
       addRecentlyPlayed: (track: Track) => {
-        const { recentlyPlayed } = get();
-        const filtered = recentlyPlayed.filter((t) => t.id !== track.id);
-        set({
-          recentlyPlayed: [track, ...filtered].slice(0, 30),
+        const id = track?.id;
+        if (!id) return;
+        const strId = String(id);
+        if (strId === _lastAddedTrackId) return;
+        _lastAddedTrackId = strId;
+
+        set((state) => {
+          const filtered = state.recentlyPlayed.filter((t) => String(t.id) !== strId);
+          return {
+            recentlyPlayed: [track, ...filtered].slice(0, 30),
+          };
         });
       },
 

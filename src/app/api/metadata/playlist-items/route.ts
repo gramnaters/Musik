@@ -187,7 +187,7 @@ function mapTidalTrack(item: any) {
     artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
     album: item.album?.title || '',
     albumCover: item.album?.cover 
-      ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` 
+      ? `/api/cover?id=${item.album.cover}&size=1920` 
       : '',
     duration: item.duration || 0,
     streamURL: undefined,
@@ -247,6 +247,7 @@ export async function GET(req: NextRequest) {
   const market = req.nextUrl.searchParams.get('market')?.trim() || country || 'US';
   const title = req.nextUrl.searchParams.get('title')?.trim() || '';
   const artist = req.nextUrl.searchParams.get('artist')?.trim() || '';
+  const typeParam = req.nextUrl.searchParams.get('type')?.trim() || '';
 
   if (!rawId) {
     return NextResponse.json({ tracks: [], error: 'missing_id' }, { status: 400 });
@@ -297,7 +298,7 @@ export async function GET(req: NextRequest) {
             artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || item.artist || '',
             album: item.album?.title || '',
             albumCover: item.album?.cover 
-              ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` 
+              ? `/api/cover?id=${item.album.cover}&size=1920` 
               : '',
             duration: item.duration || 0,
             streamURL: undefined,
@@ -384,22 +385,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ tracks, provider: 'tidal' });
     }
 
-    if (provider === 'spotify' && rawId.startsWith('spotify_album_')) {
-      const albumId = rawId.slice('spotify_album_'.length);
-      const { tracks, error, detail } = await spotifyAlbumTracks(albumId, market);
-      if (error) {
-        return NextResponse.json(
-          { tracks: [], error, detail },
-          { status: error === 'missing_spotify_credentials' ? 501 : 502 }
-        );
-      }
-      return NextResponse.json({ tracks, provider: 'spotify' });
-    }
     if (provider === 'spotify') {
-      const { tracks, error, detail } = await spotifyPlaylistTracks(spotifyPlaylistId, market);
+      const isAlbum = typeParam === 'album' || rawId.startsWith('spotify_album_') || rawId.includes('album');
+      const { tracks, error, detail } = isAlbum
+        ? await spotifyAlbumTracks(spotifyPlaylistId, market)
+        : await spotifyPlaylistTracks(spotifyPlaylistId, market);
       if (error) {
-        // Double fallback: if it's a spotify error due to credentials, try searching iTunes as last resort if title is available
-        if (title && artist && rawId.includes('album')) {
+        if (isAlbum && title && artist) {
           const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + ' ' + title)}&entity=album&limit=5&country=${country}`;
           const sRes = await fetch(searchUrl, { headers: { 'User-Agent': ITUNES_UA } });
           if (sRes.ok) {
