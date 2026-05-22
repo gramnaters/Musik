@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { initTidal, TidalClient } from '@/lib/tidal/client';
+import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearchAlbums, searchPlaylists as mcSearchPlaylists, mapMonochromeTrack, mapMonochromeAlbum, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
 
-type Provider = 'spotify' | 'apple' | 'tidal';
+type Provider = 'spotify' | 'apple' | 'tidal' | 'monochrome';
 
 let spotifyTokenCache: { token: string; expiresAtMs: number } | null = null;
 
@@ -32,7 +33,7 @@ function mapTidalTrack(item: any) {
     title: String(item.title ?? ''),
     artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
     album: String(item.album?.title ?? ''),
-    albumCover: item.album?.cover ? `https://resources.tidal.com/images/${item.album.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
+    albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
     duration: typeof item.duration === 'number' ? item.duration : 0,
     source: 'tidal' as const,
     explicit: Boolean(item.explicit),
@@ -45,7 +46,7 @@ function mapTidalAlbum(item: any) {
     id: `tidal_album_${item.id}`,
     title: String(item.title ?? ''),
     artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
+    cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
     year: item.releaseDate?.slice(0, 4),
     trackCount: item.numberOfTracks,
     source: 'tidal' as const,
@@ -57,7 +58,7 @@ function mapTidalArtist(item: any) {
   return {
     id: `tidal_${item.id}`,
     name: String(item.name ?? ''),
-    image: item.picture ? `https://resources.tidal.com/images/${item.picture.replace(/-/g, '/')}/1920x1920.jpg` : '',
+    image: item.picture ? `/api/cover?id=${item.picture}&size=1920` : '',
   };
 }
 
@@ -66,7 +67,7 @@ function mapTidalPlaylist(item: any) {
     id: `tidal_pl_${item.id}`,
     name: String(item.title ?? ''),
     description: 'Tidal Playlist',
-    cover: item.cover ? `https://resources.tidal.com/images/${item.cover.replace(/-/g, '/')}/1920x1920.jpg` : '',
+    cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
     source: 'tidal' as const,
   };
 }
@@ -297,6 +298,22 @@ export async function GET(req: NextRequest) {
         provider: 'tidal',
         country: 'US',
       });
+    }
+
+    if (provider === 'monochrome') {
+      const [tracksData, albumsData, artistsData, playlistsData] = await Promise.all([
+        searchTracks(q, per),
+        mcSearchAlbums(q),
+        mcSearchArtists(q),
+        mcSearchPlaylists(q),
+      ]);
+
+      const tracks = (tracksData.tracks || []).map(mapMonochromeTrack).filter((t: any) => t.title);
+      const albums = (albumsData.albums || []).map(mapMonochromeAlbum).filter((a: any) => a.title);
+      const artists = (artistsData.artists || []).map(mapMonochromeArtist).filter((a: any) => a.name);
+      const playlists = (playlistsData.playlists || []).map(mapMonochromePlaylist).filter((p: any) => p.name);
+
+      return NextResponse.json({ tracks, albums, artists, playlists, podcasts: [], provider: 'monochrome' });
     }
 
     if (provider === 'apple') {

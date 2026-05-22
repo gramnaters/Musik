@@ -219,4 +219,6 @@ export interface InstalledAddon {
   eightspineInnerCode?: string;
   /** `wrapped` = export const … = \`…\`; `bare` = script ending in `return { … }` (e.g. Qobuz/Tidal, YouTube). */
   eightspineKind?: 'wrapped' | 'bare';
+  /** User-defined configuration persisted per addon (quality, settings, etc.). */
+  config?: Record<string, string | boolean | number>;
 }

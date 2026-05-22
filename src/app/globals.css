@@ -2403,3 +2403,86 @@ img {
     background-position: 100% 0;
   }
 }
+
+.lyrics-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 2s infinite ease-in-out;
+  border-radius: 6px;
+}
+
+.skeleton-round {
+  border-radius: 9999px;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-card-image {
+  aspect-ratio: 1/1;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.skeleton-card.artist .skeleton-card-image {
+  border-radius: 9999px;
+}
+
+.skeleton-card-title {
+  height: 14px;
+  width: 80%;
+}
+
+.skeleton-card-subtitle {
+  height: 11px;
+  width: 60%;
+}
+
+.skeleton-track {
+  display: grid;
+  grid-template-columns: 40px 1fr 60px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.skeleton-track-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.skeleton-track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-track-title {
+  height: 12px;
+  width: 65%;
+}
+
+.skeleton-track-artist {
+  height: 10px;
+  width: 45%;
+}
+
+.skeleton-track-duration {
+  height: 10px;
+  width: 30px;
+  justify-self: end;
+}

@@ -44,5 +44,5 @@ export function baseUrlFromSuccessfulManifestUrl(manifestUrl: string): string {
 }
 
 export function isEightspinePackageUrl(url: string): boolean {
-  return /\.8spine($|[?#])/i.test(url.trim());
+  return /\.(8spine|js)($|[?#])/i.test(url.trim());
 }
