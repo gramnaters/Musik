@@ -1,6 +1,8 @@
 <div align="center">
 
-# BeatBoss Player
+<img src="public/musik-mark.svg" width="96" height="96" alt="Musik logo" />
+
+# Musik
 
 <p align="center">
   <strong>A minimalist, high-fidelity music player with a modular addon system.</strong>
@@ -30,9 +32,9 @@
 
 ---
 
-## What is BeatBoss Player?
+## What is Musik?
 
-**BeatBoss Player** is a privacy-focused, feature-rich music player built with Next.js. It combines a clean, minimalist interface with a powerful modular addon system that lets you bring your own music sources — Tidal, Qobuz, Deezer, or custom providers — through Eclipse HTTP addons or 8SPINE modules.
+**Musik** is a privacy-focused, feature-rich music player built with Next.js. It combines a clean, minimalist interface with a powerful modular addon system that lets you bring your own music sources — Tidal, Qobuz, Deezer, or custom providers — through Eclipse HTTP addons or 8SPINE modules.
 
 ## Features
 
