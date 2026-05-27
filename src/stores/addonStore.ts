@@ -434,80 +434,107 @@ export const useAddonStore = create<AddonState & AddonActions>()(
               throw new Error('8SPINE module has no searchTracks()');
             }
             const ctx = { settings: {} };
-            const rawOut =
-              searchTracks.length >= 3
-                ? await searchTracks(query.trim(), 40, ctx)
-                : await searchTracks(query.trim(), 40);
-            const payload: Record<string, unknown> = Array.isArray(rawOut)
-              ? { tracks: rawOut }
-              : ((rawOut ?? {}) as Record<string, unknown>);
 
-            const rawTracks = ['tracks', 'items', 'results', 'data']
-              .map((k) => payload[k])
-              .find((v) => Array.isArray(v));
+            const hasAlbums = typeof (api as any).searchAlbums === 'function';
+            const hasArtists = typeof (api as any).searchArtists === 'function';
+            const hasPlaylists = typeof (api as any).searchPlaylists === 'function';
+
+            // Helper: extract items from a search result that could be a direct array, { key: [...] }, or { key: { items: [...] } }
+            const extractItems = (result: any, key: string): Record<string, unknown>[] => {
+              if (result == null) return [];
+              if (Array.isArray(result)) return result as Record<string, unknown>[];
+              const val = result[key];
+              if (Array.isArray(val)) return val as Record<string, unknown>[];
+              if (val && typeof val === 'object' && 'items' in val && Array.isArray(val.items)) {
+                return val.items as Record<string, unknown>[];
+              }
+              return [];
+            };
+
+            const resolveItemsFn = (field: unknown): unknown[] | undefined => {
+              if (Array.isArray(field)) return field;
+              if (field && typeof field === 'object' && 'items' in (field as any) && Array.isArray((field as any).items)) return (field as any).items;
+              return undefined;
+            };
+
+            // Run searches SEQUENTIALLY — withProxiedFetch replaces globalThis.fetch, so
+            // concurrent calls (Promise.all) cause a race condition where one restores the
+            // original fetch while another is still running, breaking the proxy.
+            const trackResult = searchTracks.length >= 3
+              ? await searchTracks(query.trim(), 40, ctx)
+              : await searchTracks(query.trim(), 40);
+            const payload: Record<string, unknown> = Array.isArray(trackResult)
+              ? { tracks: trackResult }
+              : ((trackResult ?? {}) as Record<string, unknown>);
+
+            const rawTracks = resolveItemsFn(payload.tracks) ?? resolveItemsFn(payload.items) ?? undefined;
             const tracks: AddonTrack[] = Array.isArray(rawTracks)
-              ? (rawTracks as unknown[]).map((t: Record<string, unknown>) =>
+              ? (rawTracks as Record<string, unknown>[]).map((t) =>
                   normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, baseURL)
                 )
               : [];
 
-            const rawAlbums = payload.albums;
-            const albums = Array.isArray(rawAlbums)
-              ? rawAlbums.map((a: Record<string, unknown>) => ({
-                  id: String(a.id ?? ''),
-                  name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
-                  title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
-                  artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
-                  artworkURL: a.artworkURL
-                    ? String(a.artworkURL)
-                    : a.cover
-                      ? String(a.cover)
-                      : a.image
-                        ? String(a.image)
-                        : undefined,
-                  cover: a.artworkURL
-                    ? String(a.artworkURL)
-                    : a.cover
-                      ? String(a.cover)
-                      : a.image
-                        ? String(a.image)
-                        : undefined,
-                  trackCount:
-                    typeof a.trackCount === 'number'
-                      ? a.trackCount
-                      : a.numberOfTracks
-                        ? parseInt(String(a.numberOfTracks), 10) || undefined
-                        : undefined,
-                  year: a.year ? String(a.year) : undefined,
-                  addonId: addon.manifest.id,
-                }))
-              : [];
+            // Parse albums from either separate searchAlbums or embedded in searchTracks payload
+            let rawAlbums: Record<string, unknown>[] = [];
+            if (hasAlbums) {
+              const albumResult = await (api as any).searchAlbums(query.trim(), 20);
+              rawAlbums = extractItems(albumResult, 'albums');
+            }
+            if (rawAlbums.length === 0) {
+              const fromPayload = resolveItemsFn(payload.albums);
+              if (fromPayload) rawAlbums = fromPayload as Record<string, unknown>[];
+            }
+            const albums = rawAlbums.map((a) => ({
+              id: String(a.id ?? ''),
+              name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
+              title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
+              artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
+              artworkURL: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.albumCover ? String(a.albumCover) : a.image ? String(a.image) : undefined,
+              cover: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.albumCover ? String(a.albumCover) : a.image ? String(a.image) : undefined,
+              trackCount: typeof a.trackCount === 'number' ? a.trackCount : a.numberOfTracks ? parseInt(String(a.numberOfTracks), 10) || undefined : undefined,
+              year: a.year ? String(a.year) : undefined,
+              addonId: addon.manifest.id,
+            }));
 
-            const rawArtists = payload.artists;
-            const artists = Array.isArray(rawArtists)
-              ? rawArtists.map((a: Record<string, unknown>) => ({
-                  id: String(a.id ?? ''),
-                  name: String(a.name ?? 'Unknown Artist'),
-                  image: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : undefined,
-                  artworkURL: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : undefined,
-                  genres: Array.isArray(a.genres) ? a.genres.map(String) : undefined,
-                }))
-              : [];
+            // Parse artists
+            let rawArtists: Record<string, unknown>[] = [];
+            if (hasArtists) {
+              const artistResult = await (api as any).searchArtists(query.trim(), 20);
+              rawArtists = extractItems(artistResult, 'artists');
+            }
+            if (rawArtists.length === 0) {
+              const fromPayload = resolveItemsFn(payload.artists);
+              if (fromPayload) rawArtists = fromPayload as Record<string, unknown>[];
+            }
+            const artists = rawArtists.map((a) => ({
+              id: String(a.id ?? ''),
+              name: String(a.name ?? 'Unknown Artist'),
+              image: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : a.picture ? String(a.picture) : undefined,
+              artworkURL: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : a.picture ? String(a.picture) : undefined,
+              genres: Array.isArray(a.genres) ? a.genres.map(String) : undefined,
+            }));
 
-            const rawPlaylists = payload.playlists;
-            const playlists = Array.isArray(rawPlaylists)
-              ? rawPlaylists.map((p: Record<string, unknown>) => ({
-                  id: String(p.id ?? ''),
-                  name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
-                  title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
-                  description: p.description ? String(p.description) : undefined,
-                  artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
-                  cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
-                  author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
-                  creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
-                  trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
-                }))
-              : [];
+            // Parse playlists
+            let rawPlaylists: Record<string, unknown>[] = [];
+            if (hasPlaylists) {
+              const playlistResult = await (api as any).searchPlaylists(query.trim(), 20);
+              rawPlaylists = extractItems(playlistResult, 'playlists');
+            }
+            if (rawPlaylists.length === 0) {
+              const fromPayload = resolveItemsFn(payload.playlists);
+              if (fromPayload) rawPlaylists = fromPayload as Record<string, unknown>[];
+            }
+            const playlists = rawPlaylists.map((p) => ({
+              id: String(p.id ?? ''),
+              name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
+              title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
+              description: p.description ? String(p.description) : undefined,
+              artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+              cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+              author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
+              creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
+              trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
+            }));
 
             const results: AddonSearchResults = { tracks, albums, artists, playlists };
 
@@ -530,56 +557,53 @@ export const useAddonStore = create<AddonState & AddonActions>()(
 
           const raw: Record<string, unknown> = await res.json();
 
-          // Parse tracks with field normalization (try multiple keys)
-          const rawTrackList = ['tracks', 'items', 'results', 'data']
-            .map((k) => raw[k])
-            .find((v) => Array.isArray(v));
-          const tracks: AddonTrack[] = Array.isArray(rawTrackList)
-            ? (rawTrackList as unknown[]).map((t: Record<string, unknown>) =>
-                normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, baseURL)
-              )
-            : [];
+          // Resolve items from a field that could be a direct array or { items: [...] } (Monochrome format)
+          const resolveItems = (field: unknown): Record<string, unknown>[] => {
+            if (Array.isArray(field)) return field as Record<string, unknown>[];
+            if (field && typeof field === 'object' && 'items' in field && Array.isArray((field as any).items)) {
+              return (field as any).items as Record<string, unknown>[];
+            }
+            return [];
+          };
 
-          // Parse albums
-          const albums = Array.isArray(raw.albums)
-            ? raw.albums.map((a: Record<string, unknown>) => ({
-                id: String(a.id ?? ''),
-                name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
-                title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
-                artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
-                artworkURL: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.image ? String(a.image) : undefined,
-                cover: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.image ? String(a.image) : undefined,
-                trackCount: typeof a.trackCount === 'number' ? a.trackCount : a.numberOfTracks ? parseInt(String(a.numberOfTracks), 10) || undefined : undefined,
-                year: a.year ? String(a.year) : undefined,
-                addonId: addon.manifest.id,
-              }))
-            : [];
+          const rawTracks = resolveItems(raw.tracks).length
+            ? resolveItems(raw.tracks)
+            : resolveItems(raw.items);
+          const tracks: AddonTrack[] = rawTracks.map((t) =>
+            normalizeAddonTrack(t, addon.manifest.id, addon.manifest.name, baseURL)
+          );
 
-          // Parse artists
-          const artists = Array.isArray(raw.artists)
-            ? raw.artists.map((a: Record<string, unknown>) => ({
-                id: String(a.id ?? ''),
-                name: String(a.name ?? 'Unknown Artist'),
-                image: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : undefined,
-                artworkURL: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : undefined,
-                genres: Array.isArray(a.genres) ? a.genres.map(String) : undefined,
-              }))
-            : [];
+          const albums = resolveItems(raw.albums).map((a) => ({
+            id: String(a.id ?? ''),
+            name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
+            title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
+            artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
+            artworkURL: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.albumCover ? String(a.albumCover) : a.image ? String(a.image) : undefined,
+            cover: a.artworkURL ? String(a.artworkURL) : a.cover ? String(a.cover) : a.albumCover ? String(a.albumCover) : a.image ? String(a.image) : undefined,
+            trackCount: typeof a.trackCount === 'number' ? a.trackCount : a.numberOfTracks ? parseInt(String(a.numberOfTracks), 10) || undefined : undefined,
+            year: a.year ? String(a.year) : undefined,
+            addonId: addon.manifest.id,
+          }));
 
-          // Parse playlists
-          const playlists = Array.isArray(raw.playlists)
-            ? raw.playlists.map((p: Record<string, unknown>) => ({
-                id: String(p.id ?? ''),
-                name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
-                title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
-                description: p.description ? String(p.description) : undefined,
-                artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
-                cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
-                author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
-                creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
-                trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
-              }))
-            : [];
+          const artists = resolveItems(raw.artists).map((a) => ({
+            id: String(a.id ?? ''),
+            name: String(a.name ?? 'Unknown Artist'),
+            image: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : a.picture ? String(a.picture) : undefined,
+            artworkURL: a.artworkURL ? String(a.artworkURL) : a.image ? String(a.image) : a.picture ? String(a.picture) : undefined,
+            genres: Array.isArray(a.genres) ? a.genres.map(String) : undefined,
+          }));
+
+          const playlists = resolveItems(raw.playlists).map((p) => ({
+            id: String(p.id ?? ''),
+            name: p.name ? String(p.name) : p.title ? String(p.title) : undefined,
+            title: p.title ? String(p.title) : p.name ? String(p.name) : undefined,
+            description: p.description ? String(p.description) : undefined,
+            artworkURL: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+            cover: p.artworkURL ? String(p.artworkURL) : p.cover ? String(p.cover) : p.image ? String(p.image) : undefined,
+            author: p.author ? String(p.author) : p.creator ? String(p.creator) : undefined,
+            creator: p.creator ? String(p.creator) : p.author ? String(p.author) : undefined,
+            trackCount: typeof p.trackCount === 'number' ? p.trackCount : undefined,
+          }));
 
           const results: AddonSearchResults = { tracks, albums, artists, playlists };
           
@@ -747,7 +771,9 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                 ? String(artistData.artworkURL)
                 : artistData.image
                   ? String(artistData.image)
-                  : undefined,
+                  : artistData.picture
+                    ? String(artistData.picture)
+                    : undefined,
               genres: Array.isArray(artistData.genres) ? artistData.genres.map(String) : undefined,
             };
             const tracksRaw = artistData.topTracks ?? artistData.tracks ?? artistData.songList ?? raw.tracks;
@@ -905,8 +931,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                   name: a.name ? String(a.name) : a.title ? String(a.title) : undefined,
                   title: a.title ? String(a.title) : a.name ? String(a.name) : undefined,
                   artist: a.artist ? String(a.artist) : a.artistName ? String(a.artistName) : undefined,
-                  artworkURL: a.artworkURL ?? a.cover ?? a.image,
-                  cover: a.artworkURL ?? a.cover ?? a.image,
+                  artworkURL: a.artworkURL ?? a.cover ?? a.albumCover ?? a.image,
+                  cover: a.artworkURL ?? a.cover ?? a.albumCover ?? a.image,
                   trackCount: a.trackCount ?? a.numberOfTracks,
                   year: a.year,
                   addonId: addon.manifest.id,

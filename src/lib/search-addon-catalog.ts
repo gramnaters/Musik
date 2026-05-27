@@ -27,7 +27,7 @@ export function addonAlbumsToAlbums(rows: AddonAlbum[] | undefined, addonId: str
     id: addonHubId(addonId, String(a.id), 'album'),
     title: String(a.title ?? a.name ?? 'Album'),
     artist: String(a.artist ?? a.artistName ?? ''),
-    cover: a.artworkURL || a.cover || a.image,
+    cover: a.artworkURL || a.cover || a.albumCover || a.image,
     year: a.year,
     trackCount: a.trackCount ?? a.numberOfTracks,
   }));
@@ -59,7 +59,7 @@ export function addonArtistsToCatalog(
   return (rows || []).map((a) => ({
     id: addonHubId(addonId, String(a.id), 'artist'),
     name: String(a.name || 'Artist'),
-    image: a.image || a.artworkURL,
+    image: a.image || a.artworkURL || a.picture,
   }));
 }
 
