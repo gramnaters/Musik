@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
 import {
   InstalledAddon,
   AddonManifest,
@@ -100,6 +101,8 @@ interface AddonState {
   isSearching: boolean;
   searchResults: AddonSearchResults;
   error: string | null;
+  useModulesOnGo: boolean;
+  useModuleFallback: boolean;
 }
 
 interface AddonActions {
@@ -126,6 +129,8 @@ interface AddonActions {
   /** Temporarily targets an addon for one search, then restores the previous active addon id. */
   searchWithAddon: (addonId: string, query: string) => Promise<AddonSearchResults>;
   resolveStreamUrl: (track: AddonTrack) => Promise<string>;
+  /** Same resolution as resolveStreamUrl but returns the raw CDN URL (no /api/stream proxy wrapping). */
+  resolveRawStreamUrl: (track: AddonTrack, quality?: string) => Promise<string | null>;
   getAlbumTracks: (albumId: string) => Promise<AddonTrack[]>;
   getArtistDetail: (artistId: string) => Promise<{ artist: any; tracks: AddonTrack[] } | null>;
   getPlaylistTracks: (playlistId: string) => Promise<AddonTrack[]>;
@@ -142,6 +147,8 @@ interface AddonActions {
   cleanupBrokenAddons: () => void;
   /** Re-fetch source for each installed addon and update if a newer version is available. */
   checkForUpdates: () => Promise<void>;
+  setUseModulesOnGo: (v: boolean) => void;
+  setUseModuleFallback: (v: boolean) => void;
 }
 
 
@@ -156,6 +163,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       isSearching: false,
       searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
       error: null,
+      useModulesOnGo: false,
+      useModuleFallback: false,
 
       addSource: (name: string, registryUrl: string) => {
         const trimmed = registryUrl.trim();
@@ -413,6 +422,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       search: async (query: string): Promise<AddonSearchResults> => {
         const { addons, activeAddonId } = get();
         
+        // activeAddonId is kept in sync with the reorder priority by SearchView
         if (!activeAddonId || !query.trim()) {
           set({ searchResults: { tracks: [], albums: [], artists: [], playlists: [] } });
           return { tracks: [], albums: [], artists: [], playlists: [] };
@@ -712,6 +722,46 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         throw new Error(`Could not resolve stream for "${track.title}" by ${track.artist}`);
       },
 
+      resolveRawStreamUrl: async (track: AddonTrack, qualityOverride?: string): Promise<string | null> => {
+        const { addons } = get();
+        const globalQuality = useStreamingStore.getState().streamingQuality;
+        const nativeAddon = track.addonId ? addons.find((a) => a.manifest.id === track.addonId && a.enabled) : null;
+        const addonQuality = nativeAddon?.config?.quality ?? nativeAddon?.config?.eclipseQuality ?? null;
+        const effectiveQuality = qualityOverride || addonQuality || globalQuality?.toLowerCase() || undefined;
+
+        if (track.addonId) {
+          const addon = nativeAddon;
+          if (addon) {
+            try {
+              const targetId = (track as any).addonTrackId || track.id;
+              if (addon.eightspineInnerCode) {
+                const api = await getEightspineApi(addon);
+                const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
+                if (typeof getTrackStreamUrl === 'function') {
+                  const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, effectiveQuality, { settings: {} })
+                           : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, effectiveQuality)
+                           : await getTrackStreamUrl(targetId);
+                  const url = pickStreamUrlFromEightspineResult(out);
+                  if (url) return url;
+                }
+              }
+              if (!addon.manifest.baseURL) return null;
+              const qualityParam = effectiveQuality ? `?quality=${encodeURIComponent(effectiveQuality)}` : '';
+              const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${addon.manifest.baseURL}/stream/${targetId}${qualityParam}`)}`);
+              if (res.ok) {
+                const data = await res.json();
+                const url = pickStreamUrlFromEightspineResult(data);
+                if (url) return url;
+              }
+            } catch { /* stream resolution failed */ }
+          }
+        }
+        if (track.streamURL && !(track.streamURL.includes('itunes.apple.com') || track.streamURL.includes('mzstatic.com') || track.streamURL.includes('apple-assets'))) {
+          return track.streamURL;
+        }
+        return null;
+      },
+
       getAlbumTracks: async (albumId: string): Promise<AddonTrack[]> => {
         const { addons, activeAddonId } = get();
         const addon = addons.find((a) => a.manifest.id === activeAddonId);
@@ -983,15 +1033,12 @@ export const useAddonStore = create<AddonState & AddonActions>()(
 
       checkForUpdates: async () => {
         const { addons, fetchManifest, addAddon } = get();
+        let updated = 0;
         for (const addon of addons) {
           const src = addon.installSourceUrl;
           if (!src) continue;
           try {
             if (addon.eightspineInnerCode) {
-              const proxyUrl = `/api/addons/proxy?url=${encodeURIComponent(src)}`;
-              const res = await fetch(proxyUrl);
-              if (!res.ok) continue;
-              const code = await res.text();
               const kindRes = await fetch('/api/addons/eightspine-install', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1001,6 +1048,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
               const meta = await kindRes.json() as { manifest?: AddonManifest; eightspineKind?: string; eightspineInnerCode?: string };
               const newVer = meta.manifest?.version ?? '';
               if (newVer && newVer !== addon.manifest.version) {
+                console.log(`[AddonStore] Updating ${addon.manifest.id}: ${addon.manifest.version} -> ${newVer}`);
                 addAddon(meta.manifest!, {
                   sourceId: addon.sourceId,
                   installSourceUrl: src,
@@ -1008,16 +1056,25 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                   eightspineKind: meta.eightspineKind as 'wrapped' | 'bare',
                   config: addon.config,
                 });
+                updated++;
               }
             } else if (addon.manifest.baseURL) {
               try {
                 const { manifest } = await fetchManifest(src);
                 if (manifest.version && manifest.version !== addon.manifest.version) {
+                  console.log(`[AddonStore] Updating ${addon.manifest.id}: ${addon.manifest.version} -> ${manifest.version}`);
                   addAddon(manifest, { sourceId: addon.sourceId, installSourceUrl: src });
+                  updated++;
                 }
               } catch { /* skip if manifest fetch fails */ }
             }
           } catch { /* skip if update check fails */ }
+        }
+        if (updated > 0) {
+          toast(`Updated ${updated} addon(s)`);
+          console.log(`[AddonStore] Updated ${updated} addon(s)`);
+        } else {
+          console.log('[AddonStore] All addons up-to-date');
         }
       },
 
@@ -1036,6 +1093,9 @@ export const useAddonStore = create<AddonState & AddonActions>()(
 
       clearError: () => set({ error: null }),
 
+      setUseModulesOnGo: (v) => set({ useModulesOnGo: v }),
+      setUseModuleFallback: (v) => set({ useModuleFallback: v }),
+
       clearAddonSearchCache: () =>
         set({
           searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
@@ -1052,6 +1112,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         sources: state.sources,
         playbackPriorityIds: state.playbackPriorityIds,
         hiddenModuleSourceIds: state.hiddenModuleSourceIds,
+        useModulesOnGo: state.useModulesOnGo,
+        useModuleFallback: state.useModuleFallback,
       }),
       migrate: (persisted: any) => {
         const state = persisted as any;

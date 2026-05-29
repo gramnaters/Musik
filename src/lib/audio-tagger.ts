@@ -3,13 +3,20 @@
 export interface TagMetadata {
   title?: string;
   artist?: string;
+  albumArtist?: string;
   album?: string;
   year?: number;
   genre?: string;
   trackNumber?: number;
+  totalTracks?: number;
   discNumber?: number;
+  totalDiscs?: number;
   comment?: string;
   lyrics?: string;
+  isrc?: string;
+  upc?: string;
+  bpm?: number;
+  copyright?: string;
 }
 
 /**
@@ -45,8 +52,15 @@ export async function applyMetadataToAudio(
       if (metadata.genre) tag.genre = metadata.genre;
       if (metadata.year) tag.year = metadata.year;
       if (metadata.trackNumber) tag.track = metadata.trackNumber;
+      if (metadata.totalTracks) tag.setProperty('TRACKTOTAL', String(metadata.totalTracks));
+      if (metadata.discNumber) tag.disc = metadata.discNumber;
+      if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
+      if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
+      if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
+      if (metadata.upc) tag.setProperty('UPC', metadata.upc);
+      if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm));
+      if (metadata.copyright) tag.setProperty('COPYRIGHT', metadata.copyright);
 
-      // Add Lyrics (Synced or Unsynced)
       if (metadata.lyrics) {
         tag.setProperty('LYRICS', metadata.lyrics);
       }

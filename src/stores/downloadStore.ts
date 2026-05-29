@@ -50,8 +50,8 @@ export const useDownloadStore = create<DownloadStore>((set, get) => ({
     }));
 
     // Trigger the actual download logic
-    const { downloadTrackOneClick } = await import('@/lib/download-track');
-    void downloadTrackOneClick(track);
+    const { downloadSingleTrack } = await import('@/lib/download-track');
+    void downloadSingleTrack(track);
   },
 
   updateTask: (id, update) => set((state) => ({
