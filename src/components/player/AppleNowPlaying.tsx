@@ -215,10 +215,10 @@ export default function AppleNowPlaying() {
           {/* Dark base */}
           <div className="absolute inset-0" style={{ background: '#161616' }} />
 
-          {/* Animated gradient background — Apple Music style */}
+          {/* Animated background — Monochrome-inspired */}
           {currentTrack.albumCover && (
             <>
-              {/* Subtle blurred album art base */}
+              {/* Blurred album art base */}
               <motion.div
                 className="absolute inset-0"
                 style={{
@@ -230,66 +230,36 @@ export default function AppleNowPlaying() {
                   transition: 'opacity 1.2s ease',
                 }}
               />
-              {/* Color orbs extracted from album art */}
-              <div style={{ opacity: bgLoaded ? 1 : 0, transition: 'opacity 1.2s ease' }} className="absolute inset-0">
-                <motion.div
-                  className="absolute w-[70vw] h-[70vw] rounded-full"
-                  style={{
-                    background: `radial-gradient(circle, rgba(${c1},0.4) 0%, rgba(${c1},0) 70%)`,
-                    filter: 'blur(40px)',
-                  }}
-                  initial={{ x: '-20%', y: '-10%' }}
-                  animate={{
-                    x: ['-20%', '30%', '-10%', '-20%'],
-                    y: ['-10%', '20%', '40%', '-10%'],
-                    scale: [1, 1.3, 0.9, 1],
-                  }}
-                  transition={{ duration: 12, ease: 'easeInOut', repeat: Infinity }}
-                />
-                <motion.div
-                  className="absolute w-[60vw] h-[60vw] rounded-full"
-                  style={{
-                    background: `radial-gradient(circle, rgba(${c2},0.35) 0%, rgba(${c2},0) 70%)`,
-                    filter: 'blur(40px)',
-                  }}
-                  initial={{ x: '50%', y: '30%' }}
-                  animate={{
-                    x: ['50%', '10%', '60%', '50%'],
-                    y: ['30%', '60%', '10%', '30%'],
-                    scale: [1, 0.8, 1.2, 1],
-                  }}
-                  transition={{ duration: 15, ease: 'easeInOut', repeat: Infinity }}
-                />
-                <motion.div
-                  className="absolute w-[50vw] h-[50vw] rounded-full"
-                  style={{
-                    background: `radial-gradient(circle, rgba(${c3},0.3) 0%, rgba(${c3},0) 70%)`,
-                    filter: 'blur(40px)',
-                  }}
-                  initial={{ x: '-10%', y: '50%' }}
-                  animate={{
-                    x: ['-10%', '40%', '-20%', '-10%'],
-                    y: ['50%', '10%', '30%', '50%'],
-                    scale: [1, 1.4, 0.8, 1],
-                  }}
-                  transition={{ duration: 10, ease: 'easeInOut', repeat: Infinity }}
-                />
-                {/* Extra bright accent orb */}
-                <motion.div
-                  className="absolute w-[40vw] h-[40vw] rounded-full"
-                  style={{
-                    background: `radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%)`,
-                    filter: 'blur(30px)',
-                  }}
-                  initial={{ x: '30%', y: '-20%' }}
-                  animate={{
-                    x: ['30%', '70%', '20%', '30%'],
-                    y: ['-20%', '30%', '-10%', '-20%'],
-                    scale: [1, 1.5, 0.7, 1],
-                  }}
-                  transition={{ duration: 8, ease: 'easeInOut', repeat: Infinity }}
-                />
-              </div>
+              {/* Smooth conic gradient from extracted colors — no banding blobs */}
+              <div
+                className="absolute inset-0 anp-conic-rotate"
+                style={{
+                  background: `conic-gradient(from 0deg, rgba(${c1},0.3), rgba(${c2},0.2), rgba(${c3},0.3), rgba(${c1},0.3))`,
+                  filter: 'blur(60px)',
+                  opacity: bgLoaded ? 1 : 0,
+                  transition: 'opacity 1.2s ease',
+                }}
+              />
+              {/* Extra accent sweep */}
+              <div
+                className="absolute inset-0 anp-conic-sweep"
+                style={{
+                  background: `conic-gradient(from 0deg, transparent, rgba(${c1},0.15) 30%, rgba(${c2},0.1) 60%, transparent 90%)`,
+                  filter: 'blur(40px)',
+                  opacity: bgLoaded ? 0.6 : 0,
+                  transition: 'opacity 1.2s ease',
+                }}
+              />
+              {/* Noise overlay — breaks up banding (Monochrome dithering technique) */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  opacity: 0.035,
+                  mixBlendMode: 'overlay',
+                  pointerEvents: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                }}
+              />
             </>
           )}
 
@@ -312,6 +282,22 @@ export default function AppleNowPlaying() {
             .anp-scroll-inner > span {
               display: inline-block;
               padding-right: 40px;
+            }
+            @keyframes anp-conic-rotate {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            .anp-conic-rotate {
+              animation: anp-conic-rotate 25s linear infinite;
+              will-change: transform;
+            }
+            @keyframes anp-conic-sweep {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            .anp-conic-sweep {
+              animation: anp-conic-sweep 35s linear infinite;
+              will-change: transform;
             }
           `}</style>
 
