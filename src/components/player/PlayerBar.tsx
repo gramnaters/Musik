@@ -756,17 +756,18 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           flex: 1;
           min-width: 0;
           gap: 2px;
-          padding: 5px 0;
+          padding: 4px 0;
         }
         .am-left-top {
           display: flex;
           align-items: center;
           gap: 8px;
           min-width: 0;
+          margin-top: 2px;
         }
         .am-art {
-          width: 38px;
-          height: 38px;
+          width: 36px;
+          height: 36px;
           border-radius: 5px;
           background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
           flex-shrink: 0;
@@ -778,7 +779,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           cursor: pointer;
         }
         .am-art img { width: 100%; height: 100%; object-fit: cover; }
-        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 16px; }
+        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 18px; }
         .am-art .am-art-expand {
           position: absolute;
           inset: 0;
@@ -907,74 +908,58 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           margin-left: 4px;
         }
         .am-volume-pill {
+          position: relative;
           display: flex;
           align-items: center;
           height: 36px;
-          border-radius: 18px;
-          overflow: hidden;
-          transition: width 0.25s cubic-bezier(0.23, 1, 0.32, 1), background 0.25s ease;
-          width: 36px;
-          background: transparent;
+          border-radius: 0;
+          overflow: visible;
+          transition: background 0.25s ease, box-shadow 0.25s ease;
         }
         .am-volume-pill.open {
-          width: 130px;
-          background: rgba(40, 40, 44, 0.85);
-          border: 0.5px solid rgba(255,255,255,0.08);
+          background: transparent;
         }
         .am-volume-slider-area {
           display: flex;
           align-items: center;
-          flex: 1;
-          height: 100%;
-          padding: 0 8px 0 12px;
+          height: 36px;
+          width: 0;
+          overflow: hidden;
+          transition: width 0.25s cubic-bezier(0.23, 1, 0.32, 1), padding 0.25s ease;
+          padding: 0;
+        }
+        .am-volume-slider-area.open {
+          width: 120px;
+          padding: 0 8px 0 0;
+        }
+        .am-volume-track {
+          position: relative;
+          width: 100%;
+          height: 4px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 2px;
+          cursor: pointer;
           overflow: hidden;
         }
-        .am-volume-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 3px;
-          background: rgba(255,255,255,0.2);
-          cursor: pointer;
+        .am-volume-fill {
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          background: #fff;
           border-radius: 2px;
-          outline: none;
+          transition: width 0.05s linear;
         }
-        .am-volume-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
+        .am-volume-thumb {
+          position: absolute;
+          top: 50%;
+          transform: translate(-50%, -50%);
           width: 12px;
           height: 12px;
           border-radius: 50%;
           background: #fff;
-          border: none;
-          cursor: pointer;
           box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-          transition: transform 0.12s ease;
-        }
-        .am-volume-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.15);
-        }
-        .am-volume-slider::-webkit-slider-runnable-track {
-          width: 100%;
-          height: 3px;
-          background: rgba(255,255,255,0.2);
-          border-radius: 2px;
-        }
-        .am-volume-slider::-moz-range-track {
-          width: 100%;
-          height: 3px;
-          background: rgba(255,255,255,0.2);
-          border-radius: 2px;
-          border: none;
-        }
-        .am-volume-slider::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #fff;
-          border: none;
-          cursor: pointer;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          pointer-events: none;
         }
         .am-btn-vol {
           background: none;
@@ -1130,20 +1115,19 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
               </svg>
             </button>
             <div className={`am-volume-pill ${showVolume ? "open" : ""}`} ref={volWrapRef}>
-              <div className="am-volume-slider-area">
-                <input
-                  className="am-volume-slider"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={localVolume}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    setLocalVolume(v);
-                    setVolume(v);
+              <div className={`am-volume-slider-area ${showVolume ? "open" : ""}`}>
+                <div
+                  className="am-volume-track"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    setLocalVolume(pct);
+                    setVolume(pct);
                   }}
-                />
+                >
+                  <div className="am-volume-fill" style={{ width: `${localVolume * 100}%` }} />
+                  <div className="am-volume-thumb" style={{ left: `${localVolume * 100}%` }} />
+                </div>
               </div>
               <button className="am-btn-vol" onClick={() => setShowVolume(v => !v)} title="Volume">
                 {localVolume === 0 ? (
