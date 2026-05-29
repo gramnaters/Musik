@@ -151,15 +151,16 @@ function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'stream
   const explicitEl = track.explicit ? (
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
-        <span className="text-[8px] font-bold px-1 rounded-[2px] bg-white/20 text-white/90 leading-tight h-3.5 inline-flex items-center cursor-default">
+        <span className="text-[8px] font-bold px-1 rounded-[2px] bg-white/20 text-white/90 leading-tight h-3.5 inline-flex items-center">
           E
         </span>
       </TooltipTrigger>
       <TooltipContent
         side="top"
+        hideArrow
         className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5 shadow-lg"
       >
-        Explicit content
+        Explicit
       </TooltipContent>
     </Tooltip>
   ) : null;
