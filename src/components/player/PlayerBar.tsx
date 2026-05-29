@@ -903,11 +903,12 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           margin-left: 6px;
         }
         .am-volume-pill {
+          position: relative;
           display: flex;
           align-items: center;
           height: 46px;
           border-radius: 23px;
-          overflow: hidden;
+          overflow: visible;
           transition: background 0.25s ease, box-shadow 0.25s ease;
         }
         .am-volume-pill.open {
@@ -915,25 +916,67 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           box-shadow: 0 2px 10px rgba(0,0,0,0.35);
         }
         .am-volume-slider-area {
-          width: 0;
+          position: absolute;
+          bottom: 48px;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 0;
+          width: 28px;
           overflow: hidden;
-          transition: width 0.25s ease, padding 0.25s ease;
+          transition: height 0.25s ease;
           display: flex;
           align-items: center;
-          height: 100%;
-          box-sizing: border-box;
+          justify-content: center;
+          background: rgba(30, 30, 35, 0.85);
+          border-radius: 14px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.35);
         }
         .am-volume-slider-area.open {
-          width: 130px;
-          padding: 0 6px 0 16px;
+          height: 130px;
         }
         .am-volume-slider {
-          width: 100%;
-          height: 4px;
-          accent-color: rgba(255,255,255,0.8);
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100px;
+          height: 3px;
+          background: rgba(255,255,255,0.2);
           cursor: pointer;
           border-radius: 2px;
           opacity: 0.9;
+          transform: rotate(-90deg);
+          transform-origin: center;
+          outline: none;
+        }
+        .am-volume-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+        }
+        .am-volume-slider::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 3px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 2px;
+        }
+        .am-volume-slider::-moz-range-track {
+          width: 100%;
+          height: 3px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 2px;
+          border: none;
+        }
+        .am-volume-slider::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
         }
         .am-btn-vol {
           background: none;
@@ -1069,14 +1112,6 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           </div>
 
           <div className="am-right">
-            <button className="am-btn" onClick={() => setShowNowPlaying(true)} title="Now Playing">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 17a5 5 0 0 1 0-10"/>
-                <path d="M8 17a5 5 0 0 1 0-10"/>
-                <polyline points="15 10 20 15 15 20"/>
-                <polyline points="9 18 9 5 17 7"/>
-              </svg>
-            </button>
             <button className="am-btn" title="Download">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1108,6 +1143,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                     setLocalVolume(v);
                     setVolume(v);
                   }}
+                  dir="ltr"
                 />
               </div>
               <button className="am-btn-vol" onClick={() => setShowVolume(v => !v)} title="Volume">
