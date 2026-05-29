@@ -913,14 +913,25 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           flex-direction: column;
           align-items: center;
           width: 36px;
-          border-radius: 18px;
-          background: rgba(30, 30, 35, 0.85);
+        }
+        .am-volume-slider-area {
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 0;
+          width: 36px;
           overflow: hidden;
           transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
-          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(30, 30, 35, 0.85);
+          border-radius: 18px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
         }
-        .am-volume-pill.expanded {
-          height: 180px;
+        .am-volume-slider-area.open {
+          height: 150px;
         }
         .am-volume-icon-bottom {
           flex-shrink: 0;
@@ -929,31 +940,12 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           width: 36px;
           height: 36px;
+          border-radius: 50%;
           cursor: pointer;
           color: rgba(255,255,255,0.8);
           transition: color 0.12s ease;
-          z-index: 1;
         }
         .am-volume-icon-bottom:hover { color: #fff; }
-        .am-volume-slider-wrap {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.2s ease;
-          padding: 10px 0;
-        }
-        .am-volume-pill.expanded .am-volume-slider-wrap {
-          opacity: 1;
-          pointer-events: auto;
-        }
-        .am-volume-pill.expanded .am-volume-icon-bottom {
-          opacity: 0;
-          pointer-events: none;
-        }
         .am-volume-track {
           position: relative;
           width: 4px;
@@ -1119,8 +1111,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
               </svg>
             </button>
-            <div className={`am-volume-pill ${showVolume ? "expanded" : ""}`} ref={volWrapRef}>
-              <div className="am-volume-slider-wrap">
+            <div className="am-volume-pill" ref={volWrapRef}>
+              <div className={`am-volume-slider-area ${showVolume ? "open" : ""}`}>
                 <div
                   className="am-volume-track"
                   onClick={(e) => {
