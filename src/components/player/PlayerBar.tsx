@@ -916,25 +916,50 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-volume-slider-area {
           position: absolute;
-          bottom: 40px;
+          bottom: 44px;
           left: 50%;
           transform: translateX(-50%);
           height: 0;
-          width: 36px;
+          width: 32px;
           overflow: hidden;
           transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(30, 30, 35, 0.85);
-          border-radius: 18px;
+          background: rgba(30, 30, 35, 0.88);
+          border-radius: 16px;
           box-shadow: 0 4px 16px rgba(0,0,0,0.4);
         }
         .am-volume-slider-area.open {
-          height: 150px;
+          height: 130px;
         }
-        .am-volume-icon-bottom {
-          flex-shrink: 0;
+        .am-volume-track {
+          position: relative;
+          width: 3px;
+          height: 80px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 2px;
+          cursor: pointer;
+        }
+        .am-volume-fill {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          background: rgba(255,255,255,0.9);
+          border-radius: 2px;
+          transition: height 0.05s linear;
+        }
+        .am-volume-line {
+          position: absolute;
+          left: -1.5px;
+          width: 6px;
+          height: 2px;
+          background: #fff;
+          border-radius: 1px;
+          pointer-events: none;
+        }
+        .am-volume-icon-btn {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -945,35 +970,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           color: rgba(255,255,255,0.8);
           transition: color 0.12s ease;
         }
-        .am-volume-icon-bottom:hover { color: #fff; }
-        .am-volume-track {
-          position: relative;
-          width: 4px;
-          height: 100%;
-          background: rgba(255,255,255,0.15);
-          border-radius: 2px;
-          cursor: pointer;
-        }
-        .am-volume-fill {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          background: #fff;
-          border-radius: 2px;
-          transition: height 0.05s linear;
-        }
-        .am-volume-thumb {
-          position: absolute;
-          left: 50%;
-          transform: translate(-50%, 50%);
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-          pointer-events: none;
-        }
+        .am-volume-icon-btn:hover { color: #fff; }
         @keyframes am-pop-in {
           from { opacity: 0; transform: scale(0.97) translateY(4px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
@@ -1122,11 +1119,12 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                     setVolume(pct);
                   }}
                 >
-                  <div className="am-volume-fill" style={{ height: `${localVolume * 100}%` }} />
-                  <div className="am-volume-thumb" style={{ bottom: `${localVolume * 100}%` }} />
+                  <div className="am-volume-fill" style={{ height: `${localVolume * 100}%` }}>
+                    <div className="am-volume-line" style={{ top: -1 }} />
+                  </div>
                 </div>
               </div>
-              <div className="am-volume-icon-bottom" onClick={() => setShowVolume(v => !v)} title="Volume">
+              <div className="am-volume-icon-btn" onClick={() => setShowVolume(v => !v)} title="Volume">
                 {localVolume === 0 ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
