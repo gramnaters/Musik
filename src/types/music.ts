@@ -3,18 +3,32 @@ export interface Track {
   title: string;
   artist: string;
   album?: string;
+  albumArtist?: string;
   albumCover?: string;
   albumId?: string;
   artistId?: string;
   duration?: number; // seconds
   isrc?: string;
+  upc?: string;
+  bpm?: number;
+  trackNumber?: number;
+  discNumber?: number;
+  totalTracks?: number;
+  totalDiscs?: number;
+  copyright?: string;
   streamURL?: string;
   format?: string;
   addonId?: string;
   addonTrackId?: string;
-  quality?: string; // Flexible to accept any quality token from addons
+  quality?: string;
   explicit?: boolean;
-  genres?: string[]; // local/demo metadata
+  genres?: string[];
+  year?: string;
+  releaseDate?: string;
+  replayGainTrack?: number;
+  replayGainAlbum?: number;
+  replayGainTrackPeak?: number;
+  replayGainAlbumPeak?: number;
 }
 
 export interface Album {

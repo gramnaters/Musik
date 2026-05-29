@@ -159,6 +159,10 @@ export default function AddonsView() {
     cleanupBrokenAddons,
     searchWithAddon,
     resolveStreamUrl,
+    useModulesOnGo: storeUseModulesOnGo,
+    useModuleFallback: storeUseModuleFallback,
+    setUseModulesOnGo,
+    setUseModuleFallback,
   } = useAddonStore();
 
 
@@ -210,8 +214,8 @@ export default function AddonsView() {
   const [bulkInstalling, setBulkInstalling] = useState(false);
   const [showReorder, setShowReorder] = useState(false);
   const [reorderItems, setReorderItems] = useState<string[]>([]);
-  const [useModulesOnGo, setUseModulesOnGo] = useState(false);
-  const [useModuleFallback, setUseModuleFallback] = useState(false);
+  // Toggles persisted in addonStore — no local state needed
+
 
   const [catalogBySource, setCatalogBySource] = useState<
     Record<string, { addons: StoreAddon[]; loading: boolean; error: string }>
@@ -863,7 +867,7 @@ export default function AddonsView() {
                         <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">Stream unowned tracks using installed modules</p>
                       </div>
                     </div>
-                    <Switch checked={useModulesOnGo} onCheckedChange={setUseModulesOnGo} />
+                    <Switch checked={storeUseModulesOnGo} onCheckedChange={setUseModulesOnGo} />
                   </div>
 
                   <div className="flex items-center justify-between gap-4">
@@ -871,7 +875,7 @@ export default function AddonsView() {
                       <p className="text-sm font-medium text-white leading-snug">Module Fallback (beta)</p>
                       <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">If playback fails, try the next active module</p>
                     </div>
-                    <Switch checked={useModuleFallback} onCheckedChange={setUseModuleFallback} />
+                    <Switch checked={storeUseModuleFallback} onCheckedChange={setUseModuleFallback} />
                   </div>
 
                   <div className="h-px bg-zinc-800" />

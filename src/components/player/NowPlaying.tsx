@@ -657,6 +657,8 @@ function ContextMenuOverlay({ menuRef, currentTrack, menuPos, showPlaylistSub, s
             { icon: Heart, label: 'Add to My Collection', fn: () => { currentTrack && toggleFavourite(currentTrack); setShowMenu(false); } },
             { icon: Sparkles, label: 'Go to track radio', fn: () => { _toast({ title: 'Track Radio' }); setShowMenu(false); } },
             { icon: Music, label: 'Go to album', fn: () => { setShowMenu(false); } },
+            { icon: Download, label: 'Download Track', fn: () => { if (currentTrack) { void import('@/lib/download-track').then(m => m.downloadSingleTrack(currentTrack)); } setShowMenu(false); } },
+            { icon: Download, label: 'Download Album', fn: () => { if (currentTrack && currentTrack.albumId) { void import('@/lib/download-track').then(m => m.downloadTracksBulk([currentTrack], { albumName: currentTrack.album, artistName: currentTrack.artist })); } setShowMenu(false); } },
             { icon: FileText, label: 'Credits', fn: () => { setShowCredits(true); setShowMenu(false); } },
             { icon: Users, label: 'Go to artist', fn: () => { setShowMenu(false); } },
             { icon: Share2, label: 'Share', right: <ChevronRight size={14} />, fn: () => setShowShareSub(true) },

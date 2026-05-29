@@ -72,7 +72,7 @@ export default function SearchView() {
 
   const { play } = usePlayerStore();
   const { addRecentlyPlayed } = useLibraryStore();
-  const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError, getAlbumTracksForAddon, getPlaylistTracksForAddon, getArtistTracksForAddon } = useAddonStore();
+  const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError, getAlbumTracksForAddon, getPlaylistTracksForAddon, getArtistTracksForAddon, getPlaybackOrderedSearchAddonIds, playbackPriorityIds } = useAddonStore();
   const { navigateTo, searchQuery, setSearchQuery } = useUIStore();
   const catalogProvider = useMetadataStore((s) => s.catalogProvider);
   const appleStorefront = useMetadataStore((s) => s.appleStorefront ?? 'US');
@@ -97,15 +97,18 @@ export default function SearchView() {
   const catalogLabel = catalogProvider === 'apple' ? 'Apple Music' : 'Spotify';
 
   useEffect(() => {
-    if (!enabledAddons.length) {
+    const ordered = getPlaybackOrderedSearchAddonIds();
+    if (!ordered.length) {
       setAddonSearchId(null);
       return;
     }
     setAddonSearchId((cur) => {
-      if (cur && enabledAddons.some((a) => a.manifest.id === cur)) return cur;
-      return enabledAddons[0]!.manifest.id;
+      // Keep current selection if still valid
+      if (cur && ordered.includes(cur)) return cur;
+      // Otherwise use the first addon from the reorder list
+      return ordered[0]!;
     });
-  }, [enabledAddons]);
+  }, [enabledAddons, getPlaybackOrderedSearchAddonIds, playbackPriorityIds]);
 
   useEffect(() => {
     if (addonSearchId) setActiveAddon(addonSearchId);
