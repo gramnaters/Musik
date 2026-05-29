@@ -763,11 +763,11 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           align-items: center;
           gap: 8px;
           min-width: 0;
-          margin-top: 2px;
+          margin-top: 4px;
         }
         .am-art {
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           border-radius: 5px;
           background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
           flex-shrink: 0;
@@ -911,51 +911,57 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           position: relative;
           display: flex;
           align-items: center;
+          justify-content: center;
           height: 36px;
-          border-radius: 0;
+          width: 36px;
+          border-radius: 50%;
           overflow: visible;
-          transition: background 0.25s ease, box-shadow 0.25s ease;
-        }
-        .am-volume-pill.open {
-          background: transparent;
         }
         .am-volume-slider-area {
-          display: flex;
-          align-items: center;
-          height: 36px;
-          width: 0;
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 0;
+          width: 36px;
           overflow: hidden;
-          transition: width 0.25s cubic-bezier(0.23, 1, 0.32, 1), padding 0.25s ease;
-          padding: 0;
+          transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding-bottom: 12px;
+          background: rgba(30, 30, 35, 0.85);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 18px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
         }
         .am-volume-slider-area.open {
-          width: 120px;
-          padding: 0 8px 0 0;
+          height: 140px;
         }
         .am-volume-track {
           position: relative;
-          width: 100%;
-          height: 4px;
+          width: 4px;
+          height: 80px;
           background: rgba(255,255,255,0.2);
           border-radius: 2px;
           cursor: pointer;
-          overflow: hidden;
+          overflow: visible;
         }
         .am-volume-fill {
           position: absolute;
+          bottom: 0;
           left: 0;
-          top: 0;
-          height: 100%;
+          width: 100%;
           background: #fff;
           border-radius: 2px;
-          transition: width 0.05s linear;
+          transition: height 0.05s linear;
         }
         .am-volume-thumb {
           position: absolute;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          width: 12px;
-          height: 12px;
+          left: 50%;
+          transform: translate(-50%, 50%);
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
           background: #fff;
           box-shadow: 0 1px 4px rgba(0,0,0,0.4);
@@ -963,20 +969,20 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-btn-vol {
           background: none;
-          border: none;
+          border: 1px solid rgba(255,255,255,0.12);
           padding: 0;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           color: rgba(255,255,255,0.8);
-          transition: color 0.12s ease;
-          width: 36px;
-          height: 36px;
+          transition: color 0.12s ease, border-color 0.15s ease;
+          width: 34px;
+          height: 34px;
           flex-shrink: 0;
           border-radius: 50%;
         }
-        .am-btn-vol:hover { color: #fff; }
+        .am-btn-vol:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
         @keyframes am-pop-in {
           from { opacity: 0; transform: scale(0.97) translateY(4px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
@@ -1120,13 +1126,13 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                   className="am-volume-track"
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
-                    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    const pct = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
                     setLocalVolume(pct);
                     setVolume(pct);
                   }}
                 >
-                  <div className="am-volume-fill" style={{ width: `${localVolume * 100}%` }} />
-                  <div className="am-volume-thumb" style={{ left: `${localVolume * 100}%` }} />
+                  <div className="am-volume-fill" style={{ height: `${localVolume * 100}%` }} />
+                  <div className="am-volume-thumb" style={{ bottom: `${localVolume * 100}%` }} />
                 </div>
               </div>
               <button className="am-btn-vol" onClick={() => setShowVolume(v => !v)} title="Volume">
