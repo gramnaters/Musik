@@ -1049,6 +1049,14 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           </div>
 
           <div className="am-right">
+            <button className="am-btn" onClick={() => setShowNowPlaying(true)} title="Now Playing">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 17a5 5 0 0 1 0-10"/>
+                <path d="M8 17a5 5 0 0 1 0-10"/>
+                <polyline points="15 10 20 15 15 20"/>
+                <polyline points="9 18 9 5 17 7"/>
+              </svg>
+            </button>
             <button className="am-btn" title="Download">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

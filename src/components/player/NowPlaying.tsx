@@ -374,7 +374,9 @@ export default function NowPlaying() {
         setSimilarTracksLoading(true);
         setShowSimilarTracks(true);
         try {
-          const data = await getRecommendations(currentTrack.id);
+          // Use the original source track ID (not the addon-prefixed one) for Tidal API
+          const trackId = currentTrack.addonTrackId || currentTrack.id;
+          const data = await getRecommendations(trackId);
           const items = (data.tracks || data.items || data.results || []).slice(0, 20);
           setSimilarTracks(items.map(mapMonochromeTrack));
         } catch {
