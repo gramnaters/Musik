@@ -157,7 +157,14 @@ export default function NowPlaying() {
 
   // Create/recreate am-lyrics element when track or visibility changes
   useEffect(() => {
-    if (!showLyrics || !currentTrack || !lyricsContainerRef.current) return;
+    if (!showLyrics || !currentTrack || !lyricsContainerRef.current) {
+      // Clear container when lyrics hidden or no track
+      if (lyricsContainerRef.current) {
+        lyricsContainerRef.current.innerHTML = '';
+      }
+      amLyricsRef.current = null;
+      return;
+    }
 
     const container = lyricsContainerRef.current;
     container.innerHTML = '';
@@ -187,73 +194,15 @@ export default function NowPlaying() {
     el.style.height = '100%';
     el.style.width = '100%';
 
-    const onLineClick = (e: Event) => {
-      const ce = e as CustomEvent<{ timestamp: number }>;
-      if (ce.detail?.timestamp != null) {
-        usePlayerStore.getState().seekTo(ce.detail.timestamp / 1000);
+    el.addEventListener('lyrics-ready', (() => {
+      if (container.parentElement) {
+        container.parentElement.scrollTop = 0;
       }
-    };
-    el.addEventListener('line-click', onLineClick);
+    }) as EventListener);
 
     container.appendChild(el);
     amLyricsRef.current = el;
-
-    // Inject shadow DOM CSS to neutralize default rotation and match Monochrome styling
-    const injectShadowCSS = (attempt = 0) => {
-      const root = el.shadowRoot;
-      if (!root) {
-        if (attempt < 20) requestAnimationFrame(() => injectShadowCSS(attempt + 1));
-        return;
-      }
-      let styleEl = root.getElementById('bb-lyrics-tweaks') as HTMLStyleElement;
-      if (!styleEl) {
-        const s = document.createElement('style');
-        s.id = 'bb-lyrics-tweaks';
-        root.appendChild(s);
-        styleEl = s;
-      }
-      styleEl.textContent = `
-        .lyrics-line {
-          transform-origin: left center;
-          transform: none !important;
-          font-style: normal !important;
-          transition: opacity 0.42s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--lyrics-line-delay, 0ms), filter 0.48s cubic-bezier(0.22, 1, 0.36, 1) !important;
-        }
-        .lyrics-line:not(.active):not(.pre-active) {
-          opacity: 0.44;
-        }
-        .lyrics-line-container {
-          transform: none !important;
-          font-style: normal !important;
-          transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s ease, color 0.3s ease !important;
-        }
-        .lyrics-line.active .lyrics-line-container,
-        .lyrics-line.pre-active .lyrics-line-container {
-          transition: transform 0.56s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.22s ease, color 0.22s ease !important;
-        }
-        .lyrics-line.active .lyrics-line-container {
-          transform: scale(1.015) !important;
-        }
-        .lyrics-container {
-          scrollbar-width: none !important;
-          -ms-overflow-style: none !important;
-        }
-        .lyrics-container::-webkit-scrollbar {
-          width: 0 !important;
-          height: 0 !important;
-          display: none !important;
-          background: transparent !important;
-        }
-      `;
-    };
-    requestAnimationFrame(() => injectShadowCSS());
-
-    return () => {
-      el.removeEventListener('line-click', onLineClick as EventListener);
-      container.innerHTML = '';
-      amLyricsRef.current = null;
-    };
-  }, [showLyrics, currentTrack?.id]);
+  }, [showLyrics, currentTrack?.id, showNowPlaying]);
 
   // Auto-convert to Romaji when lyrics load and Romaji mode is on
   useEffect(() => {
