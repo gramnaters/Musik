@@ -910,42 +910,53 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         .am-volume-pill {
           position: relative;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
-          height: 36px;
           width: 36px;
-          border-radius: 50%;
-          overflow: visible;
-        }
-        .am-volume-slider-area {
-          position: absolute;
-          bottom: 40px;
-          left: 50%;
-          transform: translateX(-50%);
-          height: 0;
-          width: 36px;
+          border-radius: 18px;
+          background: rgba(30, 30, 35, 0.85);
+          border: 1px solid rgba(255,255,255,0.1);
           overflow: hidden;
           transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          padding-bottom: 12px;
-          background: rgba(30, 30, 35, 0.85);
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: 18px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+          height: 36px;
         }
-        .am-volume-slider-area.open {
-          height: 140px;
+        .am-volume-pill.expanded {
+          height: 180px;
+        }
+        .am-volume-icon-bottom {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          cursor: pointer;
+          color: rgba(255,255,255,0.8);
+          transition: color 0.12s ease;
+          z-index: 1;
+        }
+        .am-volume-icon-bottom:hover { color: #fff; }
+        .am-volume-slider-wrap {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.2s ease;
+        }
+        .am-volume-pill.expanded .am-volume-slider-wrap {
+          opacity: 1;
+          pointer-events: auto;
         }
         .am-volume-track {
           position: relative;
           width: 4px;
-          height: 80px;
-          background: rgba(255,255,255,0.2);
+          height: 100%;
+          background: rgba(255,255,255,0.15);
           border-radius: 2px;
           cursor: pointer;
-          overflow: visible;
         }
         .am-volume-fill {
           position: absolute;
@@ -964,25 +975,9 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           height: 14px;
           border-radius: 50%;
           background: #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.5);
           pointer-events: none;
         }
-        .am-btn-vol {
-          background: none;
-          border: 1px solid rgba(255,255,255,0.12);
-          padding: 0;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: rgba(255,255,255,0.8);
-          transition: color 0.12s ease, border-color 0.15s ease;
-          width: 34px;
-          height: 34px;
-          flex-shrink: 0;
-          border-radius: 50%;
-        }
-        .am-btn-vol:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
         @keyframes am-pop-in {
           from { opacity: 0; transform: scale(0.97) translateY(4px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
@@ -1120,8 +1115,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
               </svg>
             </button>
-            <div className={`am-volume-pill ${showVolume ? "open" : ""}`} ref={volWrapRef}>
-              <div className={`am-volume-slider-area ${showVolume ? "open" : ""}`}>
+            <div className={`am-volume-pill ${showVolume ? "expanded" : ""}`} ref={volWrapRef}>
+              <div className="am-volume-slider-wrap">
                 <div
                   className="am-volume-track"
                   onClick={(e) => {
@@ -1135,21 +1130,21 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                   <div className="am-volume-thumb" style={{ bottom: `${localVolume * 100}%` }} />
                 </div>
               </div>
-              <button className="am-btn-vol" onClick={() => setShowVolume(v => !v)} title="Volume">
+              <div className="am-volume-icon-bottom" onClick={() => setShowVolume(v => !v)} title="Volume">
                 {localVolume === 0 ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
                   </svg>
                 ) : localVolume < 0.5 ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
                   </svg>
                 ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                   </svg>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
