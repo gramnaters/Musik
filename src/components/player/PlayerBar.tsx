@@ -773,9 +773,23 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           display: flex;
           align-items: center;
           justify-content: center;
+          position: relative;
+          cursor: pointer;
         }
         .am-art img { width: 100%; height: 100%; object-fit: cover; }
         .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 14px; }
+        .am-art .am-art-expand {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0,0,0,0.45);
+          opacity: 0;
+          transition: opacity 0.15s ease;
+          border-radius: 5px;
+        }
+        .am-art:hover .am-art-expand { opacity: 1; }
         .am-meta { min-width: 0; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
         .am-title-row {
           display: flex;
@@ -1008,12 +1022,18 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
 
           <div className="am-left-area">
             <div className={`am-left-top ${hoveredSeek ? "blurred" : ""}`}>
-              <div className="am-art">
+              <div className="am-art" onClick={() => setShowNowPlaying(true)}>
                 {song?.albumArt ? (
                   <img src={song.albumArt} alt={song?.album ?? ""} />
                 ) : (
                   <span className="am-art-placeholder">♪</span>
                 )}
+                <div className="am-art-expand">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h6v6"/>
+                    <path d="m21 3-7 7"/>
+                  </svg>
+                </div>
               </div>
               <div className="am-meta">
                 <div className="am-title-row">
