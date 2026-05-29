@@ -3,9 +3,19 @@ import { useAddonStore } from '@/stores/addonStore';
 import { useDownloadStore } from '@/stores/downloadStore';
 import { useStreamingStore } from '@/stores/streamingStore';
 import { applyMetadataToAudio, TagMetadata } from '@/lib/audio-tagger';
-import { isCustomFormat, transcodeAudio, getExtensionFromBlob } from '@/lib/download-ffmpeg';
 import { createBulkWriter, buildTrackFilename, buildAlbumFolder, SequentialFileWriter, WriterEntry } from '@/lib/download-writer';
 import { generateM3U, generateCUE } from '@/lib/playlist-generator';
+
+function getExtensionFromBlob(blob: Blob): string {
+  const u8 = new Uint8Array(blob.slice(0, 12));
+  const sig = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  if (sig.startsWith('66 4c 61 43')) return 'flac';
+  if (sig.startsWith('ff f') || sig.startsWith('ff e') || sig.startsWith('ff f3') || sig.startsWith('49 44 33')) return 'mp3';
+  if (sig.startsWith('00 00 00 18 66 74 79 70 6d 70 34 32') || sig.startsWith('00 00 00 20 66 74 79 70') || sig.startsWith('4d 34 41 20')) return 'm4a';
+  if (sig.startsWith('4f 67 67 53')) return 'ogg';
+  if (sig.startsWith('52 49 46 46')) return 'wav';
+  return 'mp3';
+}
 
 interface DownloadOpts {
   track: Track;
@@ -91,33 +101,9 @@ export async function downloadTrackEnhanced(opts: DownloadOpts): Promise<Blob> {
   }
   if (!streamUrl) throw new Error('Could not resolve stream URL');
 
-  // 2. Determine download quality strategy
-  const isCustom = isCustomFormat(qual);
-  const downloadQualityActual = isCustom ? 'LOSSLESS' : qual;
-
-  // 3. Fetch audio at source quality
+  // 2. Fetch audio at requested quality
   const audioBlob = await fetchAudioWithProgress(streamUrl, opts);
-  const sourceExt = getExtensionFromBlob(audioBlob);
-
-  // 4. FFmpeg post-processing (Monochrome-style)
-  let processedBlob = audioBlob;
-  let finalExt = sourceExt;
-  if (isCustom) {
-    opts.onProgress?.(85);
-    processedBlob = await transcodeAudio(audioBlob, qual, (p) => opts.onProgress?.(85 + Math.round(p * 0.05)));
-    finalExt = sourceExt === 'flac' ? 'flac' : 'mp3';
-  } else if (qual === 'LOSSLESS' || qual === 'HI_RES_LOSSLESS') {
-    if (sourceExt === 'm4a' || sourceExt === 'mp4') {
-      // Remux M4A to FLAC if lossless container is set to flac
-      opts.onProgress?.(85);
-      const { losslessContainer } = useStreamingStore.getState();
-      if (losslessContainer === 'flac') {
-        processedBlob = await transcodeAudio(audioBlob, 'FFMPEG_ALAC', (p) => opts.onProgress?.(85 + Math.round(p * 0.05)));
-        finalExt = 'flac';
-      }
-    }
-    finalExt = sourceExt;
-  }
+  const ext = getExtensionFromBlob(audioBlob);
 
   opts.onProgress?.(90);
 
@@ -146,12 +132,12 @@ export async function downloadTrackEnhanced(opts: DownloadOpts): Promise<Blob> {
     comment: `Downloaded via Musik | Quality: ${qual}`,
   };
 
-  const audioBuffer = await processedBlob.arrayBuffer();
-  const taggedBuffer = await applyMetadataToAudio(audioBuffer, meta, finalExt, coverBuffer);
+  const audioBuffer = await audioBlob.arrayBuffer();
+  const taggedBuffer = await applyMetadataToAudio(audioBuffer, meta, ext, coverBuffer);
 
   opts.onProgress?.(98);
 
-  return new Blob([taggedBuffer], { type: `audio/${finalExt === 'flac' ? 'flac' : finalExt === 'm4a' ? 'mp4' : 'mpeg'}` });
+  return new Blob([taggedBuffer], { type: `audio/${ext === 'flac' ? 'flac' : ext === 'm4a' ? 'mp4' : 'mpeg'}` });
 }
 
 export async function downloadTracksBulk(
