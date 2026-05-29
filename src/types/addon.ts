@@ -212,6 +212,8 @@ export interface InstalledAddon {
   lastUsed?: number;
   /** Which catalog row installed this (`custom` = manual URL from Connections). */
   sourceId: string;
+  /** The URL used to install this addon (manifest URL, .8spine file URL, or setup URL). */
+  installSourceUrl?: string;
   /**
    * 8SPINE module source: for **wrapped** modules, inner template-literal body; for **bare** modules, full file text.
    * When set, search/stream use this runtime instead of HTTP `baseURL` routes.

@@ -140,6 +140,8 @@ interface AddonActions {
   movePlaybackPriority: (addonId: string, delta: -1 | 1) => void;
   setPlaybackPriorityIds: (ids: string[]) => void;
   cleanupBrokenAddons: () => void;
+  /** Re-fetch source for each installed addon and update if a newer version is available. */
+  checkForUpdates: () => Promise<void>;
 }
 
 
@@ -977,6 +979,46 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         const pri = (playbackPriorityIds ?? []).filter((id) => ids.includes(id));
         const rest = ids.filter((id) => !pri.includes(id));
         return [...pri, ...rest];
+      },
+
+      checkForUpdates: async () => {
+        const { addons, fetchManifest, addAddon } = get();
+        for (const addon of addons) {
+          const src = addon.installSourceUrl;
+          if (!src) continue;
+          try {
+            if (addon.eightspineInnerCode) {
+              const proxyUrl = `/api/addons/proxy?url=${encodeURIComponent(src)}`;
+              const res = await fetch(proxyUrl);
+              if (!res.ok) continue;
+              const code = await res.text();
+              const kindRes = await fetch('/api/addons/eightspine-install', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: src }),
+              });
+              if (!kindRes.ok) continue;
+              const meta = await kindRes.json() as { manifest?: AddonManifest; eightspineKind?: string; eightspineInnerCode?: string };
+              const newVer = meta.manifest?.version ?? '';
+              if (newVer && newVer !== addon.manifest.version) {
+                addAddon(meta.manifest!, {
+                  sourceId: addon.sourceId,
+                  installSourceUrl: src,
+                  eightspineInnerCode: meta.eightspineInnerCode,
+                  eightspineKind: meta.eightspineKind as 'wrapped' | 'bare',
+                  config: addon.config,
+                });
+              }
+            } else if (addon.manifest.baseURL) {
+              try {
+                const { manifest } = await fetchManifest(src);
+                if (manifest.version && manifest.version !== addon.manifest.version) {
+                  addAddon(manifest, { sourceId: addon.sourceId, installSourceUrl: src });
+                }
+              } catch { /* skip if manifest fetch fails */ }
+            }
+          } catch { /* skip if update check fails */ }
+        }
       },
 
       movePlaybackPriority: (addonId, delta) => {
