@@ -764,9 +764,9 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           min-width: 0;
         }
         .am-art {
-          width: 28px;
-          height: 28px;
-          border-radius: 5px;
+          width: 40px;
+          height: 40px;
+          border-radius: 6px;
           background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
           flex-shrink: 0;
           overflow: hidden;
@@ -775,9 +775,10 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           position: relative;
           cursor: pointer;
+          margin-top: -4px;
         }
         .am-art img { width: 100%; height: 100%; object-fit: cover; }
-        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 14px; }
+        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 18px; }
         .am-art .am-art-expand {
           position: absolute;
           inset: 0;
@@ -787,7 +788,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           background: rgba(0,0,0,0.45);
           opacity: 0;
           transition: opacity 0.15s ease;
-          border-radius: 5px;
+          border-radius: 6px;
         }
         .am-art:hover .am-art-expand { opacity: 1; }
         .am-meta { min-width: 0; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
@@ -907,7 +908,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           display: flex;
           align-items: center;
           height: 46px;
-          border-radius: 23px;
+          border-radius: 0;
           overflow: visible;
           transition: background 0.25s ease, box-shadow 0.25s ease;
         }
@@ -921,27 +922,27 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           left: 50%;
           transform: translateX(-50%);
           height: 0;
-          width: 28px;
+          width: 32px;
           overflow: hidden;
-          transition: height 0.25s ease;
+          transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
           display: flex;
           align-items: center;
           justify-content: center;
           background: rgba(30, 30, 35, 0.85);
-          border-radius: 14px;
+          border-radius: 0;
           box-shadow: 0 2px 10px rgba(0,0,0,0.35);
         }
         .am-volume-slider-area.open {
-          height: 130px;
+          height: 140px;
         }
         .am-volume-slider {
           -webkit-appearance: none;
           appearance: none;
-          width: 100px;
-          height: 3px;
+          width: 110px;
+          height: 4px;
           background: rgba(255,255,255,0.2);
           cursor: pointer;
-          border-radius: 2px;
+          border-radius: 0;
           opacity: 0.9;
           transform: rotate(-90deg);
           transform-origin: center;
@@ -950,30 +951,34 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         .am-volume-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
+          width: 14px;
+          height: 14px;
+          border-radius: 0;
           background: #fff;
           border: none;
           cursor: pointer;
+          transition: transform 0.15s ease;
+        }
+        .am-volume-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
         }
         .am-volume-slider::-webkit-slider-runnable-track {
           width: 100%;
-          height: 3px;
+          height: 4px;
           background: rgba(255,255,255,0.2);
-          border-radius: 2px;
+          border-radius: 0;
         }
         .am-volume-slider::-moz-range-track {
           width: 100%;
-          height: 3px;
+          height: 4px;
           background: rgba(255,255,255,0.2);
-          border-radius: 2px;
+          border-radius: 0;
           border: none;
         }
         .am-volume-slider::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
+          width: 14px;
+          height: 14px;
+          border-radius: 0;
           background: #fff;
           border: none;
           cursor: pointer;
@@ -1072,9 +1077,11 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                   <span className="am-art-placeholder">♪</span>
                 )}
                 <div className="am-art-expand">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M15 3h6v6"/>
                     <path d="m21 3-7 7"/>
+                    <path d="M9 21H3v-6"/>
+                    <path d="m3 21 7-7"/>
                   </svg>
                 </div>
               </div>
