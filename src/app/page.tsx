@@ -6,6 +6,7 @@ import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { useDownloadStore } from '@/stores/downloadStore';
+import { useAddonStore } from '@/stores/addonStore';
 import Sidebar from '@/components/layout/Sidebar';
 import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
@@ -69,6 +70,11 @@ export default function AppPage() {
   useEffect(() => {
     const { catalogProvider, setCatalogProvider } = useMetadataStore.getState();
     if (catalogProvider === 'apple') setCatalogProvider('spotify');
+  }, []);
+
+  // Check for addon updates on launch
+  useEffect(() => {
+    useAddonStore.getState().checkForUpdates();
   }, []);
 
   // Keyboard shortcuts
