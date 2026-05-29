@@ -2,6 +2,7 @@ import type { Track } from '@/types/music';
 
 export type QualityBadge = {
   label: string;
+  detail?: string;
 };
 
 /** How the stream is most likely encoded for end-user playback. */
@@ -148,8 +149,59 @@ function lossyTooltip(track: Pick<Track, 'quality' | 'format' | 'streamURL'>): s
 
 function losslessTooltip(bucket: string, raw?: string | null): string {
   const base = BUCKET_TOOLTIP[bucket] || bucket;
-  if (raw?.trim()) return `${base} — source: ${raw.trim()}`;
+  if (raw?.trim()) {
+    const detail = parseQualityDetail(raw.trim());
+    if (detail) return detail;
+    return `${base} — source: ${raw.trim()}`;
+  }
   return base;
+}
+
+/** Parse human-readable quality detail from addon quality strings.
+ *  Handles formats like "96kHz/24bit", "24-bit / 96 kHz", "192000", "96000", etc. */
+function parseQualityDetail(raw: string): string | null {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase();
+
+  // Try explicit bit-depth / sample-rate patterns
+  const bitSample = s.match(/(\d+)\s*[-/]\s*(\d+)/);
+  if (bitSample) {
+    const a = parseInt(bitSample[1], 10);
+    const b = parseInt(bitSample[2], 10);
+    // Usually "bitDepth/sampleRate" or "sampleRate/bitDepth"
+    if (a <= 64 && b >= 8000) return `${a}-bit / ${b >= 1000 ? Math.round(b / 1000) : b} kHz`;
+    if (a >= 8000 && b <= 64) return `${b}-bit / ${a >= 1000 ? Math.round(a / 1000) : a} kHz`;
+  }
+
+  // Sample rate only (e.g. "192000", "96000")
+  const srOnly = s.match(/^(\d{4,6})$/);
+  if (srOnly) {
+    const sr = parseInt(srOnly[1], 10);
+    if (sr >= 8000) return `Hi-Res Lossless — ${sr >= 1000 ? Math.round(sr / 1000) : sr} kHz`;
+  }
+
+  // "24bit" or "16bit" patterns
+  const bitOnly = s.match(/(\d+)\s*bit/i);
+  const srPart = s.match(/(\d{4,6})\s*[k]?hz/i);
+  if (bitOnly || srPart) {
+    const parts: string[] = [];
+    if (bitOnly) parts.push(`${bitOnly[1]}-bit`);
+    if (srPart) {
+      const sr = parseInt(srPart[1], 10);
+      parts.push(`${sr >= 1000 ? Math.round(sr / 1000) : sr} kHz`);
+    }
+    if (parts.length) return `${parts.join(' / ')} lossless`;
+  }
+
+  // Well-known token descriptions
+  if (s.includes('96') || s.includes('192') || s.includes('88.2') || s.includes('176.4')) {
+    return 'Hi-Res Lossless — up to 24-bit / 192 kHz';
+  }
+  if (s.includes('44.1') || s.includes('44 1') || s.includes('48')) {
+    return 'CD-quality Lossless — 16-bit / 44.1 kHz';
+  }
+
+  return null;
 }
 
 /** Guess container/codec from URL path (many addon CDNs omit accurate Content-Type in the client). */
@@ -166,9 +218,15 @@ export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' 
   
   if (raw) {
     const normalized = normalizeQualityToken(raw);
-    if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS' };
-    if (normalized === 'HI_RES_LOSSLESS') return { label: 'HD' };
-    if (normalized === 'LOSSLESS') return { label: 'HIFI' };
+    if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS', detail: 'Dolby Atmos spatial audio' };
+    if (normalized === 'HI_RES_LOSSLESS') {
+      const detail = parseQualityDetail(raw) || 'Hi-Res Lossless';
+      return { label: 'HD', detail };
+    }
+    if (normalized === 'LOSSLESS') {
+      const detail = parseQualityDetail(raw) || 'CD-quality Lossless — 16-bit / 44.1 kHz';
+      return { label: 'HIFI', detail };
+    }
     // We don't show HIGH (320) or LOW badges in the list, just like Monochrome
   }
 
@@ -176,7 +234,7 @@ export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' 
   const delivery = classifyAudioDelivery(track);
   if (delivery === 'lossless_hint') {
     // If it's lossless but not marked as Hi-Res in catalog, it's HIFI (CD quality)
-    return { label: 'HIFI' };
+    return { label: 'HIFI', detail: 'CD-quality Lossless — 16-bit / 44.1 kHz' };
   }
 
   return null;
@@ -186,9 +244,13 @@ export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' 
 export function getQualityTooltip(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): string {
   if (!track) return 'Quality';
   const raw = track.quality?.trim();
+
+  // Use badge detail when available (more precise)
+  const badge = getQualityBadgeForTrack(track);
+  if (badge?.detail) return badge.detail;
+
   const normalized = raw ? normalizeQualityToken(raw) : null;
   if (normalized === 'DOLBY_ATMOS') return 'Dolby Atmos spatial audio';
-  if (normalized === 'HI_RES_LOSSLESS') return 'Hi-Res Lossless';
 
   const delivery = classifyAudioDelivery(track);
   if (delivery === 'lossy') {
@@ -199,11 +261,17 @@ export function getQualityTooltip(track: Pick<Track, 'quality' | 'format' | 'str
     return 'Compressed stream.';
   }
   if (delivery === 'lossless_hint') {
+    const detail = raw ? parseQualityDetail(raw) : null;
+    if (detail) return detail;
     return raw
-      ? `Lossless stream (${raw}) — list shows HD only when the catalog marks Hi‑Res Lossless.`
+      ? `Lossless stream — HD badge only for Hi‑Res Lossless in the catalog.`
       : 'Lossless stream — HD badge only for Hi‑Res Lossless in the catalog.';
   }
-  if (raw) return raw;
+  if (raw) {
+    const detail = parseQualityDetail(raw);
+    if (detail) return detail;
+    return raw;
+  }
   return 'Playback quality';
 }
 

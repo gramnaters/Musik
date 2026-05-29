@@ -82,10 +82,10 @@ export default function Sidebar() {
           onClick={toggleSidebar}
           className={cn(
             'h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-transparent',
-            sidebarCollapsed && 'hidden'
+            sidebarCollapsed && 'mx-auto'
           )}
         >
-          <ChevronLeft size={20} />
+          {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </Button>
       </div>
 
@@ -226,19 +226,7 @@ export default function Sidebar() {
         </ScrollArea>
       </div>
 
-      {/* Expand button when collapsed */}
-      {sidebarCollapsed && (
-        <div className="p-2 border-t border-sidebar-border/30">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="w-full h-8 text-muted-foreground hover:text-foreground hover:bg-accent"
-          >
-            <ChevronRight size={20} />
-          </Button>
-        </div>
-      )}
+      {/* Expand button moved to top */}
     </motion.aside>
   );
 }
