@@ -702,12 +702,11 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           width: 100%;
           max-width: 860px;
           margin: 0 auto;
-          height: 54px;
+          height: 60px;
           border-radius: 27px;
           display: flex;
-          flex-direction: row;
-          align-items: center;
-          padding: 0 8px;
+          flex-direction: column;
+          padding: 0;
           gap: 0;
           position: relative;
           background: rgba(28, 28, 30, 0.06);
@@ -715,6 +714,16 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           -webkit-backdrop-filter: blur(32px) saturate(1.8);
           border: 0.5px solid rgba(255,255,255,0.08);
           box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+          overflow: hidden;
+        }
+        .am-pill-progress {
+          width: 100%;
+          height: 4px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          padding: 0;
+          flex-grow: 0;
         }
         .am-track {
           flex: 1;
@@ -725,20 +734,20 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-track-inner {
           width: 100%;
-          height: 3px;
+          height: 2px;
           background: rgba(255,255,255,0.12);
-          border-radius: 2px;
+          border-radius: 0;
           overflow: hidden;
           transition: height 0.15s ease;
         }
         .am-track.hovering .am-track-inner {
-          height: 7px;
+          height: 4px;
           background: rgba(255,255,255,0.2);
         }
         .am-fill {
           height: 100%;
           background: rgba(255,255,255,0.8);
-          border-radius: 2px;
+          border-radius: 0;
           transition: width 0.1s linear;
         }
         .am-track.hovering .am-fill {
@@ -751,11 +760,19 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-left-area {
           display: flex;
-          flex-direction: column;
-          justify-content: center;
+          flex-direction: row;
+          align-items: center;
           flex: 1;
           min-width: 0;
-          gap: 2px;
+        }
+        .am-pill-body {
+          flex: 1;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          padding: 0 12px;
+          width: 100%;
+          min-height: 0;
         }
         .am-left-top {
           display: flex;
@@ -775,7 +792,6 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           position: relative;
           cursor: pointer;
-          margin-top: -4px;
         }
         .am-art img { width: 100%; height: 100%; object-fit: cover; }
         .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 18px; }
@@ -845,7 +861,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           align-items: center;
           gap: 1px;
           flex-shrink: 0;
-          margin-right: 8px;
+          margin-right: 12px;
         }
         .am-btn-transport {
           background: none;
@@ -1007,7 +1023,21 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
 
       <div className="am-bar">
         <div className="am-pill">
-          <div className="am-controls">
+          <div className="am-pill-progress">
+            <div
+              className={`am-track ${hoveredSeek ? "hovering" : ""}`}
+              ref={progressRef}
+              onClick={handleProgressClick}
+              onMouseEnter={() => setHoveredSeek(true)}
+              onMouseLeave={() => setHoveredSeek(false)}
+            >
+              <div className="am-track-inner">
+                <div className="am-fill" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="am-pill-body">
+            <div className="am-controls">
             <button
               className={`am-btn ${shuffleActive ? "active" : "dim"}`}
               onClick={() => { setShuffleActive(v => !v); toggleShuffle(); }}
@@ -1066,7 +1096,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 </svg>
               )}
             </button>
-          </div>
+            </div>
 
           <div className="am-left-area">
             <div className={`am-left-top ${hoveredSeek ? "blurred" : ""}`}>
@@ -1100,20 +1130,6 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                     </span>
                   )}
                 </span>
-              </div>
-            </div>
-
-            <div className="am-progress-row">
-              <div
-                className={`am-track ${hoveredSeek ? "hovering" : ""}`}
-                ref={progressRef}
-                onClick={handleProgressClick}
-                onMouseEnter={() => setHoveredSeek(true)}
-                onMouseLeave={() => setHoveredSeek(false)}
-              >
-                <div className="am-track-inner">
-                  <div className="am-fill" style={{ width: `${progress}%` }} />
-                </div>
               </div>
             </div>
           </div>
@@ -1169,6 +1185,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 )}
               </button>
             </div>
+          </div>
           </div>
         </div>
       </div>
