@@ -66,7 +66,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
         )}
 
         {playerTheme === 'apple' ? (
-          <ApplePlayerBar visible={Boolean(currentTrack)} />
+          !showNowPlaying && <ApplePlayerBar visible={Boolean(currentTrack)} />
         ) : playerTheme === 'tidal' ? (
           <motion.div
             animate={{ y: currentTrack ? 0 : 300 }}
@@ -626,9 +626,9 @@ function MusicIcon({ size, className }: { size: number; className?: string }) {
 
 function ApplePlayerBar({ visible }: { visible: boolean }) {
   const {
-    currentTrack, isPlaying, currentTime, duration, volume,
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted,
     togglePlayPause, nextTrack, previousTrack,
-    setVolume, toggleShuffle, cycleRepeat,
+    setVolume, toggleMute, toggleShuffle, cycleRepeat,
     showNowPlaying, setShowNowPlaying,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
@@ -638,6 +638,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
   const [repeatMode, setRepeatMode] = useState<0 | 1 | 2>(0);
   const [hoveredSeek, setHoveredSeek] = useState(false);
   const [localVolume, setLocalVolume] = useState(volume);
+  useEffect(() => { setLocalVolume(volume); }, [volume]);
   const [showVolume, setShowVolume] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
   const volWrapRef = useRef<HTMLDivElement>(null);
@@ -906,73 +907,72 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           gap: 1px;
           flex-shrink: 0;
           margin-left: 4px;
+          padding-right: 5px;
         }
-        .am-volume-pill {
+        .am-volume-wrap {
           position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 36px;
+          display: inline-flex;
+          overflow: visible;
         }
         .am-volume-slider-area {
           position: absolute;
-          bottom: 42px;
+          bottom: -8px;
           left: 50%;
-          transform: translateX(-50%);
-          height: 0;
+          transform: translateX(-50%) scaleY(0);
+          opacity: 0;
+          width: 36px;
           display: flex;
           align-items: flex-end;
           justify-content: center;
-          overflow: visible;
-          transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+          padding-bottom: 0;
+          border: 0;
+          transform-origin: bottom center;
           pointer-events: none;
         }
         .am-volume-slider-area.open {
-          height: 100px;
+          opacity: 1;
+          transform: translateX(-50%) scaleY(1);
+          height: 140px;
+          padding-bottom: 40px;
+          background: rgba(30, 30, 35, 0.95);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.5);
           pointer-events: auto;
+          transition: opacity 0.15s ease, transform 0.15s ease;
         }
         .am-volume-track {
           position: relative;
-          width: 4px;
+          width: 6px;
           height: 80px;
-          background: rgba(255,255,255,0.12);
-          border-radius: 2px;
+          background: rgba(255,255,255,0.15);
           cursor: pointer;
+          border-radius: 3px;
         }
         .am-volume-fill {
           position: absolute;
           bottom: 0;
           left: 0;
           width: 100%;
-          background: rgba(255,255,255,0.9);
-          border-radius: 2px;
+          background: #fff;
           transition: height 0.05s linear;
         }
-        .am-volume-notch {
-          position: absolute;
-          left: 50%;
-          transform: translate(-50%, -1px);
-          width: 10px;
-          height: 2px;
-          background: #fff;
-          border-radius: 1px;
-          pointer-events: none;
-        }
-        .am-volume-icon-btn {
+        .am-btn-vol {
+          background: none;
+          border: none;
+          padding: 0 0 0 1px;
+          cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          cursor: pointer;
           color: rgba(255,255,255,0.8);
           transition: color 0.12s ease;
-          background: none;
-          border: none;
-          padding: 0;
+          line-height: 0;
+          position: relative;
+          z-index: 1;
         }
-        .am-volume-icon-btn:hover { color: #fff; }
+        .am-btn-vol:hover { color: #fff; }
+        .am-btn-vol svg { display: block; }
         @keyframes am-pop-in {
           from { opacity: 0; transform: scale(0.97) translateY(4px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
@@ -1110,7 +1110,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
               </svg>
             </button>
-            <div className="am-volume-pill" ref={volWrapRef}>
+            <div className="am-volume-wrap" ref={volWrapRef}>
               <div className={`am-volume-slider-area ${showVolume ? "open" : ""}`}>
                 <div
                   className="am-volume-track"
@@ -1121,22 +1121,32 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                     setVolume(pct);
                   }}
                 >
-                  <div className="am-volume-fill" style={{ height: `${localVolume * 100}%` }} />
-                  <div className="am-volume-notch" style={{ bottom: `${localVolume * 100}%` }} />
+                  <div className="am-volume-fill" style={{ height: `${isMuted ? 0 : localVolume * 100}%` }} />
                 </div>
               </div>
-              <button className="am-volume-icon-btn" onClick={() => setShowVolume(v => !v)} title="Volume">
-                {localVolume === 0 ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+              <button className="am-btn-vol" onClick={toggleMute} onMouseEnter={() => setShowVolume(true)} title="Volume">
+                {isMuted ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3 9v6h4l3 5V4L7 9H3z" fill="currentColor" stroke="none"/>
+                    <path d="M15 9l6 6M21 9l-6 6"/>
                   </svg>
-                ) : localVolume < 0.5 ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
+                ) : localVolume < 0.35 ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3 9v6h4l3 5V4L7 9H3z" fill="currentColor" stroke="none"/>
+                    <path d="M14.5 10.5a3 3 0 0 1 0 3"/>
+                  </svg>
+                ) : localVolume < 0.7 ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3 9v6h4l3 5V4L7 9H3z" fill="currentColor" stroke="none"/>
+                    <path d="M14.5 10.5a3 3 0 0 1 0 3"/>
+                    <path d="M17.5 8.5a6 6 0 0 1 0 7"/>
                   </svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3 9v6h4l3 5V4L7 9H3z" fill="currentColor" stroke="none"/>
+                    <path d="M14.5 10.5a3 3 0 0 1 0 3"/>
+                    <path d="M17.5 8.5a6 6 0 0 1 0 7"/>
+                    <path d="M20.5 6.5a9 9 0 0 1 0 11"/>
                   </svg>
                 )}
               </button>

@@ -12,6 +12,7 @@ import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
 import PlayerBar from '@/components/player/PlayerBar';
 import NowPlaying from '@/components/player/NowPlaying';
+import AppleNowPlaying from '@/components/player/AppleNowPlaying';
 import { EqualizerOutlet } from '@/components/audio/EqualizerOutlet';
 import HomeView from '@/components/views/HomeView';
 import SearchView from '@/components/views/SearchView';
@@ -171,7 +172,7 @@ export default function AppPage() {
         <MobileNav />
 
         {/* Now Playing Overlay */}
-        <NowPlaying />
+        {playerTheme === 'apple' || playerTheme === 'spotify' ? <AppleNowPlaying /> : <NowPlaying />}
 
         <EqualizerOutlet />
       </div>
