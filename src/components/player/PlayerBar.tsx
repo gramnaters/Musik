@@ -915,7 +915,6 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           width: 36px;
           border-radius: 18px;
           background: rgba(30, 30, 35, 0.85);
-          border: 1px solid rgba(255,255,255,0.1);
           overflow: hidden;
           transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
           height: 36px;
@@ -937,18 +936,23 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-volume-icon-bottom:hover { color: #fff; }
         .am-volume-slider-wrap {
-          flex: 1;
+          position: absolute;
+          inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 100%;
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.2s ease;
+          padding: 10px 0;
         }
         .am-volume-pill.expanded .am-volume-slider-wrap {
           opacity: 1;
           pointer-events: auto;
+        }
+        .am-volume-pill.expanded .am-volume-icon-bottom {
+          opacity: 0;
+          pointer-events: none;
         }
         .am-volume-track {
           position: relative;
