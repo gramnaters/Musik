@@ -684,8 +684,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
     >
       <style>{`
         @keyframes scroll-title {
-          0%, 20% { transform: translateX(0); }
-          80%, 100% { transform: translateX(-100%); }
+          0%, 15% { transform: translateX(0); }
+          85%, 100% { transform: translateX(-100%); }
         }
         .am-bar {
           position: fixed;
@@ -702,19 +702,19 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           width: 100%;
           max-width: 860px;
           margin: 0 auto;
-          height: 56px;
-          border-radius: 28px;
+          height: 52px;
+          border-radius: 26px;
           display: flex;
           flex-direction: row;
           align-items: center;
-          padding: 0 8px;
+          padding: 0 8px 0 10px;
           gap: 0;
           position: relative;
-          background: rgba(28, 28, 30, 0.06);
-          backdrop-filter: blur(32px) saturate(1.8);
-          -webkit-backdrop-filter: blur(32px) saturate(1.8);
+          background: rgba(28, 28, 30, 0.82);
+          backdrop-filter: blur(40px) saturate(1.8);
+          -webkit-backdrop-filter: blur(40px) saturate(1.8);
           border: 0.5px solid rgba(255,255,255,0.08);
-          box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.45);
         }
         .am-track {
           flex: 1;
@@ -726,18 +726,18 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         .am-track-inner {
           width: 100%;
           height: 2px;
-          background: rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.15);
           border-radius: 1px;
           overflow: hidden;
           transition: height 0.15s ease;
         }
         .am-track.hovering .am-track-inner {
           height: 4px;
-          background: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.25);
         }
         .am-fill {
           height: 100%;
-          background: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.85);
           border-radius: 1px;
           transition: width 0.1s linear;
         }
@@ -755,18 +755,18 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           flex: 1;
           min-width: 0;
-          gap: 1px;
-          padding: 6px 0;
+          gap: 2px;
+          padding: 4px 0;
         }
         .am-left-top {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           min-width: 0;
         }
         .am-art {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 6px;
           background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
           flex-shrink: 0;
@@ -808,7 +808,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         .am-title {
           display: inline-block;
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          font-size: 11.5px;
+          font-size: 13px;
           font-weight: 600;
           color: rgba(255,255,255,0.95);
           letter-spacing: -0.01em;
@@ -816,11 +816,11 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           padding-right: 20px;
         }
         .am-title-wrap:hover .am-title {
-          animation: scroll-title 6s ease-in-out infinite;
+          animation: scroll-title 8s linear infinite;
         }
         .am-explicit {
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          font-size: 7.5px;
+          font-size: 8px;
           font-weight: 700;
           color: rgba(255,255,255,0.4);
           border: 1px solid rgba(255,255,255,0.22);
@@ -831,21 +831,24 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-artist {
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          font-size: 10px;
-          color: rgba(255,255,255,0.45);
+          font-size: 11px;
+          color: rgba(255,255,255,0.5);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           letter-spacing: -0.01em;
           line-height: 1.3;
         }
+        .am-album {
+          color: rgba(255,255,255,0.3);
+        }
         .am-progress-row { display: flex; align-items: center; gap: 0; }
         .am-controls {
           display: flex;
           align-items: center;
-          gap: 1px;
+          gap: 0;
           flex-shrink: 0;
-          margin-right: 8px;
+          margin-right: 6px;
         }
         .am-btn-transport {
           background: none;
@@ -858,10 +861,10 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           color: rgba(255,255,255,0.85);
           transition: color 0.12s ease, transform 0.1s ease;
           border-radius: 50%;
-          width: 46px;
-          height: 46px;
+          width: 40px;
+          height: 40px;
         }
-        .am-btn-transport:hover { color: #fff; transform: scale(1.1); }
+        .am-btn-transport:hover { color: #fff; transform: scale(1.05); }
         .am-btn-transport:active { transform: scale(0.92); }
         .am-btn {
           background: none;
@@ -874,8 +877,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           color: rgba(255,255,255,0.75);
           transition: color 0.12s ease, transform 0.1s ease;
           border-radius: 50%;
-          width: 28px;
-          height: 28px;
+          width: 26px;
+          height: 26px;
         }
         .am-btn:hover { color: #fff; transform: scale(1.08); }
         .am-btn:active { transform: scale(0.94); }
@@ -891,23 +894,23 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           color: rgba(255,255,255,0.95);
           transition: color 0.12s ease, transform 0.1s ease;
-          width: 46px;
-          height: 46px;
+          width: 42px;
+          height: 42px;
         }
-        .am-play-btn:hover { color: #fff; transform: scale(1.1); }
+        .am-play-btn:hover { color: #fff; transform: scale(1.05); }
         .am-play-btn:active { transform: scale(0.92); }
         .am-right {
           display: flex;
           align-items: center;
-          gap: 2px;
+          gap: 1px;
           flex-shrink: 0;
-          margin-left: 6px;
+          margin-left: 4px;
         }
         .am-volume-pill {
           position: relative;
           display: flex;
           align-items: center;
-          height: 46px;
+          height: 40px;
           border-radius: 0;
           overflow: visible;
           transition: background 0.25s ease, box-shadow 0.25s ease;
@@ -918,7 +921,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
         }
         .am-volume-slider-area {
           position: absolute;
-          bottom: 48px;
+          bottom: 42px;
           left: 50%;
           transform: translateX(-50%);
           height: 0;
@@ -933,7 +936,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           box-shadow: 0 2px 10px rgba(0,0,0,0.35);
         }
         .am-volume-slider-area.open {
-          height: 140px;
+          height: 130px;
         }
         .am-volume-slider {
           -webkit-appearance: none;
@@ -993,8 +996,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           justify-content: center;
           color: rgba(255,255,255,0.8);
           transition: color 0.12s ease;
-          width: 46px;
-          height: 46px;
+          width: 36px;
+          height: 36px;
           flex-shrink: 0;
           border-radius: 50%;
         }
@@ -1095,8 +1098,8 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                 <span className="am-artist">
                   {song?.artist ?? ""}
                   {song?.album && (
-                    <span style={{ color: "rgba(255,255,255,0.28)" }}>
-                      {" "}— {song.album}
+                    <span className="am-album">
+                      {" \u2014 "}{song.album}
                     </span>
                   )}
                 </span>
