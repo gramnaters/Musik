@@ -756,7 +756,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           flex: 1;
           min-width: 0;
           gap: 2px;
-          padding: 4px 0;
+          padding: 5px 0;
         }
         .am-left-top {
           display: flex;
@@ -765,9 +765,9 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           min-width: 0;
         }
         .am-art {
-          width: 42px;
-          height: 42px;
-          border-radius: 6px;
+          width: 38px;
+          height: 38px;
+          border-radius: 5px;
           background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
           flex-shrink: 0;
           overflow: hidden;
@@ -778,7 +778,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           cursor: pointer;
         }
         .am-art img { width: 100%; height: 100%; object-fit: cover; }
-        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 18px; }
+        .am-art-placeholder { color: rgba(255,255,255,0.2); font-size: 16px; }
         .am-art .am-art-expand {
           position: absolute;
           inset: 0;
@@ -788,7 +788,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           background: rgba(0,0,0,0.45);
           opacity: 0;
           transition: opacity 0.15s ease;
-          border-radius: 6px;
+          border-radius: 5px;
         }
         .am-art:hover .am-art-expand { opacity: 1; }
         .am-meta { min-width: 0; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
@@ -907,84 +907,74 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
           margin-left: 4px;
         }
         .am-volume-pill {
-          position: relative;
           display: flex;
           align-items: center;
-          height: 40px;
-          border-radius: 0;
-          overflow: visible;
-          transition: background 0.25s ease, box-shadow 0.25s ease;
+          height: 36px;
+          border-radius: 18px;
+          overflow: hidden;
+          transition: width 0.25s cubic-bezier(0.23, 1, 0.32, 1), background 0.25s ease;
+          width: 36px;
+          background: transparent;
         }
         .am-volume-pill.open {
-          background: rgba(30, 30, 35, 0.85);
-          box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+          width: 130px;
+          background: rgba(40, 40, 44, 0.85);
+          border: 0.5px solid rgba(255,255,255,0.08);
         }
         .am-volume-slider-area {
-          position: absolute;
-          bottom: 42px;
-          left: 50%;
-          transform: translateX(-50%);
-          height: 0;
-          width: 32px;
-          overflow: hidden;
-          transition: height 0.25s cubic-bezier(0.23, 1, 0.32, 1);
           display: flex;
           align-items: center;
-          justify-content: center;
-          background: rgba(30, 30, 35, 0.85);
-          border-radius: 0;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.35);
-        }
-        .am-volume-slider-area.open {
-          height: 130px;
+          flex: 1;
+          height: 100%;
+          padding: 0 8px 0 12px;
+          overflow: hidden;
         }
         .am-volume-slider {
           -webkit-appearance: none;
           appearance: none;
-          width: 110px;
-          height: 4px;
+          width: 100%;
+          height: 3px;
           background: rgba(255,255,255,0.2);
           cursor: pointer;
-          border-radius: 0;
-          opacity: 0.9;
-          transform: rotate(-90deg);
-          transform-origin: center;
+          border-radius: 2px;
           outline: none;
         }
         .am-volume-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 14px;
-          height: 14px;
-          border-radius: 0;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
           background: #fff;
           border: none;
           cursor: pointer;
-          transition: transform 0.15s ease;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          transition: transform 0.12s ease;
         }
         .am-volume-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.2);
+          transform: scale(1.15);
         }
         .am-volume-slider::-webkit-slider-runnable-track {
           width: 100%;
-          height: 4px;
+          height: 3px;
           background: rgba(255,255,255,0.2);
-          border-radius: 0;
+          border-radius: 2px;
         }
         .am-volume-slider::-moz-range-track {
           width: 100%;
-          height: 4px;
+          height: 3px;
           background: rgba(255,255,255,0.2);
-          border-radius: 0;
+          border-radius: 2px;
           border: none;
         }
         .am-volume-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
-          border-radius: 0;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
           background: #fff;
           border: none;
           cursor: pointer;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
         }
         .am-btn-vol {
           background: none;
@@ -1140,7 +1130,7 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
               </svg>
             </button>
             <div className={`am-volume-pill ${showVolume ? "open" : ""}`} ref={volWrapRef}>
-              <div className={`am-volume-slider-area ${showVolume ? "open" : ""}`}>
+              <div className="am-volume-slider-area">
                 <input
                   className="am-volume-slider"
                   type="range"
@@ -1153,7 +1143,6 @@ function ApplePlayerBar({ visible }: { visible: boolean }) {
                     setLocalVolume(v);
                     setVolume(v);
                   }}
-                  dir="ltr"
                 />
               </div>
               <button className="am-btn-vol" onClick={() => setShowVolume(v => !v)} title="Volume">
