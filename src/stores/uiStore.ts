@@ -6,6 +6,8 @@ export type PlayerTheme = 'spotify' | 'tidal' | 'apple';
 
 export type ConnectionsScreen = 'home' | 'sources' | 'browse';
 
+export type AppleAnimatedArtSetting = 'off' | 'on';
+
 interface UIState {
   sidebarCollapsed: boolean;
   rightPanel: RightPanel;
@@ -17,6 +19,7 @@ interface UIState {
   connectionsCatalogSourceId: string | null;
   /** Which Connections sub-screen is shown. */
   connectionsScreen: ConnectionsScreen;
+  appleAnimatedArt: AppleAnimatedArtSetting;
 }
 
 interface UIActions {
@@ -25,6 +28,7 @@ interface UIActions {
   setSearchQuery: (query: string) => void;
   setActiveView: (view: ActiveView) => void;
   setPlayerTheme: (theme: PlayerTheme) => void;
+  setAppleAnimatedArt: (setting: AppleAnimatedArtSetting) => void;
   navigateTo: (view: ActiveView) => void;
   setSelectedPlaylistId: (id: string | null) => void;
   setConnectionsCatalogSourceId: (id: string | null) => void;
@@ -42,6 +46,7 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   selectedPlaylistId: null,
   connectionsCatalogSourceId: null,
   connectionsScreen: 'home',
+  appleAnimatedArt: 'on',
 
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
@@ -69,6 +74,8 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
     }),
 
   setPlayerTheme: (theme: PlayerTheme) => set({ playerTheme: theme }),
+
+  setAppleAnimatedArt: (appleAnimatedArt) => set({ appleAnimatedArt }),
 
   navigateTo: (view: ActiveView) => {
     set((s) => ({

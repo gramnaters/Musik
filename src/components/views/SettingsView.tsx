@@ -170,6 +170,7 @@ export default function SettingsView() {
     hiddenModuleSourceIds,
   } = useAddonStore();
   const { catalogProvider, setCatalogProvider, appleStorefront, setAppleStorefront } = useMetadataStore();
+  const { appleAnimatedArt, setAppleAnimatedArt } = useUIStore();
   const {
     eqEnabled, setEqEnabled, eqPreset, setEqPreset, seekbarStyle, setSeekbarStyle,
   } = useAudioSettingsStore();
@@ -1037,7 +1038,8 @@ export default function SettingsView() {
                           <SelectContent>
                             <SelectItem value="apple">Apple Music</SelectItem>
                             <SelectItem value="spotify">Spotify (API)</SelectItem>
-                            <SelectItem value="tidal">Tidal</SelectItem>
+                            <SelectItem value="monochrome">Tidal</SelectItem>
+                            <SelectItem value="qobuz">Qobuz</SelectItem>
                             <SelectItem value="addon">Addon (Community)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1058,6 +1060,13 @@ export default function SettingsView() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="flex items-center justify-between px-4 pb-4">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium">Apple Animated Art</p>
+                          <p className="text-xs text-muted-foreground">Animated album art background on Apple Music player</p>
+                        </div>
+                        <Switch checked={appleAnimatedArt === 'on'} onCheckedChange={(v) => setAppleAnimatedArt(v ? 'on' : 'off')} />
                       </div>
                     </div>
                     <div className="p-4">

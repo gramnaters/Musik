@@ -1,75 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { initTidal, TidalClient } from '@/lib/tidal/client';
-import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearchAlbums, searchPlaylists as mcSearchPlaylists, mapMonochromeTrack, mapMonochromeAlbum, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
+import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearchAlbums, searchPlaylists as mcSearchPlaylists, searchPodcasts, mapMonochromeTrack, mapMonochromeAlbum, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
+import { searchAppleProxy, appleArtworkUrl, mapAppleTrack, mapAppleAlbum, mapApplePlaylistFromAlbum } from '@/lib/apple-proxy';
+import { searchQobuzTracks, searchQobuzAlbums, searchQobuzArtists, mapQobuzTrack, mapQobuzAlbum, mapQobuzArtist, mapQobuzPlaylistFromAlbum } from '@/lib/qobuz';
 
-type Provider = 'spotify' | 'apple' | 'tidal' | 'monochrome';
+type Provider = 'spotify' | 'apple' | 'monochrome' | 'qobuz';
 
 let spotifyTokenCache: { token: string; expiresAtMs: number } | null = null;
 
-// Initialize Tidal client on the server
+// Initialize Tidal client for Monochrome fallback
 const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
 const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
 try {
   initTidal(tidalClientId, tidalClientSecret);
 } catch (e) {
   console.error('Tidal initialization failed:', e);
-}
-
-async function searchTidal(q: string, limit: number) {
-  try {
-    const client = TidalClient.getInstance();
-    const results = await client.search(q, limit);
-    return results;
-  } catch (e) {
-    console.error('Tidal search failed:', e);
-    return null;
-  }
-}
-
-function mapTidalTrack(item: any) {
-  return {
-    id: `tidal_${item.id}`,
-    title: String(item.title ?? ''),
-    artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-    album: String(item.album?.title ?? ''),
-    albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
-    duration: typeof item.duration === 'number' ? item.duration : 0,
-    source: 'tidal' as const,
-    explicit: Boolean(item.explicit),
-    audioQuality: item.audioQuality || 'LOSSLESS',
-  };
-}
-
-function mapTidalAlbum(item: any) {
-  return {
-    id: `tidal_album_${item.id}`,
-    title: String(item.title ?? ''),
-    artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-    cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
-    year: item.releaseDate?.slice(0, 4),
-    trackCount: item.numberOfTracks,
-    source: 'tidal' as const,
-    explicit: Boolean(item.explicit),
-  };
-}
-
-function mapTidalArtist(item: any) {
-  return {
-    id: `tidal_${item.id}`,
-    name: String(item.name ?? ''),
-    image: item.picture ? `/api/cover?id=${item.picture}&size=1920` : '',
-  };
-}
-
-function mapTidalPlaylist(item: any) {
-  return {
-    id: `tidal_pl_${item.id}`,
-    name: String(item.title ?? ''),
-    description: 'Tidal Playlist',
-    cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
-    source: 'tidal' as const,
-  };
 }
 
 type TokenResult =
@@ -122,20 +68,6 @@ async function getSpotifyTokenCached(): Promise<TokenResult> {
   }
 }
 
-function appleArtworkUrl(item: Record<string, unknown>): string {
-  const raw =
-    (typeof item.artworkUrl100 === 'string' && item.artworkUrl100) ||
-    (typeof item.artworkUrl600 === 'string' && item.artworkUrl600) ||
-    (typeof item.artworkUrl60 === 'string' && item.artworkUrl60) ||
-    '';
-  if (!raw) return '';
-  return raw
-    .replace(/100x100bb/gi, '3000x3000bb')
-    .replace(/60x60bb/gi, '3000x3000bb')
-    .replace(/100x100/gi, '3000x3000')
-    .replace(/60x60/gi, '3000x3000');
-}
-
 function mapSpotifyTrack(item: Record<string, unknown>) {
   const album = item.album as Record<string, unknown> | undefined;
   const images = (album?.images as { url?: string; width?: number }[]) || [];
@@ -151,22 +83,6 @@ function mapSpotifyTrack(item: Record<string, unknown>) {
     streamURL: undefined,
     source: 'spotify' as const,
     explicit: item.explicit === true,
-  };
-}
-
-function mapAppleTrack(item: Record<string, unknown>) {
-  const id = String(item.trackId ?? item.collectionId ?? Math.random());
-  const exp = item.trackExplicitness === 'explicit' || item.trackExplicitness === 'explicit_edited';
-  return {
-    id: `apple_${id}`,
-    title: String(item.trackName ?? ''),
-    artist: String(item.artistName ?? ''),
-    album: String(item.collectionName ?? ''),
-    albumCover: appleArtworkUrl(item),
-    duration: typeof item.trackTimeMillis === 'number' ? Math.round(item.trackTimeMillis / 1000) : 0,
-    streamURL: undefined,
-    source: 'apple' as const,
-    explicit: Boolean(exp),
   };
 }
 
@@ -187,26 +103,6 @@ function mapSpotifyAlbum(item: Record<string, unknown>) {
   };
 }
 
-function mapAppleAlbum(item: Record<string, unknown>) {
-  const cid = item.collectionId;
-  if (cid == null) return null;
-  return {
-    id: `apple_album_${String(cid)}`,
-    title: String(item.collectionName ?? ''),
-    artist: String(item.artistName ?? ''),
-    cover: appleArtworkUrl(item),
-    year:
-      typeof item.releaseDate === 'string'
-        ? String(item.releaseDate).slice(0, 4)
-        : typeof item.releaseDate === 'number'
-          ? String(item.releaseDate).slice(0, 4)
-          : undefined,
-    trackCount: typeof item.trackCount === 'number' ? item.trackCount : undefined,
-    source: 'apple' as const,
-    explicit: item.contentAdvisoryRating === 'Explicit',
-  };
-}
-
 function mapSpotifyShow(item: Record<string, unknown>) {
   const images = (item.images as { url?: string; width?: number }[]) || [];
   const bySize = [...images].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
@@ -223,48 +119,13 @@ function mapSpotifyShow(item: Record<string, unknown>) {
   };
 }
 
-function mapApplePodcast(item: Record<string, unknown>) {
-  const feed = typeof item.feedUrl === 'string' ? item.feedUrl : undefined;
-  const ext = typeof item.collectionViewUrl === 'string' ? item.collectionViewUrl : feed;
-  return {
-    id: `apple_podcast_${String(item.collectionId ?? item.trackId ?? '')}`,
-    title: String(item.collectionName ?? item.trackName ?? ''),
-    author: String(item.artistName ?? ''),
-    description: typeof item.description === 'string' ? item.description.slice(0, 280) : '',
-    cover: appleArtworkUrl(item),
-    episodeCount: typeof item.trackCount === 'number' ? item.trackCount : undefined,
-    externalUrl: ext,
-    source: 'apple' as const,
-  };
-}
-
-async function searchApple(q: string, entity: string, limit: number, country: string) {
-  try {
-    const cc = country.length === 2 ? country.toUpperCase() : 'US';
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=${limit}&country=${encodeURIComponent(cc)}`;
-    const res = await fetch(url, {
-      next: { revalidate: 0 },
-      headers: { Accept: 'application/json', 'User-Agent': 'MusikCatalog/1.0' },
-    });
-    if (!res.ok) {
-      console.warn(`Apple search HTTP ${res.status} for ${entity}`);
-      return [];
-    }
-    const data = (await res.json()) as { results?: Record<string, unknown>[] };
-    return data.results || [];
-  } catch (e) {
-    console.error(`Apple search failed for ${entity}:`, e);
-    return [];
-  }
-}
-
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() || '';
   const provider = (req.nextUrl.searchParams.get('provider') || 'apple') as Provider;
   const limitRaw = req.nextUrl.searchParams.get('limit');
   const parsed = Number.parseInt(limitRaw || '25', 10);
   const per = Number.isFinite(parsed) ? Math.min(50, Math.max(1, parsed)) : 25;
-  const spotifyCap = Math.min(50, per);
+  const spotifyCap = Math.min(10, per);
   const appleCap = Math.min(200, per);
   const countryParam = req.nextUrl.searchParams.get('country')?.trim() || 'US';
   const appleCountry = /^[a-z]{2}$/i.test(countryParam) ? countryParam.toUpperCase() : 'US';
@@ -283,76 +144,137 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (provider === 'tidal') {
-      const tidalData = await searchTidal(q, per);
-      if (!tidalData) {
-        return NextResponse.json({ tracks: [], albums: [], artists: [], playlists: [], podcasts: [], error: 'tidal_failed' });
+    if (provider === 'monochrome') {
+      let tracks: any[] = [];
+      let albums: any[] = [];
+      let artists: any[] = [];
+      let playlists: any[] = [];
+
+      try {
+        const [tracksData, albumsData, artistsData, playlistsData] = await Promise.all([
+          searchTracks(q, per),
+          mcSearchAlbums(q),
+          mcSearchArtists(q),
+          mcSearchPlaylists(q),
+        ]);
+
+        tracks = (tracksData.tracks || []).map(mapMonochromeTrack).filter((t: any) => t.title);
+        albums = (albumsData.albums || []).map(mapMonochromeAlbum).filter((a: any) => a.title);
+        artists = (artistsData.artists || []).map(mapMonochromeArtist).filter((a: any) => a.name);
+        playlists = (playlistsData.playlists || []).map(mapMonochromePlaylist).filter((p: any) => p.name);
+      } catch (e) {
+        // Fallback to native Tidal API when all Monochrome instances fail
+        console.warn('Monochrome instances failed, falling back to Tidal:', e);
+        try {
+          const client = TidalClient.getInstance();
+          const tidalData = await client.search(q, per);
+          if (tidalData) {
+            tracks = (tidalData.tracks?.items ?? []).map((item: any) => ({
+              id: `tidal_${item.id}`,
+              title: String(item.title ?? ''),
+              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+              album: String(item.album?.title ?? ''),
+              albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
+              duration: typeof item.duration === 'number' ? item.duration : 0,
+              source: 'tidal' as const,
+              explicit: Boolean(item.explicit),
+              audioQuality: item.audioQuality || 'LOSSLESS',
+            }));
+            albums = (tidalData.albums?.items ?? []).map((item: any) => ({
+              id: `tidal_album_${item.id}`,
+              title: String(item.title ?? ''),
+              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
+              year: item.releaseDate?.slice(0, 4),
+              trackCount: item.numberOfTracks,
+              source: 'tidal' as const,
+              explicit: Boolean(item.explicit),
+            }));
+            artists = (tidalData.artists?.items ?? []).map((item: any) => ({
+              id: `tidal_${item.id}`,
+              name: String(item.name ?? ''),
+              image: item.picture ? `/api/cover?id=${item.picture}&size=1920` : '',
+            }));
+            playlists = (tidalData.playlists?.items ?? []).map((item: any) => ({
+              id: `tidal_pl_${item.id}`,
+              name: String(item.title ?? ''),
+              description: 'Tidal Playlist',
+              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
+              source: 'tidal' as const,
+            }));
+          }
+        } catch (tidalErr) {
+          console.error('Tidal fallback also failed:', tidalErr);
+        }
       }
 
-      return NextResponse.json({
-        tracks: (tidalData.tracks?.items ?? []).map(mapTidalTrack),
-        albums: (tidalData.albums?.items ?? []).map(mapTidalAlbum),
-        artists: (tidalData.artists?.items ?? []).map(mapTidalArtist),
-        playlists: (tidalData.playlists?.items ?? []).map(mapTidalPlaylist),
-        podcasts: [],
-        provider: 'tidal',
-        country: 'US',
-      });
+      const podcasts = await searchPodcasts(q, 5);
+
+      return NextResponse.json({ tracks, albums, artists, playlists, podcasts, provider: 'monochrome' });
     }
 
-    if (provider === 'monochrome') {
-      const [tracksData, albumsData, artistsData, playlistsData] = await Promise.all([
-        searchTracks(q, per),
-        mcSearchAlbums(q),
-        mcSearchArtists(q),
-        mcSearchPlaylists(q),
+    if (provider === 'qobuz') {
+      const qobuzCap = Math.min(per, 50);
+      const [tracksData, albumsData, artistsData] = await Promise.all([
+        searchQobuzTracks(q, qobuzCap),
+        searchQobuzAlbums(q, qobuzCap),
+        searchQobuzArtists(q, qobuzCap),
       ]);
-
-      const tracks = (tracksData.tracks || []).map(mapMonochromeTrack).filter((t: any) => t.title);
-      const albums = (albumsData.albums || []).map(mapMonochromeAlbum).filter((a: any) => a.title);
-      const artists = (artistsData.artists || []).map(mapMonochromeArtist).filter((a: any) => a.name);
-      const playlists = (playlistsData.playlists || []).map(mapMonochromePlaylist).filter((p: any) => p.name);
-
-      return NextResponse.json({ tracks, albums, artists, playlists, podcasts: [], provider: 'monochrome' });
+      const tracks = tracksData.map(mapQobuzTrack).filter(t => t.title);
+      const albums = albumsData.map(mapQobuzAlbum).filter(a => a.title);
+      const artists = artistsData.map(mapQobuzArtist).filter(a => a.name);
+      const playlists = albums.map(mapQobuzPlaylistFromAlbum);
+      const podcasts: any[] = [];
+      return NextResponse.json({ tracks, albums, artists, playlists, podcasts, provider: 'qobuz' });
     }
 
     if (provider === 'apple') {
-      const [songRows, albumRows, artistRows, podcastRows] = await Promise.all([
-        searchApple(q, 'song', appleCap, appleCountry),
-        searchApple(q, 'album', Math.min(appleCap, 25), appleCountry),
-        searchApple(q, 'musicArtist', Math.min(appleCap, 25), appleCountry),
-        searchApple(q, 'podcast', Math.min(appleCap, 25), appleCountry),
+      const [proxyResult, iTunesArtists] = await Promise.all([
+        searchAppleProxy(q).catch(() => null),
+        fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=musicArtist&limit=${appleCap}`, { next: { revalidate: 0 } })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null),
       ]);
 
-      const tracks = songRows.filter((r) => r.wrapperType === 'track' || r.kind === 'song').map(mapAppleTrack).filter((t) => t.title);
+      const tracks: any[] = [];
+      const albums: any[] = [];
+      const playlists: any[] = [];
 
-      const albums = albumRows
-        .filter((r) => r.wrapperType === 'collection')
-        .map(mapAppleAlbum)
-        .filter((a): a is NonNullable<typeof a> => a != null && !!a.title);
+      if (proxyResult) {
+        tracks.push(...(proxyResult.results.songs?.data || []).map(d => mapAppleTrack(d.attributes, d.id)).filter(t => t.title));
+        albums.push(...(proxyResult.results.albums?.data || []).map(d => mapAppleAlbum(d.attributes, d.id)).filter(a => a.title));
+      }
 
-      const artists = artistRows
-        .filter((r) => r.wrapperType === 'artist')
-        .map((item) => ({
-          id: `apple_${String(item.artistId ?? item.amgArtistId ?? '')}`,
-          name: String(item.artistName ?? ''),
-          image: appleArtworkUrl(item),
-        }))
-        .filter((a) => a.name);
+      // Merge AMP proxy artists (with artwork) + iTunes artists (more results)
+      const artistMap = new Map<string, { id: string; name: string; image: string }>();
+      if (proxyResult?.results.artists?.data) {
+        for (const d of proxyResult.results.artists.data) {
+          const name = String(d.attributes?.name ?? '').toLowerCase();
+          if (!name) continue;
+          artistMap.set(name, {
+            id: `apple_${d.id}`,
+            name: String(d.attributes?.name ?? ''),
+            image: appleArtworkUrl(d.attributes || {}),
+          });
+        }
+      }
+      if (iTunesArtists?.results) {
+        for (const item of iTunesArtists.results as any[]) {
+          const name = String(item.artistName ?? '').toLowerCase();
+          if (!name || artistMap.has(name)) continue;
+          artistMap.set(name, {
+            id: `apple_it_${item.artistId}`,
+            name: String(item.artistName ?? ''),
+            image: item.artworkUrl100 ? (item.artworkUrl100 as string).replace('100x100bb', '600x600bb') : '',
+          });
+        }
+      }
+      const artists = [...artistMap.values()].filter(a => a.name);
 
-      const playlists = albums.map((a) => ({
-        id: a.id,
-        name: a.title,
-        description: `${a.artist} • Album`,
-        cover: a.cover,
-        trackCount: a.trackCount,
-        source: 'apple' as const,
-      }));
-
-      const podcasts = podcastRows
-        .filter((r) => r.kind === 'podcast' && r.collectionId != null)
-        .map(mapApplePodcast)
-        .filter((p) => p.title && p.id);
+      // Real Apple Music playlists via iTunes (entity=playlist not supported),
+      // so synthesize from albums like before
+      playlists.push(...albums.map(mapApplePlaylistFromAlbum));
+      const podcasts: any[] = [];
 
       return NextResponse.json({
         tracks,
@@ -383,28 +305,11 @@ export async function GET(req: NextRequest) {
     const encQ = encodeURIComponent(q);
     const mkt = encodeURIComponent(market);
 
-    const [trRes, alRes, arRes, plRes, shRes] = await Promise.all([
-      fetch(
-        `https://api.spotify.com/v1/search?q=${encQ}&type=track&limit=${spotifyCap}&market=${mkt}`,
-        { headers }
-      ),
-      fetch(
-        `https://api.spotify.com/v1/search?q=${encQ}&type=album&limit=${Math.min(spotifyCap, 20)}&market=${mkt}`,
-        { headers }
-      ),
-      fetch(
-        `https://api.spotify.com/v1/search?q=${encQ}&type=artist&limit=${Math.min(spotifyCap, 20)}&market=${mkt}`,
-        { headers }
-      ),
-      fetch(
-        `https://api.spotify.com/v1/search?q=${encQ}&type=playlist&limit=${Math.min(spotifyCap, 20)}&market=${mkt}`,
-        { headers }
-      ),
-      fetch(
-        `https://api.spotify.com/v1/search?q=${encQ}&type=show&limit=${Math.min(spotifyCap, 20)}&market=${mkt}`,
-        { headers }
-      ),
-    ]);
+    // Single combined call — Spotify supports comma-separated types
+    const searchRes = await fetch(
+      `https://api.spotify.com/v1/search?q=${encQ}&type=track,album,artist,playlist,show&limit=${spotifyCap}&market=${mkt}`,
+      { headers }
+    );
 
     const tracks: ReturnType<typeof mapSpotifyTrack>[] = [];
     const albums: ReturnType<typeof mapSpotifyAlbum>[] = [];
@@ -419,21 +324,16 @@ export async function GET(req: NextRequest) {
     }[] = [];
     const podcasts: ReturnType<typeof mapSpotifyShow>[] = [];
 
-    if (trRes.ok) {
-      const data = (await trRes.json()) as { tracks?: { items?: Record<string, unknown>[] } };
+    if (searchRes.ok) {
+      const data = await searchRes.json() as any;
       for (const it of data.tracks?.items || []) {
-        tracks.push(mapSpotifyTrack(it));
+        if (it) tracks.push(mapSpotifyTrack(it));
       }
-    }
-    if (alRes.ok) {
-      const data = (await alRes.json()) as { albums?: { items?: Record<string, unknown>[] } };
       for (const it of data.albums?.items || []) {
-        albums.push(mapSpotifyAlbum(it));
+        if (it) albums.push(mapSpotifyAlbum(it));
       }
-    }
-    if (arRes.ok) {
-      const data = (await arRes.json()) as { artists?: { items?: Record<string, unknown>[] } };
       for (const item of data.artists?.items || []) {
+        if (!item) continue;
         const images = (item.images as { url?: string; width?: number }[]) || [];
         const bySize = [...images].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
         artists.push({
@@ -442,10 +342,8 @@ export async function GET(req: NextRequest) {
           image: bySize[0]?.url || images[0]?.url || '',
         });
       }
-    }
-    if (plRes.ok) {
-      const data = (await plRes.json()) as { playlists?: { items?: Record<string, unknown>[] } };
       for (const item of data.playlists?.items || []) {
+        if (!item) continue;
         const id = item.id;
         if (typeof id !== 'string' && typeof id !== 'number') continue;
         const images = (item.images as { url?: string }[]) || [];
@@ -460,11 +358,8 @@ export async function GET(req: NextRequest) {
           source: 'spotify',
         });
       }
-    }
-    if (shRes.ok) {
-      const data = (await shRes.json()) as { shows?: { items?: Record<string, unknown>[] } };
       for (const it of data.shows?.items || []) {
-        podcasts.push(mapSpotifyShow(it));
+        if (it) podcasts.push(mapSpotifyShow(it));
       }
     }
 

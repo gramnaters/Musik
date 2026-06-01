@@ -283,13 +283,17 @@ export default function SearchView() {
 
   const displayCatalogBundle = useMemo(() => {
     if (!catalogBundle) return null;
-    return buildMergedCatalogBundle(
+    const merged = buildMergedCatalogBundle(
       catalogBundle,
       addonSearchId,
       addonSearchSnapshot,
       addonResults
     );
-  }, [catalogBundle, addonSearchId, addonSearchSnapshot, addonResults]);
+    if (catalogProvider === 'apple') {
+      return { ...merged, tracks: catalogBundle.tracks };
+    }
+    return merged;
+  }, [catalogBundle, addonSearchId, addonSearchSnapshot, addonResults, catalogProvider]);
 
   const trackListResults = useMemo(() => {
     if (!hasSearched || !query.trim()) return [];
