@@ -1,0 +1,6 @@
+INFO:     127.0.0.1:1971 - "GET /search/?s=Panther&limit=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1975 - "GET /search/?al=Panther&limit=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1977 - "GET /search/?a=Kendrick+Lamar&limit=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1979 - "GET /search/?al=Panther&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2557 - "GET /album/?id=t8mxqwslrzvuc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2560 - "GET /album/?id=t8mxqwslrzvuc HTTP/1.1" 200 OK
