@@ -5,6 +5,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import Hls from 'hls.js';
 import {
   X, Heart, MoreHorizontal, Shuffle, Repeat, Mic2,
   Volume2, Volume1, VolumeX, Globe,
@@ -94,7 +95,7 @@ export default function AppleNowPlaying() {
     togglePlayPause, nextTrack, previousTrack,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
-  const { playerTheme } = useUIStore();
+  const { playerTheme, appleAnimatedArt } = useUIStore();
 
   const [rawColors, setRawColors] = useState('40,40,60|30,35,55|20,25,45');
   const [showMenu, setShowMenu] = useState(false);
@@ -102,6 +103,9 @@ export default function AppleNowPlaying() {
   const [showLyrics, setShowLyrics] = useState(false);
   const [lyricsOffset, setLyricsOffset] = useState(0);
   const [romajiMode, setRomajiMode] = useState(false);
+  const [animatedVideoUrl, setAnimatedVideoUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -119,6 +123,24 @@ export default function AppleNowPlaying() {
     });
   }, [currentTrack?.albumCover]);
 
+  // Fetch Apple Music animated artwork
+  useEffect(() => {
+    if (appleAnimatedArt !== 'on') { setAnimatedVideoUrl(null); return; }
+    if (!currentTrack?.albumId || !/^\d+$/.test(currentTrack.albumId)) {
+      setAnimatedVideoUrl(null); return;
+    }
+    setAnimatedVideoUrl(null);
+    fetch(`/api/apple/animated-art?albumId=${currentTrack.albumId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.videos?.length) {
+          const preferred = data.videos.find((v: any) => v.key === 'motionDetailSquare' || v.key === 'motionSquareVideo1x1');
+          setAnimatedVideoUrl(preferred?.url || data.videos[0].url);
+        }
+      })
+      .catch(() => {});
+  }, [currentTrack?.albumId, currentTrack?.id, appleAnimatedArt]);
+
   useEffect(() => {
     if (!showMenu) return;
     const handler = (e: MouseEvent) => {
@@ -127,6 +149,27 @@ export default function AppleNowPlaying() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showMenu]);
+
+  // Initialize HLS for animated artwork video
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !animatedVideoUrl) {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      return;
+    }
+    if (Hls.isSupported()) {
+      if (hlsRef.current) hlsRef.current.destroy();
+      const hls = new Hls();
+      hls.loadSource(animatedVideoUrl);
+      hls.attachMedia(video);
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = animatedVideoUrl;
+    }
+  }, [animatedVideoUrl]);
 
   // Load am-lyrics web component
   useEffect(() => {
@@ -226,7 +269,7 @@ export default function AppleNowPlaying() {
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   filter: 'blur(80px) saturate(1.3)',
-                  opacity: bgLoaded ? 0.2 : 0,
+                  opacity: bgLoaded && !animatedVideoUrl ? 0.2 : 0,
                   transition: 'opacity 1.2s ease',
                 }}
               />
@@ -236,7 +279,7 @@ export default function AppleNowPlaying() {
                 style={{
                   background: `conic-gradient(from 0deg, rgba(${c1},0.3), rgba(${c2},0.2), rgba(${c3},0.3), rgba(${c1},0.3))`,
                   filter: 'blur(60px)',
-                  opacity: bgLoaded ? 1 : 0,
+                  opacity: bgLoaded && !animatedVideoUrl ? 1 : 0.25,
                   transition: 'opacity 1.2s ease',
                 }}
               />
@@ -246,10 +289,22 @@ export default function AppleNowPlaying() {
                 style={{
                   background: `conic-gradient(from 0deg, transparent, rgba(${c1},0.15) 30%, rgba(${c2},0.1) 60%, transparent 90%)`,
                   filter: 'blur(40px)',
-                  opacity: bgLoaded ? 0.6 : 0,
+                  opacity: bgLoaded && !animatedVideoUrl ? 0.6 : 0.15,
                   transition: 'opacity 1.2s ease',
                 }}
               />
+              {/* Apple Music animated artwork video — layered above gradients */}
+              {animatedVideoUrl && (
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                  style={{ opacity: 0.85, filter: 'blur(10px) saturate(1.25)' }}
+                />
+              )}
               {/* Noise overlay — breaks up banding (Monochrome dithering technique) */}
               <div
                 className="absolute inset-0"

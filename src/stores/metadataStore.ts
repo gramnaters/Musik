@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type CatalogMetadataProvider = 'spotify' | 'apple' | 'tidal' | 'addon' | 'monochrome';
+export type CatalogMetadataProvider = 'spotify' | 'apple' | 'tidal' | 'qobuz' | 'addon' | 'monochrome';
 
 interface MetadataState {
   /** Used for Settings + default catalog search when engine is “catalog”. */
@@ -18,12 +18,12 @@ interface MetadataActions {
 export const useMetadataStore = create<MetadataState & MetadataActions>()(
   persist(
     (set) => ({
-      catalogProvider: 'spotify',
+      catalogProvider: 'apple',
       appleStorefront: 'US',
       setCatalogProvider: (catalogProvider) => set({ catalogProvider }),
       setAppleStorefront: (appleStorefront) =>
         set({ appleStorefront: appleStorefront.trim().toUpperCase().slice(0, 2) || 'US' }),
     }),
-    { name: 'musik-metadata' }
+    { name: 'musik-metadata', partialize: (s) => ({ catalogProvider: s.catalogProvider, appleStorefront: s.appleStorefront }) }
   )
 );

@@ -143,9 +143,10 @@ export class TidalClient {
 
   async search(query: string, limit = 25): Promise<any> {
     // Combined search using openapi v2
+    // Max 10 include resources allowed by Tidal v2 API
     const data = await this.queryV2(`/searchResults/${encodeURIComponent(query)}`, {
       limit: String(limit),
-      include: 'artists,artists.profileArt,albums,albums.coverArt,albums.artists,tracks,tracks.artists,tracks.albums,tracks.albums.coverArt,playlists,playlists.coverArt'
+      include: 'artists,artists.profileArt,albums,albums.coverArt,tracks,tracks.artists,tracks.albums,tracks.albums.coverArt,playlists,playlists.coverArt'
     });
 
     return this.normalizeV2Search(data, limit);
@@ -249,6 +250,14 @@ export class TidalClient {
 
   async getTrack(id: number): Promise<any> {
     return this.queryV1(`/tracks/${id}`);
+  }
+
+  async getAlbum(id: number): Promise<any> {
+    return this.queryV1(`/albums/${id}`);
+  }
+
+  async getAlbumTracks(id: number, limit = 50): Promise<any> {
+    return this.queryV1(`/albums/${id}/tracks`, { limit: String(limit) });
   }
 
   async getPlaybackInfo(id: number, quality = 'LOSSLESS'): Promise<any> {
