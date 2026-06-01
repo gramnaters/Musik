@@ -4,12 +4,21 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useAddonStore } from '@/stores/addonStore';
-import { demoTracks } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from '@/components/ui/dropdown-menu';
 import TrackList from '@/components/shared/TrackList';
 import {
   Search as SearchIcon,
@@ -22,6 +31,7 @@ import {
   Puzzle,
   AlertCircle,
   ChevronLeft,
+  MoreHorizontal,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -70,8 +80,8 @@ export default function SearchView() {
     loading: boolean;
   } | null>(null);
 
-  const { play } = usePlayerStore();
-  const { addRecentlyPlayed } = useLibraryStore();
+  const { play, addToQueue } = usePlayerStore();
+  const { addRecentlyPlayed, playlists, addToPlaylist } = useLibraryStore();
   const { addons, setActiveAddon, isSearching, searchWithAddon, error: addonError, clearError, getAlbumTracksForAddon, getPlaylistTracksForAddon, getArtistTracksForAddon, getPlaybackOrderedSearchAddonIds, playbackPriorityIds } = useAddonStore();
   const { navigateTo, searchQuery, setSearchQuery } = useUIStore();
   const catalogProvider = useMetadataStore((s) => s.catalogProvider);
@@ -116,10 +126,7 @@ export default function SearchView() {
 
   const localLibraryResults = useMemo(() => {
     if (!hasSearched || !query.trim()) return [];
-    const q = query.trim().toLowerCase();
-    return demoTracks.filter((t) =>
-      `${t.title} ${t.artist} ${t.album || ''}`.toLowerCase().includes(q)
-    );
+    return [];
   }, [hasSearched, query]);
 
   const doAddonSearch = useCallback(
@@ -422,6 +429,54 @@ export default function SearchView() {
     getArtistTracksForAddon,
   ]
 );
+
+  const handleQuickPlayAlbum = useCallback(async (album: Album) => {
+    try {
+      const params = new URLSearchParams({ id: album.id, provider: catalogProvider });
+      if (catalogProvider === 'apple') params.set('country', appleStorefront);
+      else params.set('market', appleStorefront);
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      if (tracks.length > 0) {
+        play(tracks[0], tracks, 0);
+        tracks.forEach((t: Track) => addRecentlyPlayed(t));
+      }
+    } catch (e) {
+      console.error('Failed to quick play album', e);
+    }
+  }, [catalogProvider, appleStorefront, play, addRecentlyPlayed]);
+
+  const handleAddAlbumToQueue = useCallback(async (album: Album) => {
+    try {
+      const params = new URLSearchParams({ id: album.id, provider: catalogProvider });
+      if (catalogProvider === 'apple') params.set('country', appleStorefront);
+      else params.set('market', appleStorefront);
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      tracks.forEach((t: Track) => addToQueue(t));
+    } catch (e) {
+      console.error('Failed to add album to queue', e);
+    }
+  }, [catalogProvider, appleStorefront, addToQueue]);
+
+  const handleAddAlbumTracksToPlaylist = useCallback(async (album: Album, playlistId: string) => {
+    try {
+      const params = new URLSearchParams({ id: album.id, provider: catalogProvider });
+      if (catalogProvider === 'apple') params.set('country', appleStorefront);
+      else params.set('market', appleStorefront);
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      tracks.forEach((t: Track) => addToPlaylist(playlistId, t));
+    } catch (e) {
+      console.error('Failed to add album tracks to playlist', e);
+    }
+  }, [catalogProvider, appleStorefront, addToPlaylist]);
 
   const tabTriggerClass =
     'rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/45 data-[state=active]:text-white pb-2 px-0 text-sm font-medium';
@@ -776,10 +831,9 @@ export default function SearchView() {
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
                           {(displayCatalogBundle?.albums || []).map((album) => (
-                            <button
+                            <div
                               key={album.id}
-                              type="button"
-                              className="text-left group"
+                              className="text-left group cursor-pointer"
                               onClick={() =>
                                 void openCatalogTracksHub({
                                   kind: 'album',
@@ -789,10 +843,55 @@ export default function SearchView() {
                                 })
                               }
                             >
-                              <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10 shadow-lg">
-                                {album.cover ? (
-                                  <img src={album.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                ) : null}
+                              <div className="relative">
+                                <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10 shadow-lg">
+                                  {album.cover ? (
+                                    <img src={album.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                  ) : null}
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+                                    >
+                                      <MoreHorizontal size={16} className="text-white" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border border-white/10" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onClick={() => handleQuickPlayAlbum(album)}>
+                                      Play
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleAddAlbumToQueue(album)}>
+                                      Add to Queue
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-white/10" />
+                                    <DropdownMenuSub>
+                                      <DropdownMenuSubTrigger>Add to Playlist</DropdownMenuSubTrigger>
+                                      <DropdownMenuSubContent className="max-h-64 overflow-y-auto bg-zinc-900 border border-white/10">
+                                        {playlists.map((pl) => (
+                                          <DropdownMenuItem key={pl.id} onClick={() => handleAddAlbumTracksToPlaylist(album, pl.id)}>
+                                            {pl.name}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuSubContent>
+                                    </DropdownMenuSub>
+                                    <DropdownMenuSeparator className="bg-white/10" />
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        void openCatalogTracksHub({
+                                          kind: 'album',
+                                          title: album.title,
+                                          subtitle: `${album.artist}${album.year ? ` • ${album.year}` : ''}`,
+                                          id: album.id,
+                                        })
+                                      }
+                                    >
+                                      Open Album
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                               <p className="mt-2 text-sm font-semibold line-clamp-2 group-hover:text-red-400 transition-colors">
                                 {album.title}
@@ -801,7 +900,7 @@ export default function SearchView() {
                                 {album.artist}
                                 {album.year ? ` • ${album.year}` : ''}
                               </p>
-                            </button>
+                            </div>
                           ))}
                         </div>
                       )}

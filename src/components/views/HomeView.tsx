@@ -11,8 +11,18 @@ import PlayButton from '@/components/shared/PlayButton';
 import TrackList from '@/components/shared/TrackList';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Loader2, Play, Music, Disc, Users, ListMusic, Globe } from 'lucide-react';
-import type { Track, Album } from '@/types/music';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from '@/components/ui/dropdown-menu';
+import { ChevronRight, ChevronLeft, Loader2, Play, Music, Disc, Users, ListMusic, Globe, MoreHorizontal } from 'lucide-react';
+import type { Track, Album, Playlist } from '@/types/music';
 import { Button } from '@/components/ui/button';
 import { addonTrackToTrack } from '@/lib/addon-track-map';
 import { trackListenDedupeKey } from '@/lib/track-identity';
@@ -71,13 +81,21 @@ function Card({
   subtitle, 
   image, 
   onClick, 
-  type = 'album' 
+  type = 'album',
+  onMenuPlay,
+  onMenuAddToQueue,
+  onMenuAddToPlaylist,
+  menuPlaylists,
 }: { 
   title: string; 
   subtitle?: string; 
   image?: string; 
   onClick: () => void;
   type?: 'album' | 'playlist' | 'artist' | 'track';
+  onMenuPlay?: () => void;
+  onMenuAddToQueue?: () => void;
+  onMenuAddToPlaylist?: (playlistId: string) => void;
+  menuPlaylists?: Playlist[];
 }) {
   return (
     <motion.div
@@ -101,6 +119,36 @@ function Card({
         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <PlayButton size="md" onClick={onClick} />
         </div>
+        {type !== 'artist' && (onMenuPlay || onMenuAddToPlaylist) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+              >
+                <MoreHorizontal size={16} className="text-white" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border border-white/10" onClick={(e) => e.stopPropagation()}>
+              {onMenuPlay && <DropdownMenuItem onClick={onMenuPlay}>Play</DropdownMenuItem>}
+              {onMenuAddToQueue && <DropdownMenuItem onClick={onMenuAddToQueue}>Add to Queue</DropdownMenuItem>}
+              {(onMenuPlay || onMenuAddToQueue) && <DropdownMenuSeparator className="bg-white/10" />}
+              {onMenuAddToPlaylist && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Add to Playlist</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-64 overflow-y-auto bg-zinc-900 border border-white/10">
+                    {(menuPlaylists || []).map((pl) => (
+                      <DropdownMenuItem key={pl.id} onClick={() => onMenuAddToPlaylist(pl.id)}>
+                        {pl.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       <p className={cn(
         "text-sm font-bold text-white truncate",
@@ -131,8 +179,8 @@ export default function HomeView() {
     addonId?: string;
   } | null>(null);
   
-  const { play } = usePlayerStore();
-  const { recentlyPlayed, playlists: myPlaylists } = useLibraryStore();
+  const { play, addToQueue } = usePlayerStore();
+  const { recentlyPlayed, playlists: myPlaylists, addToPlaylist, addRecentlyPlayed } = useLibraryStore();
   const { playerTheme, setSelectedPlaylistId } = useUIStore();
 
   const { getHome } = useAddonStore();
@@ -307,6 +355,69 @@ export default function HomeView() {
     }
   };
 
+  const handleQuickPlayItem = useCallback(async (item: any) => {
+    try {
+      const params = new URLSearchParams({
+        id: item.id || item.uuid,
+        provider: catalogProvider,
+        title: item.title || item.name || '',
+        artist: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+        country: appleStorefront || 'US',
+        type: 'album',
+      });
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      if (tracks.length > 0) {
+        play(tracks[0], tracks, 0);
+        tracks.forEach((t: Track) => addRecentlyPlayed(t));
+      }
+    } catch (e) {
+      console.error('Failed to quick play item', e);
+    }
+  }, [catalogProvider, appleStorefront, play, addRecentlyPlayed]);
+
+  const handleAddItemToQueue = useCallback(async (item: any) => {
+    try {
+      const params = new URLSearchParams({
+        id: item.id || item.uuid,
+        provider: catalogProvider,
+        title: item.title || item.name || '',
+        artist: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+        country: appleStorefront || 'US',
+        type: 'album',
+      });
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      tracks.forEach((t: Track) => addToQueue(t));
+    } catch (e) {
+      console.error('Failed to add item to queue', e);
+    }
+  }, [catalogProvider, appleStorefront, addToQueue]);
+
+  const handleAddItemToPlaylist = useCallback(async (item: any, playlistId: string) => {
+    try {
+      const params = new URLSearchParams({
+        id: item.id || item.uuid,
+        provider: catalogProvider,
+        title: item.title || item.name || '',
+        artist: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+        country: appleStorefront || 'US',
+        type: 'album',
+      });
+      const res = await fetch(`/api/metadata/playlist-items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      tracks.forEach((t: Track) => addToPlaylist(playlistId, t));
+    } catch (e) {
+      console.error('Failed to add item to playlist', e);
+    }
+  }, [catalogProvider, appleStorefront, addToPlaylist]);
+
   const renderHome = () => {
     const recentDeduped = recentlyPlayed.slice(0, 12);
     
@@ -370,6 +481,10 @@ export default function HomeView() {
                       subtitle={item.artist?.name || item.artist}
                       image={getImageUrl(item)}
                       onClick={() => loadCollection(item, 'album')}
+                      onMenuPlay={() => handleQuickPlayItem(item)}
+                      onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                      onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                      menuPlaylists={myPlaylists}
                     />
                   ))}
                 </Grid>
@@ -663,6 +778,10 @@ export default function HomeView() {
                       subtitle={item.artist?.name || item.artists?.[0]?.name || item.artist}
                       image={getImageUrl(item)}
                       onClick={() => loadCollection(item, 'album')}
+                      onMenuPlay={() => handleQuickPlayItem(item)}
+                      onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                      onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                      menuPlaylists={myPlaylists}
                     />
                   ))}
                 </Grid>
@@ -681,6 +800,10 @@ export default function HomeView() {
                       image={getImageUrl(item)}
                       onClick={() => loadCollection(item, 'playlist')}
                       type="playlist"
+                      onMenuPlay={() => handleQuickPlayItem(item)}
+                      onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                      onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                      menuPlaylists={myPlaylists}
                     />
                   ))}
                 </Grid>
@@ -719,6 +842,10 @@ export default function HomeView() {
                           section.type === 'ARTIST_LIST' ? 'artist' :
                           section.type === 'PLAYLIST_LIST' ? 'playlist' : 'album'
                         }
+                        onMenuPlay={section.type !== 'ARTIST_LIST' ? () => handleQuickPlayItem(item) : undefined}
+                        onMenuAddToQueue={section.type !== 'ARTIST_LIST' ? () => handleAddItemToQueue(item) : undefined}
+                        onMenuAddToPlaylist={section.type !== 'ARTIST_LIST' ? (pid) => handleAddItemToPlaylist(item, pid) : undefined}
+                        menuPlaylists={section.type !== 'ARTIST_LIST' ? myPlaylists : undefined}
                       />
                     ))}
                   </Grid>
