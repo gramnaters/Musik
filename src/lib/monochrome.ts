@@ -142,12 +142,16 @@ export function searchPlaylists(q: string) {
   });
 }
 
+function stripPrefix(id: string): string {
+  return id.replace(/^(mono_|tidal_|spotify_|apple_)/, '');
+}
+
 export function getTrackInfo(id: string) {
-  return query<any>(`/info/?id=${id}`);
+  return query<any>(`/info/?id=${stripPrefix(id)}`);
 }
 
 export async function getAlbumInfo(id: string) {
-  const raw = await query<any>(`/album/?id=${id}`);
+  const raw = await query<any>(`/album/?id=${stripPrefix(id)}`);
   if (!raw || !raw.data) {
     throw new Error(raw?.detail || 'Album not found');
   }
@@ -169,7 +173,7 @@ export async function getAlbumInfo(id: string) {
 }
 
 export async function getArtistInfo(id: string) {
-  const raw = await query<any>(`/artist/?id=${id}`);
+  const raw = await query<any>(`/artist/?id=${stripPrefix(id)}`);
   if (!raw) {
     throw new Error('Artist not found');
   }
@@ -191,7 +195,7 @@ export async function getArtistInfo(id: string) {
 }
 
 export async function getPlaylistInfo(id: string) {
-  const raw = await query<any>(`/playlist/?id=${id}`);
+  const raw = await query<any>(`/playlist/?id=${stripPrefix(id)}`);
   if (!raw) {
     throw new Error('Playlist not found');
   }
@@ -216,23 +220,23 @@ export async function getPlaylistInfo(id: string) {
 }
 
 export function getArtistDiscography(id: string, offset = 0, limit = 100) {
-  return query<any>(`/artist/?f=${id}&offset=${offset}&limit=${limit}`);
+  return query<any>(`/artist/?f=${stripPrefix(id)}&offset=${offset}&limit=${limit}`);
 }
 
 export function getLyrics(id: string) {
-  return query<any>(`/lyrics/?id=${id}`);
+  return query<any>(`/lyrics/?id=${stripPrefix(id)}`);
 }
 
 export function getSimilarArtists(id: string) {
-  return query<any>(`/artist/similar/?id=${id}`);
+  return query<any>(`/artist/similar/?id=${stripPrefix(id)}`);
 }
 
 export function getSimilarAlbums(id: string) {
-  return query<any>(`/album/similar/?id=${id}`);
+  return query<any>(`/album/similar/?id=${stripPrefix(id)}`);
 }
 
 export function getRecommendations(id: string) {
-  return query<any>(`/recommendations/?id=${id}`);
+  return query<any>(`/recommendations/?id=${stripPrefix(id)}`);
 }
 
 function extractUUID(obj: any): string | null {

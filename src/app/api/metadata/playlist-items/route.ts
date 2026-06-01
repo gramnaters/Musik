@@ -268,7 +268,9 @@ export async function GET(req: NextRequest) {
   }
 
   let tidalId = rawId;
-  if (rawId.startsWith('tidal_album_')) {
+  if (rawId.startsWith('mono_')) {
+    tidalId = rawId.slice('mono_'.length);
+  } else if (rawId.startsWith('tidal_album_')) {
     tidalId = rawId.slice('tidal_album_'.length);
   } else if (rawId.startsWith('tidal_pl_')) {
     tidalId = rawId.slice('tidal_pl_'.length);
