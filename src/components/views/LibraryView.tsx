@@ -5,7 +5,6 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Playlist, Track } from '@/types/music';
-import { demoTracks } from '@/lib/demo-data';
 import { trackListenDedupeKey } from '@/lib/track-identity';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -92,8 +91,8 @@ export default function LibraryView() {
     return out;
   }, [recentlyPlayed]);
 
-  // Build full track objects from favourite IDs
-  const favouriteTracks = demoTracks.filter((t) => favourites.includes(t.id));
+  // Favourite track IDs (display requires full Track objects in a future enhancement)
+  const favouriteTracks: Track[] = [];
 
   const handleCreatePlaylist = () => {
     if (newPlaylistName.trim()) {
