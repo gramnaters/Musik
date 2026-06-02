@@ -5,7 +5,7 @@ import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearc
 import { searchAppleProxy, appleArtworkUrl, mapAppleTrack, mapAppleAlbum, mapApplePlaylistFromAlbum } from '@/lib/apple-proxy';
 import { searchQobuzTracks, searchQobuzAlbums, searchQobuzArtists, mapQobuzTrack, mapQobuzAlbum, mapQobuzArtist, mapQobuzPlaylistFromAlbum } from '@/lib/qobuz';
 
-type Provider = 'spotify' | 'apple' | 'monochrome' | 'qobuz';
+type Provider = 'spotify' | 'apple' | 'monochrome' | 'qobuz' | 'tidal';
 
 let spotifyTokenCache: { token: string; expiresAtMs: number } | null = null;
 
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (provider === 'monochrome') {
+    if (provider === 'monochrome' || provider === 'tidal') {
       let tracks: any[] = [];
       let albums: any[] = [];
       let artists: any[] = [];

@@ -783,11 +783,25 @@ export default function HomeView() {
     }
     try {
       let tracks: Track[] = [];
-      const params = new URLSearchParams({ id: item.id, provider: catalogProvider, title: item.title || item.name || '', artist: item.artist || item.name || '', country: appleStorefront || 'US', type: kind === 'artist' ? 'album' : kind });
-      const res = await fetch(`/api/metadata/playlist-items?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+      if (kind === 'artist') {
+        const artistName = item.title || item.name || '';
+        const sp = new URLSearchParams({
+          q: artistName,
+          provider: catalogProvider === 'addon' ? 'monochrome' : catalogProvider,
+          country: appleStorefront || 'US', type: 'track', limit: '25',
+        });
+        const res = await fetch(`/api/metadata/search?${sp}`);
+        if (res.ok) {
+          const data = await res.json();
+          tracks = (data.tracks || data.items || []).map((x: any) => mapMetadataSearchTrack(x));
+        }
+      } else {
+        const params = new URLSearchParams({ id: item.id, provider: catalogProvider, title: item.title || item.name || '', artist: item.artist || item.name || '', country: appleStorefront || 'US', type: kind === 'artist' ? 'album' : kind });
+        const res = await fetch(`/api/metadata/playlist-items?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+        }
       }
       setSearchHub(h => h ? { ...h, tracks, loading: false } : null);
     } catch {
