@@ -24,6 +24,6 @@ export const useMetadataStore = create<MetadataState & MetadataActions>()(
       setAppleStorefront: (appleStorefront) =>
         set({ appleStorefront: appleStorefront.trim().toUpperCase().slice(0, 2) || 'US' }),
     }),
-    { name: 'musik-metadata', partialize: (s) => ({ catalogProvider: s.catalogProvider, appleStorefront: s.appleStorefront }) }
+    { name: 'musik-metadata', version: 2, migrate: () => ({ catalogProvider: 'tidal' as CatalogMetadataProvider, appleStorefront: 'US' }), partialize: (s) => ({ catalogProvider: s.catalogProvider, appleStorefront: s.appleStorefront }) }
   )
 );

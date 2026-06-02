@@ -59,44 +59,40 @@ async function ampCharts(country: string): Promise<{ tracks: any[]; albums: any[
     const rawTracks = results.songs?.data || [];
     const rawAlbums = results.albums?.data || [];
     const rawPlaylists = results.playlists?.data || [];
+    
+    console.log(`[ampCharts] songs=${rawTracks.length} albums=${rawAlbums.length} playlists=${rawPlaylists.length}`);
+    console.log(`[ampCharts] results keys:`, Object.keys(results));
+    
     return {
       tracks: rawTracks.map((t: any) => {
         const a = t.attributes || {};
-        const artUrl = (a.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb');
         return {
-          id: `apple_${t.id}`,
-          title: String(a.name || ''),
-          artist: String(a.artistName || ''),
-          album: String(a.albumName || ''),
-          albumCover: artUrl,
-          duration: Math.round(Number(a.durationInMillis || 0) / 1000),
-          source: 'apple',
-          explicit: a.contentRating === 'explicit' || false,
+          id: `apple_${t.id}`, title: String(a.name || ''), artist: String(a.artistName || ''),
+          album: String(a.albumName || ''), albumCover: String(a.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb'),
+          duration: Math.round(Number(a.durationInMillis || 0) / 1000), source: 'apple', explicit: a.contentRating === 'explicit' || false,
         };
       }),
       albums: rawAlbums.map((a: any) => {
-        const attrs = a.attributes || {};
-        const artUrl = (attrs.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb');
-        return {
-          id: `apple_${a.id}`,
-          title: String(attrs.name || ''),
-          artist: { name: String(attrs.artistName || '') },
-          cover: artUrl,
-          source: 'apple',
-          year: attrs.releaseDate ? String(attrs.releaseDate).slice(0, 4) : undefined,
-        };
-      }),
+        try {
+          const attrs = a.attributes || {};
+          return {
+            id: `apple_${a.id}`, title: String(attrs.name || ''),
+            artist: { name: String(attrs.artistName || '') },
+            cover: String(attrs.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb'),
+            source: 'apple', year: attrs.releaseDate ? String(attrs.releaseDate).slice(0, 4) : undefined,
+          };
+        } catch { return null; }
+      }).filter(Boolean),
       playlists: rawPlaylists.map((p: any) => {
-        const attrs = p.attributes || {};
-        const artUrl = (attrs.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb');
-        return {
-          id: `apple_${p.id}`,
-          title: String(attrs.name || ''),
-          description: String(attrs.description?.standard || ''),
-          cover: artUrl,
-          source: 'apple',
-        };
-      }),
+        try {
+          const attrs = p.attributes || {};
+          return {
+            id: `apple_${p.id}`, title: String(attrs.name || ''),
+            description: String(attrs.description?.standard || ''),
+            cover: String(attrs.artwork?.url || '').replace(/\{w\}x\{h\}(bb)?/g, '3000x3000bb'), source: 'apple',
+          };
+        } catch { return null; }
+      }).filter(Boolean),
     };
   } catch (e) {
     console.error('Apple Music charts failed:', e);
@@ -136,32 +132,40 @@ async function fetchAppleTop(country: string) {
   const cc = country.toLowerCase().slice(0, 2) || 'us';
   const limit = 25;
   try {
-    const [chartsData, songsRes] = await Promise.all([
+    const [chartsData, songsRes, albumsRes] = await Promise.all([
       ampCharts(cc),
-      fetch(
-        `https://itunes.apple.com/${cc}/rss/topsongs/limit=${limit}/json`,
-        { headers: { 'User-Agent': UA }, next: { revalidate: 3600 } }
-      ).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://itunes.apple.com/${cc}/rss/topsongs/limit=${limit}/json`, { headers: { 'User-Agent': UA }, next: { revalidate: 3600 } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://itunes.apple.com/${cc}/rss/topalbums/limit=${limit}/json`, { headers: { 'User-Agent': UA }, next: { revalidate: 3600 } }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
-    const topTracks = chartsData.tracks;
-    const topAlbums = chartsData.albums;
-    const featuredPlaylists = chartsData.playlists;
+    const topTracks = chartsData.tracks.length > 0 ? chartsData.tracks : [];
+    const topAlbums = chartsData.albums.length > 0 ? chartsData.albums : [];
+    const featuredPlaylists = chartsData.playlists.length > 0 ? chartsData.playlists : [];
 
-    // Fall back to iTunes RSS if AMP charts returned no tracks
+    // Fall back to iTunes RSS if AMP returned no tracks
     if (topTracks.length === 0 && songsRes) {
       const entries = songsRes?.feed?.entry || [];
       for (const item of entries) {
         const id = item.id?.label || '';
         topTracks.push({
-          id: id.split('/').pop() || id,
+          id: id.split('/').pop() || id, title: item['im:name']?.label || '',
+          artist: item['im:artist']?.label || '', album: item['im:collection']?.['im:name']?.label || '',
+          albumCover: mapAppleImage(item['im:image'] || []), duration: 0, source: 'apple', explicit: false,
+        });
+      }
+    }
+
+    // Fall back to iTunes RSS if AMP returned no albums
+    if (topAlbums.length === 0 && albumsRes) {
+      const entries = albumsRes?.feed?.entry || [];
+      for (const item of entries) {
+        const id = item.id?.attributes?.['im:id'] || item.id?.label || '';
+        topAlbums.push({
+          id: `apple_album_${id.split('/').pop() || id}`,
           title: item['im:name']?.label || '',
-          artist: item['im:artist']?.label || '',
-          album: item['im:collection']?.['im:name']?.label || '',
-          albumCover: mapAppleImage(item['im:image'] || []),
-          duration: 0,
+          artist: { name: item['im:artist']?.label || '' },
+          cover: mapAppleImage(item['im:image'] || []),
           source: 'apple',
-          explicit: false,
         });
       }
     }

@@ -303,20 +303,6 @@ export default function HomeView() {
       });
   }, [installedAddons, playbackPriorityIds]);
 
-  useEffect(() => {
-    if (searchAddons.length > 0) {
-      if (catalogProvider !== 'addon') {
-        setCatalogProvider('addon');
-      }
-      if (!activeAddonId) {
-        const firstId = playbackPriorityIds?.[0] || searchAddons[0]?.manifest?.id;
-        if (firstId) {
-          setActiveAddon(firstId);
-        }
-      }
-    }
-  }, [searchAddons.length]);
-
   const getImageUrl = (item: any, size = '640') => {
     if (!item) return '';
     let uuid = item.squareImage || item.image || item.picture || item.albumCover || item.album?.cover || item.cover || item.artworkURL;
@@ -412,6 +398,18 @@ export default function HomeView() {
           const data = await res.json();
           albumMeta = data.album || {};
           tracks = (data.tracks || []).map((x: any) => mapMetadataSearchTrack(x));
+        }
+      } else if (type === 'artist') {
+        const artistName = item.title || item.name || '';
+        const sp = new URLSearchParams({
+          q: artistName,
+          provider: catalogProvider === 'addon' ? 'monochrome' : catalogProvider,
+          country: appleStorefront || 'US', type: 'track', limit: '25',
+        });
+        const ares = await fetch(`/api/metadata/search?${sp}`);
+        if (ares.ok) {
+          const adata = await ares.json();
+          tracks = (adata.tracks || adata.items || []).map((x: any) => mapMetadataSearchTrack(x));
         }
       } else {
         const params = new URLSearchParams({ 
@@ -511,7 +509,12 @@ export default function HomeView() {
   const fetchExplore = useCallback(async () => {
     setExploreLoading(true);
     try {
-      const res = await fetch('/api/hot');
+      const params = new URLSearchParams();
+      if (catalogProvider === 'apple' || catalogProvider === 'spotify') {
+        params.set('provider', catalogProvider);
+        params.set('country', appleStorefront || 'US');
+      }
+      const res = await fetch(`/api/hot?${params}`);
       if (!res.ok) {
         let detail = '';
         try { const e = await res.json(); detail = e.error || `HTTP ${res.status}`; } catch { detail = `HTTP ${res.status}`; }
@@ -524,7 +527,7 @@ export default function HomeView() {
     } finally {
       setExploreLoading(false);
     }
-  }, []);
+  }, [catalogProvider, appleStorefront]);
 
   const fetchEditorsPicks = useCallback(async () => {
     setEditorsPicksLoading(true);
@@ -544,7 +547,8 @@ export default function HomeView() {
   const fetchRecommendedAlbums = useCallback(async (seedAlbumId: string) => {
     setRecommendedAlbumsLoading(true);
     try {
-      const res = await fetch(`/api/metadata/album/similar?id=${seedAlbumId}`);
+      const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
+      const res = await fetch(`/api/metadata/album/similar?id=${seedAlbumId}&provider=${provider}&country=${appleStorefront || 'us'}`);
       if (res.ok) {
         const data = await res.json();
         setRecommendedAlbums(data.albums?.slice(0, 12) || []);
@@ -559,7 +563,8 @@ export default function HomeView() {
   const fetchRecommendedArtists = useCallback(async (seedArtistId: string) => {
     setRecommendedArtistsLoading(true);
     try {
-      const res = await fetch(`/api/metadata/artist/similar?id=${seedArtistId}`);
+      const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
+      const res = await fetch(`/api/metadata/artist/similar?id=${seedArtistId}&provider=${provider}&country=${appleStorefront || 'us'}`);
       if (res.ok) {
         const data = await res.json();
         setRecommendedArtists(data.artists?.slice(0, 12) || []);
@@ -576,10 +581,13 @@ export default function HomeView() {
     try {
       const seedArtist = recentlyPlayed[0]?.artist || recentlyPlayed[0]?.artists?.[0]?.name || 'recent';
       const params = new URLSearchParams();
-      params.set('provider', 'monochrome');
+      params.set('provider', catalogProvider === 'addon' ? 'monochrome' : catalogProvider);
       params.set('type', 'track');
       params.set('q', seedArtist);
       params.set('limit', '10');
+      if (catalogProvider === 'apple' || catalogProvider === 'spotify') {
+        params.set('country', appleStorefront || 'US');
+      }
       const res = await fetch(`/api/metadata/search?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -594,6 +602,10 @@ export default function HomeView() {
   }, [recentlyPlayed]);
 
   useEffect(() => {
+    setExploreData(null);
+  }, [catalogProvider]);
+
+  useEffect(() => {
     if (!exploreData) {
       fetchExplore();
     }
@@ -606,7 +618,7 @@ export default function HomeView() {
   }, [catalogProvider, editorsPicks, fetchEditorsPicks]);
 
   useEffect(() => {
-    if (activeTab === 'home' && catalogProvider === 'monochrome' && recentlyPlayed.length > 0) {
+    if (activeTab === 'home' && recentlyPlayed.length > 0) {
       const lastTrack = recentlyPlayed[0];
       const seedAlbumId = lastTrack?.album?.id;
       const seedArtistId = lastTrack?.artist?.id || lastTrack?.artists?.[0]?.id;
@@ -1339,7 +1351,7 @@ const renderHome = () => {
                       <div key={item.id} className="text-center">
                         <Card
                           title={item.name}
-                          image={item.picture ? `/api/cover?id=${item.picture}&size=160` : ''}
+                          image={item.picture ? (typeof item.picture === 'string' && item.picture.startsWith('http') ? item.picture : `/api/cover?id=${item.picture}&size=160`) : ''}
                           onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
                           type="artist"
                         />
@@ -1557,11 +1569,13 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
                 const artistObj = t.artists?.[0];
                 const name = typeof a === 'string' ? a : a?.name || artistObj?.name;
                 if (name && !artistMap.has(name)) {
+                  const rawCover = artistObj?.picture || t.albumCover || '';
+                  const isUrl = typeof rawCover === 'string' && rawCover.startsWith('http');
                   artistMap.set(name, {
                     id: artistObj?.id || name,
                     name,
-                    picture: artistObj?.picture || t.albumCover || '',
-                    image: artistObj?.picture ? `/api/cover?id=${artistObj.picture}&size=160` : (t.albumCover ? `/api/cover?id=${t.albumCover}&size=160` : ''),
+                    picture: rawCover,
+                    image: isUrl ? rawCover : (rawCover ? `/api/cover?id=${rawCover}&size=160` : ''),
                     artist: { name },
                   });
                 }

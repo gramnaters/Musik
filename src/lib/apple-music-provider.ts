@@ -267,7 +267,12 @@ export async function getAppleArtistAlbums(artistId: string, country = 'us') {
     }
   } catch {}
 
-  return { albums, eps };
+  // Deduplicate by ID
+  const seen = new Set<string>();
+  return {
+    albums: albums.filter(a => { const id = String(a.id); if (seen.has(id)) return false; seen.add(id); return true; }),
+    eps: eps.filter(a => { const id = String(a.id); if (seen.has(id)) return false; seen.add(id); return true; }),
+  };
 }
 
 export async function getAppleSimilarArtists(artistId: string, country = 'us') {
