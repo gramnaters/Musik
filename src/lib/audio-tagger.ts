@@ -20,8 +20,11 @@ export interface TagMetadata {
 }
 
 /**
- * High-performance browser-side audio tagging using TagLib.
- * Matches the premium experience of monochrome.tf
+ * High-performance browser-side audio tagging using taglib-ts.
+ * Matches the approach used in Monochrome (js/taglib.worker.ts).
+ *
+ * Uses the PropertyMap + setComplexProperties API rather than the
+ * format-specific tag() method, which works across FLAC, MP3, MP4, OGG, WAV.
  */
 export async function applyMetadataToAudio(
   audioBuffer: ArrayBuffer,
@@ -29,61 +32,72 @@ export async function applyMetadataToAudio(
   format: string,
   imageBuffer?: ArrayBuffer
 ): Promise<ArrayBuffer> {
-  // Use dynamic import to help Next.js/Turbopack resolve the module correctly
-  const { FileRef, ByteVector } = await import('../../node_modules/@dantheman827/taglib-ts/dist/index.js');
-  
+  const taglib = await import('../../node_modules/@dantheman827/taglib-ts/dist/index.js');
+  const { ByteVector, FileRef, PropertyMap, Variant, ChunkedByteVectorStream, BlobStream, ReadStyle } = taglib as any;
+
   const uint8Audio = new Uint8Array(audioBuffer);
   const filename = `track.${format}`;
 
   try {
-    // Open file reference (virtual filesystem in memory)
-    const ref = await FileRef.fromByteArray(uint8Audio, filename, false);
+    const ref = await FileRef.fromByteArray(uint8Audio, filename, false, ReadStyle.Average);
     if (!ref.isValid) {
       console.warn('TagLib: File format not recognized, skipping tagging.');
       return audioBuffer;
     }
 
-    const tag = ref.tag();
-    if (tag) {
-      if (metadata.title) tag.title = metadata.title;
-      if (metadata.artist) tag.artist = metadata.artist;
-      if (metadata.album) tag.album = metadata.album;
-      if (metadata.comment) tag.comment = metadata.comment;
-      if (metadata.genre) tag.genre = metadata.genre;
-      if (metadata.year) tag.year = metadata.year;
-      if (metadata.trackNumber) tag.track = metadata.trackNumber;
-      if (metadata.totalTracks) tag.setProperty('TRACKTOTAL', String(metadata.totalTracks));
-      if (metadata.discNumber) tag.disc = metadata.discNumber;
-      if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
-      if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
-      if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
-      if (metadata.upc) tag.setProperty('UPC', metadata.upc);
-      if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm));
-      if (metadata.copyright) tag.setProperty('COPYRIGHT', metadata.copyright);
+    const props: any = ref.properties();
 
-      if (metadata.lyrics) {
-        tag.setProperty('LYRICS', metadata.lyrics);
+    if (metadata.title) props.replace('TITLE', [metadata.title]);
+    if (metadata.artist) props.replace('ARTIST', [metadata.artist]);
+    if (metadata.album) props.replace('ALBUM', [metadata.album]);
+    if (metadata.albumArtist) props.replace('ALBUMARTIST', [metadata.albumArtist]);
+    if (metadata.comment) props.replace('COMMENT', [metadata.comment]);
+    if (metadata.genre) props.replace('GENRE', [metadata.genre]);
+    if (metadata.year) props.replace('DATE', [String(metadata.year)]);
+    if (metadata.trackNumber) {
+      const needsCombined = format === 'm4a' || format === 'mp4' || format === 'mp3';
+      const t = needsCombined && metadata.totalTracks
+        ? `${metadata.trackNumber}/${metadata.totalTracks}`
+        : String(metadata.trackNumber);
+      props.replace('TRACKNUMBER', [t]);
+      if (!needsCombined && metadata.totalTracks) {
+        props.replace('TRACKTOTAL', [String(metadata.totalTracks)]);
       }
+    }
+    if (metadata.discNumber) {
+      const needsCombined = format === 'm4a' || format === 'mp4' || format === 'mp3';
+      const d = needsCombined && metadata.totalDiscs
+        ? `${metadata.discNumber}/${metadata.totalDiscs}`
+        : String(metadata.discNumber);
+      props.replace('DISCNUMBER', [d]);
+      if (!needsCombined && metadata.totalDiscs) {
+        props.replace('DISCTOTAL', [String(metadata.totalDiscs)]);
+      }
+    }
+    if (metadata.bpm != null && Number.isFinite(metadata.bpm)) {
+      props.replace('BPM', [String(Math.round(metadata.bpm))]);
+    }
+    if (metadata.copyright) props.replace('COPYRIGHT', [metadata.copyright]);
+    if (metadata.isrc) props.replace('ISRC', [metadata.isrc]);
+    if (metadata.upc) props.replace('UPC', [metadata.upc]);
+    if (metadata.lyrics) {
+      props.replace('LYRICS', [metadata.lyrics.replace(/\r/g, '').replace(/\n/g, '\r\n')]);
+    }
 
-      // Add Cover Art
-      if (imageBuffer) {
-        try {
-          const pictureData = ByteVector.fromArray(new Uint8Array(imageBuffer));
-          tag.setComplexProperties('PICTURE', [
-            {
-              data: pictureData,
-              mimeType: 'image/jpeg',
-              pictureType: 3, // Front Cover
-              description: 'Front Cover'
-            }
-          ]);
-        } catch (imgErr) {
-          console.error('TagLib: Failed to add cover art', imgErr);
-        }
+    ref.setProperties(props);
+
+    if (imageBuffer) {
+      const pictureMap: Map<string, any> = new Map();
+      pictureMap.set('data', Variant.fromByteVector(ByteVector.fromByteArray(new Uint8Array(imageBuffer))));
+      pictureMap.set('mimeType', Variant.fromString('image/jpeg'));
+      pictureMap.set('pictureType', Variant.fromInt(3));
+      try {
+        ref.setComplexProperties('PICTURE', [pictureMap]);
+      } catch (imgErr) {
+        console.error('TagLib: Failed to add cover art', imgErr);
       }
     }
 
-    // Save changes
     const saved = await ref.save();
     if (!saved) {
       console.error('TagLib: Failed to save changes.');
@@ -92,12 +106,18 @@ export async function applyMetadataToAudio(
 
     const file = ref.file();
     if (!file) return audioBuffer;
-    
-    const stream = file.stream() as any;
-    const finalData = stream.data().data;
 
-    ref.close();
-    return finalData.buffer;
+    const stream = file.stream();
+    if (stream instanceof ChunkedByteVectorStream) {
+      const data: Uint8Array = stream.data().data;
+      return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+    }
+    if (stream instanceof BlobStream) {
+      const blob: Blob = stream.toBlob();
+      return await blob.arrayBuffer();
+    }
+    console.warn('TagLib: unexpected stream type after save', stream?.constructor?.name);
+    return audioBuffer;
   } catch (err) {
     console.error('TagLib error:', err);
     return audioBuffer;

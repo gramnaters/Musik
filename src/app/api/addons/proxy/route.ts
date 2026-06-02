@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+async function proxyFetch(request: NextRequest, method: string, body?: BodyInit) {
   const targetUrl = request.nextUrl.searchParams.get('url');
 
   if (!targetUrl) {
@@ -19,16 +19,27 @@ export async function GET(request: NextRequest) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+    const upstreamHeaders: Record<string, string> = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
+      Accept: 'image/*,audio/*,application/json,text/plain,*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: `${origin}/`,
+    };
+
+    // Forward custom headers that addon modules rely on (e.g. X-Cache-Token for Jimmy backend auth)
+    const forwarded = ['x-cache-token', 'content-type', 'authorization', 'x-auth-token'];
+    for (const h of forwarded) {
+      const val = request.headers.get(h);
+      if (val) upstreamHeaders[h] = val;
+    }
+
     const response = await fetch(targetUrl, {
+      method,
+      body,
       signal: controller.signal,
       redirect: 'follow',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0',
-        Accept: 'image/*,audio/*,application/json,text/plain,*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        Referer: `${origin}/`,
-      },
+      headers: upstreamHeaders,
     });
 
     clearTimeout(timeoutId);
@@ -143,4 +154,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  return proxyFetch(request, 'GET');
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.text();
+  return proxyFetch(request, 'POST', body);
 }

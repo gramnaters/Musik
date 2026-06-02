@@ -1,49 +1,29 @@
-const INSTANCES_URL = 'https://tidal-uptime.geeked.wtf';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0';
 
-const FALLBACK_API_INSTANCES = [
-  { url: 'https://monochrome-api.samidy.com', version: '2.3' },
-  { url: 'https://api.monochrome.tf', version: '2.5' },
-  { url: 'https://hifi.geeked.wtf', version: '2.7' },
-  { url: 'https://hifi-api-workers.anothermoumen4.workers.dev', version: '2.6' },
-  { url: 'https://wolf.qqdl.site', version: '2.4' },
-  { url: 'https://maus.qqdl.site', version: '2.4' },
-  { url: 'https://vogel.qqdl.site', version: '2.4' },
-  { url: 'https://katze.qqdl.site', version: '2.4' },
-  { url: 'https://hund.qqdl.site', version: '2.4' },
-  { url: 'https://tidal.kinoplus.online', version: '2.3' },
-  { url: 'https://eu-central.monochrome.tf', version: '2.7' },
-  { url: 'https://us-west.monochrome.tf', version: '2.7' },
-];
-
-let cachedInstances: { api: { url: string; version: string }[] } | null = null;
-let lastFetch = 0;
-
-async function fetchInstances(): Promise<{ url: string; version: string }[]> {
-  if (cachedInstances && Date.now() - lastFetch < 15 * 60 * 1000) {
-    return cachedInstances.api;
-  }
+async function fetchInstances(): Promise<string[]> {
+  const primary = 'https://api.monochrome.tf';
   try {
-      const ac = new AbortController();
-      setTimeout(() => ac.abort(), 5000);
-      const res = await fetch(INSTANCES_URL, { signal: ac.signal });
-    if (res.ok) {
-      const data = await res.json();
-      const api = (data.api || []).filter((i: any) => i.url && !/\.squid\.wtf/i.test(i.url));
-      if (api.length > 0) {
-        cachedInstances = { api };
-        lastFetch = Date.now();
-        return api;
-      }
-    }
+    const res = await fetch(primary, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
+    if (res.ok) return [primary];
   } catch {}
-  cachedInstances = { api: FALLBACK_API_INSTANCES };
-  lastFetch = Date.now();
-  return FALLBACK_API_INSTANCES;
+
+  const knownInstances = [
+    'https://monochrome.tf/api',
+    'https://api.monochrome.tf',
+  ];
+  const working: string[] = [];
+  for (const url of knownInstances) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
+      if (res.ok) working.push(url);
+    } catch {}
+  }
+  return working.length > 0 ? working : [primary];
 }
 
 let tidalApiFallback: ((path: string) => Promise<any>) | null = null;
 
-export function setTidalFallback(fn: (path: string) => Promise<any>) {
+export function registerTidalFallback(fn: (path: string) => Promise<any>) {
   tidalApiFallback = fn;
 }
 
@@ -90,137 +70,170 @@ async function query<T = any>(relativePath: string, options?: { type?: string; s
     }
   }
 
-  throw lastError || new Error(`All monochrome instances failed for: ${relativePath}`);
+  throw lastError || new Error('All Monochrome instances failed');
 }
 
-export function getCoverUrl(id: string, size = '1280'): string {
-  return `/api/cover?id=${id}&size=${size}`;
+export function stripPrefix(id: string): string {
+  if (!id) return '';
+  return id.replace(/^(mono_|tidal_)/, '');
 }
 
-export function searchTracks(q: string, limit = 20) {
-  return query<{ data: { items: any[] } }>(
-    `/search/?s=${encodeURIComponent(q)}&limit=${limit}`
-  ).then(r => {
-    if (!r || r.detail) return { tracks: [] };
-    return { tracks: r.data?.items || [] };
-  });
+export function getCoverUrl(coverUuid: string, size = '1920'): string {
+  if (!coverUuid) return '';
+  const uuid = stripPrefix(coverUuid);
+  return uuid.length >= 32 ? `/api/cover?id=${uuid}&size=${size}` : `https://resources.tidal.com/images/${uuid.replace(/-/g, '/')}/${size}x${size}.jpg`;
 }
 
-export function searchTracksExplicit(q: string, limit = 20) {
-  return query<{ data: { items: any[] } }>(
-    `/search/?s=${encodeURIComponent(q)}&limit=${limit}`
-  ).then(r => {
-    if (!r || r.detail) return { tracks: [] };
-    return { tracks: r.data?.items || [] };
-  });
+function extractUUID(obj: any): string | null {
+  if (!obj) return null;
+  if (typeof obj === 'string') return obj;
+  if (obj.uuid) return obj.uuid;
+  if (obj.id) return obj.id;
+  if (obj.cover) return obj.cover;
+  return null;
 }
 
-export function searchArtists(q: string) {
-  return query<{ data: { artists: { items: any[] } } }>(
-    `/search/?a=${encodeURIComponent(q)}`
-  ).then(r => {
-    if (!r || r.detail) return { artists: [] };
-    return { artists: r.data?.artists?.items || [] };
-  });
+export async function getTrack(id: string) {
+  const raw = await query<any>(`/track/?id=${stripPrefix(id)}`);
+  return raw?.track || raw?.data || raw;
 }
 
-export function searchAlbums(q: string) {
-  return query<{ data: { albums: { items: any[] } } }>(
-    `/search/?al=${encodeURIComponent(q)}`
-  ).then(r => {
-    if (!r || r.detail) return { albums: [] };
-    return { albums: r.data?.albums?.items || [] };
-  });
+export async function getTracks(ids: string[]) {
+  const results = await Promise.allSettled(
+    ids.map((id) => getTrack(id))
+  );
+  return results
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+    .map((r) => r.value);
 }
 
-export function searchPlaylists(q: string) {
-  return query<{ data: { playlists: { items: any[] } } }>(
-    `/search/?p=${encodeURIComponent(q)}`
-  ).then(r => {
-    if (!r || r.detail) return { playlists: [] };
-    return { playlists: r.data?.playlists?.items || [] };
-  });
-}
-
-function stripPrefix(id: string): string {
-  return id.replace(/^(mono_|tidal_|spotify_|apple_)/, '');
-}
-
-export function getTrackInfo(id: string) {
-  return query<any>(`/info/?id=${stripPrefix(id)}`);
+export async function getStreamUrl(id: string, quality = 'HI_RES') {
+  const raw = await query<any>(`/stream/?id=${stripPrefix(id)}&quality=${quality}`);
+  const url = raw?.url || raw?.streamURL || raw?.data?.url || '';
+  if (!url) return null;
+  return url;
 }
 
 export async function getAlbumInfo(id: string) {
   const raw = await query<any>(`/album/?id=${stripPrefix(id)}`);
-  if (!raw || !raw.data) {
-    throw new Error(raw?.detail || 'Album not found');
+  const album = raw?.album || raw?.data || raw;
+  let tracks = raw?.tracks || album?.tracks || album?.items || raw?.data?.items || [];
+  // Unwrap nested items: { item: {...}, type: "track" } → extract the item
+  if (tracks.length > 0 && tracks[0].item && !tracks[0].title) {
+    tracks = tracks.map((t: any) => t.item || t);
   }
-  const d = raw.data;
-  // Album props are directly in `data`, tracks in `data.items[]` as { item: trackObj, type: "track" }
-  const tracks = (d.items || []).filter((x: any) => x.type === 'track').map((x: any) => x.item).filter(Boolean);
-  const album = {
-    id: d.id,
-    title: d.title,
-    cover: d.cover,
-    artist: d.artist?.name || '',
-    artistId: d.artist?.id || '',
-    numberOfTracks: d.numberOfTracks || d.trackCount || tracks.length,
-    releaseDate: d.releaseDate,
-    explicit: d.explicit,
-    audioQuality: d.audioQuality,
-  };
   return { album, tracks };
 }
 
-export async function getArtistInfo(id: string) {
+export async function getArtist(id: string) {
   const raw = await query<any>(`/artist/?id=${stripPrefix(id)}`);
-  if (!raw) {
-    throw new Error('Artist not found');
-  }
-  // Artist props are at top level (NOT inside `data`)
-  const a = raw.artist;
-  if (!a) {
-    throw new Error(raw.detail || 'Artist not found');
-  }
-  return {
-    artist: {
-      id: a.id,
-      name: a.name,
-      picture: a.picture || raw.cover?.id,
-      popularity: a.popularity,
-      artistTypes: a.artistTypes,
-    },
-    cover: raw.cover,
-  };
+  return raw?.artist || raw?.data || raw;
 }
 
-export async function getPlaylistInfo(id: string) {
-  const raw = await query<any>(`/playlist/?id=${stripPrefix(id)}`);
-  if (!raw) {
-    throw new Error('Playlist not found');
+export async function getArtistBio(id: string) {
+  try {
+    const raw = await query<any>(`/artist/bio/?id=${stripPrefix(id)}`);
+    return raw?.bio || raw?.text || raw?.data || '';
+  } catch {
+    return '';
   }
-  // Playlist props are at top level, tracks in `items[]` as { item: trackObj, type: "track" }
-  const p = raw.playlist;
-  if (!p) {
-    throw new Error(raw.detail || 'Playlist not found');
-  }
-  const tracks = (raw.items || []).filter((x: any) => x.type === 'track').map((x: any) => x.item).filter(Boolean);
-  return {
-    playlist: {
-      uuid: p.uuid,
-      title: p.title,
-      description: p.description,
-      numberOfTracks: p.numberOfTracks,
-      image: p.image || p.squareImage,
-      url: p.url,
-      type: p.type,
-    },
-    tracks,
-  };
 }
 
-export function getArtistDiscography(id: string, offset = 0, limit = 100) {
-  return query<any>(`/artist/?f=${stripPrefix(id)}&offset=${offset}&limit=${limit}`);
+export async function search(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data || raw;
+}
+
+export async function searchTracks(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.tracks || raw?.tracks || raw?.items || [];
+}
+
+export async function searchAlbums(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?a=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.albums || raw?.albums || raw?.items || [];
+}
+
+export async function searchArtists(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?ar=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.artists || raw?.artists || raw?.items || [];
+}
+
+export async function searchPlaylists(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?p=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.playlists || raw?.playlists || raw?.items || [];
+}
+
+export async function getArtistAlbums(id: string): Promise<{ albums: any[]; eps: any[] }> {
+  try {
+    const raw = await query<any>(`/artist/?id=${stripPrefix(id)}`);
+    const artist = raw?.artist || raw?.data || raw;
+    const artistName = artist?.name || '';
+
+    if (!artistName) return { albums: [], eps: [] };
+
+    // Try Monochrome's album-specific search (matches Monochrome's searchAlbums())
+    try {
+      const searchRaw = await query<any>(`/search/?al=${encodeURIComponent(artistName)}&limit=100`);
+      const items = searchRaw?.data?.albums?.items || searchRaw?.data?.albums || searchRaw?.albums?.items || searchRaw?.albums || searchRaw?.items || [];
+      if (Array.isArray(items) && items.length > 0) {
+        const all = items.filter((x: any) =>
+          (!x.type) || x.type === 'ALBUM' || x.type === 'EP' || x.type === 'SINGLE'
+        );
+        // Deduplicate by id
+        const seen = new Set<string>();
+        const deduped = all.filter((a: any) => {
+          const key = a.id || `${a.title}-${a.artist?.name || a.artist}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const albums = deduped.filter((a: any) => !a.type || (a.type !== 'EP' && a.type !== 'SINGLE'));
+        const eps = deduped.filter((a: any) => a.type === 'EP' || a.type === 'SINGLE');
+        return { albums: albums.slice(0, 24), eps: eps.slice(0, 24) };
+      }
+    } catch {}
+
+    // Fallback: general search with `a=` (artist name)
+    try {
+      const searchRaw = await query<any>(`/search/?a=${encodeURIComponent(artistName)}&limit=100`);
+      const items = searchRaw?.data?.albums?.items || searchRaw?.data?.albums || searchRaw?.albums?.items || searchRaw?.albums || searchRaw?.items || [];
+      if (Array.isArray(items) && items.length > 0) {
+        const all = items.filter((x: any) =>
+          (!x.type) || x.type === 'ALBUM' || x.type === 'EP' || x.type === 'SINGLE'
+        );
+        const seen = new Set<string>();
+        const deduped = all.filter((a: any) => {
+          const key = a.id || `${a.title}-${a.artist?.name || a.artist}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const albums = deduped.filter((a: any) => !a.type || (a.type !== 'EP' && a.type !== 'SINGLE'));
+        const eps = deduped.filter((a: any) => a.type === 'EP' || a.type === 'SINGLE');
+        return { albums: albums.slice(0, 24), eps: eps.slice(0, 24) };
+      }
+    } catch {}
+
+    // Fallback: search for artist name via tracks endpoint to find their albums
+    try {
+      const trackRaw = await query<any>(`/search/?s=${encodeURIComponent(artistName)}&limit=100`);
+      const tracks = trackRaw?.data?.tracks?.items || trackRaw?.data?.tracks || trackRaw?.tracks || trackRaw?.items || [];
+      const albumMap = new Map<string, any>();
+      for (const t of tracks) {
+        const alb = t.album;
+        if (alb && alb.id && !albumMap.has(alb.id)) {
+          albumMap.set(alb.id, { id: alb.id, title: alb.title || '', artist: alb.artist?.name || artistName, cover: alb.cover, releaseDate: alb.releaseDate, type: alb.type });
+        }
+      }
+      const found = [...albumMap.values()];
+      return { albums: found.slice(0, 12), eps: [] };
+    } catch {}
+
+    return { albums: [], eps: [] };
+  } catch {
+    return { albums: [], eps: [] };
+  }
 }
 
 export function getLyrics(id: string) {
@@ -239,15 +252,6 @@ export function getRecommendations(id: string) {
   return query<any>(`/recommendations/?id=${stripPrefix(id)}`);
 }
 
-function extractUUID(obj: any): string | null {
-  if (!obj) return null;
-  if (typeof obj === 'string') return obj;
-  if (obj.uuid) return obj.uuid;
-  if (obj.id) return obj.id;
-  if (obj.cover) return obj.cover;
-  return null;
-}
-
 export function mapMonochromeTrack(item: any): any {
   const coverId = extractUUID(item.album?.cover || item.cover || item.image);
   const albumCover = coverId ? getCoverUrl(coverId) : '';
@@ -260,7 +264,7 @@ export function mapMonochromeTrack(item: any): any {
     albumCover,
     albumId: item.album?.id || item.albumId || '',
     artistId: item.artist?.id || item.artistId || '',
-    duration: item.duration || item.durationMs ? Math.round(item.durationMs / 1000) : 0,
+    duration: typeof item.duration === 'number' ? item.duration : (typeof item.durationMs === 'number' ? Math.round(item.durationMs / 1000) : 0),
     isrc: item.isrc || '',
     explicit: item.explicit || false,
     quality: (item.audioQuality || item.quality || 'LOW').toLowerCase(),
@@ -269,14 +273,22 @@ export function mapMonochromeTrack(item: any): any {
 
 export function mapMonochromeAlbum(item: any): any {
   const coverId = extractUUID(item.cover || item.image);
+  const totalDuration = item.duration || (item.tracks || []).reduce((s: number, t: any) => s + (t.duration || 0), 0);
   return {
     id: `mono_${item.id}`,
     title: item.title || item.name || '',
     artist: (typeof item.artist === 'string' ? item.artist : item.artist?.name || item.artistName || item.artists?.[0]?.name || ''),
+    artistId: item.artistId || item.artist?.id || '',
     cover: coverId ? getCoverUrl(coverId) : '',
     coverId: coverId || '',
     trackCount: item.numberOfTracks || item.trackCount || item.tracks?.length || 0,
+    numberOfTracks: item.numberOfTracks || item.trackCount || 0,
     year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : undefined,
+    releaseDate: item.releaseDate || '',
+    duration: totalDuration || 0,
+    copyright: item.copyright || '',
+    explicit: item.explicit || false,
+    audioQuality: item.audioQuality || '',
   };
 }
 
@@ -291,73 +303,28 @@ export function mapMonochromeArtist(item: any): any {
 }
 
 export function mapMonochromePlaylist(item: any): any {
-  const coverId = extractUUID(item.cover || item.image || item.picture);
+  const coverId = extractUUID(item.image || item.squareImage || item.cover);
   return {
-    id: `mono_${item.uuid || item.id}`,
-    name: item.title || item.name || '',
+    id: `mono_${item.uuid}`,
+    title: item.title || item.name || '',
     description: item.description || '',
     cover: coverId ? getCoverUrl(coverId) : '',
-    trackCount: item.numberOfTracks || item.trackCount || item.tracks?.length || 0,
+    trackCount: item.numberOfTracks || item.trackCount || 0,
+    image: coverId || item.image || item.squareImage || item.cover || '',
+    squareImage: item.squareImage || coverId || '',
   };
 }
 
-const PODCASTINDEX_API_KEY = 'YU5HMSDYBQQVYDF6QN4P';
-const PODCASTINDEX_API_SECRET = '8hCvpjSL7T$S7^5ftnf5MhqQwYUYVjM^fmUL3Ld$';
-
-function podcastIndexAuth() {
-  const apiHeaderTime = Math.floor(Date.now() / 1000);
-  const hash = require('crypto').createHash('sha1')
-    .update(PODCASTINDEX_API_KEY + PODCASTINDEX_API_SECRET + apiHeaderTime)
-    .digest('hex');
-  return {
-    'X-Auth-Key': PODCASTINDEX_API_KEY,
-    'X-Auth-Date': String(apiHeaderTime),
-    'Authorization': hash,
-    'User-Agent': 'beatboss-player/1.0',
-  };
-}
-
-export type PodcastFeed = {
-  id: number;
-  podcastGuid: string;
-  title: string;
-  author: string;
-  description: string;
-  image: string;
-  link: string;
-  feedUrl: string;
-  language: string;
-  categories: Record<string, string>;
-  explicit: boolean;
-  episodeCount: number;
-  newestItemPublishTime: number;
-};
-
-export async function searchPodcasts(query: string, max = 10): Promise<PodcastFeed[]> {
+export async function resolveMonochromeSearch(query: string, limit = 25) {
   try {
-    const headers = podcastIndexAuth();
-    const res = await fetch(
-      `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(query)}&max=${max}&pretty`,
-      { headers }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.feeds || []).map((f: any) => ({
-      id: f.id,
-      podcastGuid: f.podcastGuid,
-      title: f.title,
-      author: f.author || f.ownerName || '',
-      description: f.description || '',
-      image: f.image || f.artwork || '',
-      link: f.link || '',
-      feedUrl: f.url || f.feedUrl || '',
-      language: f.language || '',
-      categories: f.categories || {},
-      explicit: f.explicit || false,
-      episodeCount: f.episodeCount || 0,
-      newestItemPublishTime: f.newestItemPublishTime || 0,
-    }));
+    const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
+    const data = raw?.data || raw;
+    const tracks = (data?.tracks || data?.items || []).map(mapMonochromeTrack);
+    const albums = (data?.albums || []).map(mapMonochromeAlbum);
+    const artists = (data?.artists || []).map(mapMonochromeArtist);
+    const playlists = (data?.playlists || []).map(mapMonochromePlaylist);
+    return { tracks, albums, artists, playlists };
   } catch {
-    return [];
+    return { tracks: [], albums: [], artists: [], playlists: [] };
   }
 }

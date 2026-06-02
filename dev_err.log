@@ -1,38 +1,412 @@
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Abolo%20bolo%20p%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20p&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Abolo%20bolo%20p%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20panther&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20p&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Abolo%20bolo%20panther%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20p&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Abolo%20bolo%20p%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20panther&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Abolo%20bolo%20panther%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Abolo%20bolo%20panther%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=bolo%20bolo%20panther&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=Raga%20of%20Revenge%20(From%20%22DC%22)%20Anirudh%20Ravichander&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=Raga%20of%20Revenge%20(From%20%22DC%22)%20Anirudh%20Ravichander&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Araga%20of%20revenge%20(from%20%22dc%22)%20anirudh%20ravichander%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=Raga%20of%20Revenge%20(From%20%22DC%22)%20Anirudh%20Ravichander&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Araga%20of%20revenge%20(from%20%22dc%22)%20anirudh%20ravichander%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Araga%20of%20revenge%20(from%20%22dc%22)%20anirudh%20ravichander%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
-[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aarianna%20grande%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aarianna%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna%20grande&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aarianna%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aarianna%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna%20grande&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aarianna%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aarianna%20grande%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aarianna%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arianna%20grande&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aarianna%20grande%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aarianna%3A20: {"detail":"Unauthorized"}
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Monochrome album detail failed, trying Tidal fallback: Error: All Monochrome instances failed
+    at query (src\lib\monochrome.ts:73:22)
+    at async getAlbumInfo (src\lib\monochrome.ts:118:15)
+    at async GET (src\app\api\metadata\album\route.ts:20:52)
+  71 |   }
+  72 |
+> 73 |   throw lastError || new Error('All Monochrome instances failed');
+     |                      ^
+  74 | }
+  75 |
+  76 | export function stripPrefix(id: string): string {
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Asomebody%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Asomebody%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Asomebody%20latto%3A20: {"detail":"miss"}
+[browser] Uncaught TypeError: Cannot read properties of undefined (reading 'id')
+    at <unknown> (src/components/shared/DownloadNotifications.tsx:24:39)
+    at Array.map (<anonymous>)
+    at DownloadNotifications (src/components/shared/DownloadNotifications.tsx:23:16)
+    at RootLayout (src\app\layout.tsx:47:11)
+  22 |       <AnimatePresence>
+  23 |         {tasks.map((task) => (
+> 24 |           <DownloadTaskItem key={task.id} task={task} />
+     |                                       ^
+  25 |         ))}
+  26 |       </AnimatePresence>
+  27 |     </div>
+[browser] TagLib error: TypeError: tag.setProperty is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:58:37)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:136:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:225:18)
+  56 |       if (metadata.discNumber) tag.disc = metadata.discNumber;
+  57 |       if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
+> 58 |       if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
+     |                                     ^
+  59 |       if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
+  60 |       if (metadata.upc) tag.setProperty('UPC', metadata.upc);
+  61 |       if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm)); (src/lib/audio-tagger.ts:102:13)
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Monochrome album detail failed, trying Tidal fallback: Error: All Monochrome instances failed
+    at query (src\lib\monochrome.ts:73:22)
+    at async getAlbumInfo (src\lib\monochrome.ts:118:15)
+    at async GET (src\app\api\metadata\album\route.ts:20:52)
+  71 |   }
+  72 |
+> 73 |   throw lastError || new Error('All Monochrome instances failed');
+     |                      ^
+  74 | }
+  75 |
+  76 | export function stripPrefix(id: string): string {
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Asomebody%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Abusiness%20%26%20personal%20(intro)%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Abusiness%20%26%20personal%20(intro)%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Abusiness%20%26%20personal%20(intro)%20latto%3A20: {"detail":"miss"}
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Asomebody%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Amama%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Amama%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Adaddy's%20girl%20interlude%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Adaddy's%20girl%20interlude%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Adaddy's%20girl%20interlude%20latto%3A20: {"detail":"miss"}
+⨯ ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  [90m148 |[0m                             </span>
+  [90m149 |[0m                           )}
+[31m[1m>[0m [90m150 |[0m                         </div>
+  [90m    |[0m                           [31m[1m^^^[0m
+  [90m151 |[0m                         <p className=[32m"tidal-pb-artist pb-artist truncate text-[12px] text...[0m
+  [90m152 |[0m                           {currentTrack.artist} {currentTrack.album && <span className=[32m"t...[0m
+  [90m153 |[0m                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  [90m148 |[0m                             </span>
+  [90m149 |[0m                           )}
+[31m[1m>[0m [90m150 |[0m                         </div>
+  [90m    |[0m                           [31m[1m^^^[0m
+  [90m151 |[0m                         <p className=[32m"tidal-pb-artist pb-artist truncate text-[12px] text...[0m
+  [90m152 |[0m                           {currentTrack.artist} {currentTrack.album && <span className=[32m"t...[0m
+  [90m153 |[0m                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] Uncaught Error: ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/player/PlayerBar.tsx:150:27)
+    at <unknown> (Error: (./src/components/player/PlayerBar.tsx:150:27)
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  148 |                             </span>
+  149 |                           )}
+> 150 |                         </div>
+      |                           ^^^
+  151 |                         <p className="tidal-pb-artist pb-artist truncate text-[12px] text...
+  152 |                           {currentTrack.artist} {currentTrack.album && <span className="t...
+  153 |                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/components/player/PlayerBar.tsx:150:27
+Expected '</', got 'ident'
+  [90m148 |[0m                             </span>
+  [90m149 |[0m                           )}
+[31m[1m>[0m [90m150 |[0m                         </div>
+  [90m    |[0m                           [31m[1m^^^[0m
+  [90m151 |[0m                         <p className=[32m"tidal-pb-artist pb-artist truncate text-[12px] text...[0m
+  [90m152 |[0m                           {currentTrack.artist} {currentTrack.album && <span className=[32m"t...[0m
+  [90m153 |[0m                         </p>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/player/PlayerBar.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/player/PlayerBar.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Aonnat%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Aonnat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[browser] TagLib error: TypeError: tag.setProperty is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:58:37)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:136:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:225:18)
+  56 |       if (metadata.discNumber) tag.disc = metadata.discNumber;
+  57 |       if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
+> 58 |       if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
+     |                                     ^
+  59 |       if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
+  60 |       if (metadata.upc) tag.setProperty('UPC', metadata.upc);
+  61 |       if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm)); (src/lib/audio-tagger.ts:102:13)
 ⨯ Error: failed to pipe response
     at ignore-listed frames {
   [cause]: Error [TimeoutError]: The operation was aborted due to timeout
@@ -65,54 +439,97 @@
     DATA_CLONE_ERR: 25
   }
 }
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aariana%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aarian%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arian&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aarian%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aariana%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arian&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana%20grande&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aariana%20grande%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aariana%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=arian&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aarian%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana%20grande&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aariana%20grande%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=ariana%20grande&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aariana%20grande%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aeternal%20sunshine%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aeternal%20sunshine%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170842&format_id=HIRES_96&intent=stream&request_ts=1780159275&request_sig=41341d53585864623ff553ec27f7e5f1: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170843&format_id=HIRES_96&intent=stream&request_ts=1780159275&request_sig=794152c5e3a26c81a720743a6cf213ef: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170844&format_id=HIRES_96&intent=stream&request_ts=1780159275&request_sig=1496cabcecb4fd3e2a4d0308bd631589: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aeternal%20sunshine%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170842&format_id=HIRES_96&intent=stream&request_ts=1780159587&request_sig=6b60162e9324eb4abe2c34ce54179698: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170843&format_id=HIRES_96&intent=stream&request_ts=1780159587&request_sig=847e7fb33e21a196d16b34a3f9523504: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 400 for https://www.qobuz.com/api.json/0.2/track/getFileUrl?app_id=312369995&user_auth_token=XX7seyZt4OaHGPgksFUldL2Ig0cH6jqcKSAfOAiAGBzw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g&track_id=256170844&format_id=HIRES_96&intent=stream&request_ts=1780159587&request_sig=212eb7d531434a620f0f186880acd95a: {"status":"error","code":400,"message":"Invalid argument: format_id (accepted type are number)"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aeternal%20sunshine%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=albums&limit=20: {"detail":"Unauthorized"}
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Afallin'%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Afallin'%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Afallin'%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Aonnat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[browser] TagLib error: TypeError: tag.setProperty is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:58:37)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:142:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:231:18)
+  56 |       if (metadata.discNumber) tag.disc = metadata.discNumber;
+  57 |       if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
+> 58 |       if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
+     |                                     ^
+  59 |       if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
+  60 |       if (metadata.upc) tag.setProperty('UPC', metadata.upc);
+  61 |       if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm)); (src/lib/audio-tagger.ts:102:13)
+[browser] TagLib error: TypeError: tag.setProperty is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:58:37)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:142:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:231:18)
+  56 |       if (metadata.discNumber) tag.disc = metadata.discNumber;
+  57 |       if (metadata.totalDiscs) tag.setProperty('DISCTOTAL', String(metadata.totalDiscs));
+> 58 |       if (metadata.albumArtist) tag.setProperty('ALBUMARTIST', metadata.albumArtist);
+     |                                     ^
+  59 |       if (metadata.isrc) tag.setProperty('ISRC', metadata.isrc);
+  60 |       if (metadata.upc) tag.setProperty('UPC', metadata.upc);
+  61 |       if (metadata.bpm) tag.setProperty('BPM', String(metadata.bpm)); (src/lib/audio-tagger.ts:102:13)
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[browser] TagLib: Failed to add cover art TypeError: ByteVector.fromArray is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:75:44)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:142:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:231:18)
+  73 |         try {
+  74 |           if (typeof (tag as any).setComplexProperties === 'function') {
+> 75 |             const pictureData = ByteVector.fromArray(new Uint8Array(imageBuffer));
+     |                                            ^
+  76 |             (tag as any).setComplexProperties('PICTURE', [
+  77 |               {
+  78 |                 data: pictureData, (src/lib/audio-tagger.ts:86:19)
+[browser] TagLib error: TypeError: ref.close is not a function
+    at applyMetadataToAudio (src/lib/audio-tagger.ts:104:9)
+    at async downloadTrackEnhanced (src/lib/download-track.ts:142:24)
+    at async downloadSingleTrack (src/lib/download-track.ts:231:18)
+  102 |     const finalData = stream.data().data;
+  103 |
+> 104 |     ref.close();
+      |         ^
+  105 |     return finalData.buffer;
+  106 |   } catch (err) {
+  107 |     console.error('TagLib error:', err); (src/lib/audio-tagger.ts:107:13)
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Abusiness%20%26%20personal%20(intro)%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Agimme%20dat%20latto%3A20: {"detail":"miss"}
+[browser] TagLib: unexpected stream type after save NamedByteVectorStream (src/lib/audio-tagger.ts:119:13)
+[browser] TagLib: unexpected stream type after save NamedByteVectorStream (src/lib/audio-tagger.ts:119:13)
 ⨯ Error: failed to pipe response
     at ignore-listed frames {
   [cause]: Error [TimeoutError]: The operation was aborted due to timeout
@@ -145,41 +562,53 @@
     DATA_CLONE_ERR: 25
   }
 }
-⨯ Error: failed to pipe response
-    at ignore-listed frames {
-  [cause]: Error [TimeoutError]: The operation was aborted due to timeout
-      at ignore-listed frames {
-    code: 23,
-    INDEX_SIZE_ERR: 1,
-    DOMSTRING_SIZE_ERR: 2,
-    HIERARCHY_REQUEST_ERR: 3,
-    WRONG_DOCUMENT_ERR: 4,
-    INVALID_CHARACTER_ERR: 5,
-    NO_DATA_ALLOWED_ERR: 6,
-    NO_MODIFICATION_ALLOWED_ERR: 7,
-    NOT_FOUND_ERR: 8,
-    NOT_SUPPORTED_ERR: 9,
-    INUSE_ATTRIBUTE_ERR: 10,
-    INVALID_STATE_ERR: 11,
-    SYNTAX_ERR: 12,
-    INVALID_MODIFICATION_ERR: 13,
-    NAMESPACE_ERR: 14,
-    INVALID_ACCESS_ERR: 15,
-    VALIDATION_ERR: 16,
-    TYPE_MISMATCH_ERR: 17,
-    SECURITY_ERR: 18,
-    NETWORK_ERR: 19,
-    ABORT_ERR: 20,
-    URL_MISMATCH_ERR: 21,
-    QUOTA_EXCEEDED_ERR: 22,
-    TIMEOUT_ERR: 23,
-    INVALID_NODE_TYPE_ERR: 24,
-    DATA_CLONE_ERR: 25
-  }
-}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aalbums%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Aartists%3Aeternal%20sunshine%3A20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=tracks&limit=40: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=artists&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/search/?query=eternal%20sunshine&type=albums&limit=20: {"detail":"Unauthorized"}
-[Addon Proxy] Upstream error 401 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av4%3Atracks%3Aeternal%20sunshine%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"Unauthorized"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Afallin'%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+Failed to fetch similar albums: Error: Monochrome API error: 404
+    at query (src\lib\monochrome.ts:57:19)
+    at async GET (src\app\api\metadata\album\similar\route.ts:11:20)
+  55 |       }
+  56 |       if (res.status === 429 || res.status >= 500) continue;
+> 57 |       lastError = new Error(`Monochrome API error: ${res.status}`);
+     |                   ^
+  58 |     } catch (err: any) {
+  59 |       if (err.name === 'AbortError') throw err;
+  60 |       lastError = err;
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Atracks%3Abrokey%20latto%3A40%3AHIRES_96%3AHI_RES_LOSSLESS: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aalbums%3Abrokey%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Abrokey%20latto%3A20: {"detail":"miss"}
+Monochrome album detail failed, trying Tidal fallback: Error: All Monochrome instances failed
+    at query (src\lib\monochrome.ts:73:22)
+    at async getAlbumInfo (src\lib\monochrome.ts:118:15)
+    at async GET (src\app\api\metadata\album\route.ts:20:52)
+  71 |   }
+  72 |
+> 73 |   throw lastError || new Error('All Monochrome instances failed');
+     |                      ^
+  74 | }
+  75 |
+  76 | export function stripPrefix(id: string): string {
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}
+[Addon Proxy] Upstream error 404 for https://lateralus-backend.onrender.com/cache/search?key=jimmy%3Asearch%3Av11%3Aartists%3Abusiness%20%26%20personal%20(intro)%20latto%3A20: {"detail":"miss"}
+[Addon Proxy] Upstream error 429 for https://lateralus-backend.onrender.com/cache/search: {"detail":"rate limit: 1 write per key per hour"}

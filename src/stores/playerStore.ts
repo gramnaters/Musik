@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Track } from '@/types/music';
 import { inferFormatFromUrl } from '@/lib/audio-quality';
 import { useAddonStore } from '@/stores/addonStore';
+import { useStreamingStore } from '@/stores/streamingStore';
 import type { AddonTrack } from '@/types/addon';
 import { Loader2 } from 'lucide-react';
 
@@ -222,11 +223,11 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         void (async () => {
           try {
             let finalStreamUrl = track.streamURL;
-            const hasAddons = useAddonStore.getState().getPlaybackOrderedSearchAddonIds().length > 0;
+            const { useModulesOnGo } = useAddonStore.getState();
 
-            // If the stream URL is an Apple/iTunes preview track, and we have active addons enabled,
-            // we ignore it so we search the addon database for the full-length track instead.
-            if (finalStreamUrl && (finalStreamUrl.includes('itunes.apple.com') || finalStreamUrl.includes('mzstatic.com') || finalStreamUrl.includes('apple-assets')) && hasAddons) {
+            // If the stream URL is an Apple/iTunes preview track, and we have modules enabled,
+            // we ignore it so the addon system finds the full-length track instead.
+            if (useModulesOnGo && finalStreamUrl && (finalStreamUrl.includes('itunes.apple.com') || finalStreamUrl.includes('mzstatic.com') || finalStreamUrl.includes('apple-assets'))) {
               finalStreamUrl = undefined;
             }
 
@@ -279,7 +280,13 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
             set({ currentTrack: trackToPlay });
 
             audio.preload = 'auto';
-            audio.volume = state.isMuted ? 0 : state.volume;
+            const streamSettings = useStreamingStore.getState();
+            const rawVolume = state.isMuted ? 0 : state.volume;
+            audio.volume = streamSettings.exponentialVolume ? Math.pow(rawVolume, 2) : rawVolume;
+            audio.playbackRate = streamSettings.playbackSpeed ?? 1;
+            audio.preservesPitch = streamSettings.preservePitch ?? true;
+            // TEMP-DEBUG: log resolved upstream stream URL
+            console.log('[TEMP-DEBUG] Upstream stream URL:', finalStreamUrl);
             audio.src = `/api/stream?url=${encodeURIComponent(finalStreamUrl)}`;
             audio.load();
 
@@ -383,8 +390,10 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       setVolume: (vol: number) => {
         const { audio } = get();
         const volume = Math.max(0, Math.min(1, vol));
+        const streamSettings = useStreamingStore.getState();
+        const effectiveVolume = streamSettings.exponentialVolume ? Math.pow(volume, 2) : volume;
         if (audio) {
-          audio.volume = volume;
+          audio.volume = effectiveVolume;
         }
         set({ volume, isMuted: volume === 0, prevVolume: volume > 0 ? volume : get().prevVolume });
       },

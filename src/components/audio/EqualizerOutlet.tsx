@@ -3,9 +3,10 @@
 import { useEffect } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useAudioSettingsStore } from '@/stores/audioSettingsStore';
-import { attachEqualizerToAudio, applyEqualizer, resumeAudioContext } from '@/lib/equalizer-graph';
+import { useStreamingStore } from '@/stores/streamingStore';
+import { attachEqualizerToAudio, applyEqualizer, resumeAudioContext, setMonoAudio } from '@/lib/equalizer-graph';
 
-/** Wires the shared HTMLAudio element into a Web Audio 3-band path once presets can update live. */
+/** Wires the shared HTMLAudio element into a Web Audio 3-band path + mono + log volume. */
 export function EqualizerOutlet() {
   useEffect(() => {
     let prevAudio: HTMLAudioElement | null = undefined as unknown as HTMLAudioElement | null;
@@ -13,6 +14,7 @@ export function EqualizerOutlet() {
     const sync = async () => {
       const audio = usePlayerStore.getState().audio;
       const { eqEnabled, eqPreset } = useAudioSettingsStore.getState();
+      const { monoAudio } = useStreamingStore.getState();
 
       if (audio !== prevAudio) {
         prevAudio = audio;
@@ -21,6 +23,7 @@ export function EqualizerOutlet() {
       if (audio) {
         await attachEqualizerToAudio(audio);
         applyEqualizer(eqEnabled, eqPreset);
+        setMonoAudio(monoAudio);
         await resumeAudioContext();
       }
     };
@@ -29,10 +32,12 @@ export function EqualizerOutlet() {
 
     const unsubAudio = usePlayerStore.subscribe(() => void sync());
     const unsubEq = useAudioSettingsStore.subscribe(() => void sync());
+    const unsubStream = useStreamingStore.subscribe(() => void sync());
 
     return () => {
       unsubAudio();
       unsubEq();
+      unsubStream();
     };
   }, []);
 

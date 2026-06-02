@@ -6,15 +6,72 @@ import { applyMetadataToAudio, TagMetadata } from '@/lib/audio-tagger';
 import { createBulkWriter, buildTrackFilename, buildAlbumFolder, SequentialFileWriter, WriterEntry } from '@/lib/download-writer';
 import { generateM3U, generateCUE } from '@/lib/playlist-generator';
 
-function getExtensionFromBlob(blob: Blob): string {
-  const u8 = new Uint8Array(blob.slice(0, 12));
-  const sig = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join(' ');
-  if (sig.startsWith('66 4c 61 43')) return 'flac';
-  if (sig.startsWith('ff f') || sig.startsWith('ff e') || sig.startsWith('ff f3') || sig.startsWith('49 44 33')) return 'mp3';
-  if (sig.startsWith('00 00 00 18 66 74 79 70 6d 70 34 32') || sig.startsWith('00 00 00 20 66 74 79 70') || sig.startsWith('4d 34 41 20')) return 'm4a';
-  if (sig.startsWith('4f 67 67 53')) return 'ogg';
-  if (sig.startsWith('52 49 46 46')) return 'wav';
-  return 'mp3';
+function detectAudioFormat(view: DataView, mimeType = ''): string | null {
+  // FLAC: "fLaC"
+  if (view.byteLength >= 4 &&
+      view.getUint8(0) === 0x66 && view.getUint8(1) === 0x4c &&
+      view.getUint8(2) === 0x61 && view.getUint8(3) === 0x43) {
+    return 'flac';
+  }
+  // OGG: "OggS"
+  if (view.byteLength >= 4 &&
+      view.getUint8(0) === 0x4f && view.getUint8(1) === 0x67 &&
+      view.getUint8(2) === 0x67 && view.getUint8(3) === 0x53) {
+    return 'ogg';
+  }
+  // MP4/M4A: "ftyp" at offset 4
+  if (view.byteLength >= 8 &&
+      view.getUint8(4) === 0x66 && view.getUint8(5) === 0x74 &&
+      view.getUint8(6) === 0x79 && view.getUint8(7) === 0x70) {
+    return 'mp4';
+  }
+  // MP3 ID3v2 tag: "ID3"
+  if (view.byteLength >= 3 &&
+      view.getUint8(0) === 0x49 && view.getUint8(1) === 0x44 && view.getUint8(2) === 0x33) {
+    return 'mp3';
+  }
+  // MP3 frame sync: 0xFF 0xFB/0xFA/0xF3/0xF2
+  if (view.byteLength >= 2 && view.getUint8(0) === 0xff && (view.getUint8(1) & 0xe0) === 0xe0) {
+    return 'mp3';
+  }
+  // RIFF/WAVE
+  if (view.byteLength >= 12 &&
+      view.getUint8(0) === 0x52 && view.getUint8(1) === 0x49 &&
+      view.getUint8(2) === 0x46 && view.getUint8(3) === 0x46 &&
+      view.getUint8(8) === 0x57 && view.getUint8(9) === 0x41 &&
+      view.getUint8(10) === 0x56 && view.getUint8(11) === 0x45) {
+    return 'wav';
+  }
+  // MIME fallback
+  const mt = (mimeType || '').toLowerCase();
+  if (mt === 'audio/flac') return 'flac';
+  if (mt === 'audio/ogg' || mt === 'audio/opus') return 'ogg';
+  if (mt === 'audio/mp4' || mt === 'audio/x-m4a') return 'm4a';
+  if (mt === 'audio/mp3' || mt === 'audio/mpeg') return 'mp3';
+  if (mt === 'audio/wav' || mt === 'audio/x-wav') return 'wav';
+  return null;
+}
+
+async function getExtensionFromBlob(blob: Blob): Promise<string> {
+  let view: DataView;
+  try {
+    const buf = await blob.slice(0, 12).arrayBuffer();
+    view = new DataView(buf);
+  } catch {
+    view = new DataView(new ArrayBuffer(0));
+  }
+  const format = detectAudioFormat(view, blob.type);
+  if (format === 'mp4') return 'm4a';
+  if (format) return format;
+  // Last resort: trust the response Content-Type
+  const mt = (blob.type || '').toLowerCase();
+  if (mt.includes('flac')) return 'flac';
+  if (mt.includes('ogg') || mt.includes('opus')) return 'ogg';
+  if (mt.includes('mp4') || mt.includes('m4a')) return 'm4a';
+  if (mt.includes('mpeg') || mt.includes('mp3')) return 'mp3';
+  if (mt.includes('wav')) return 'wav';
+  // Default to flac — jimmy/spotiflac addons serve lossless by default
+  return 'flac';
 }
 
 interface DownloadOpts {
@@ -58,10 +115,14 @@ async function fetchAudioWithProgress(url: string, opts: DownloadOpts): Promise<
   return new Blob([buffer], { type: response.headers.get('Content-Type') || '' });
 }
 
-async function fetchCover(track: Track): Promise<ArrayBuffer | undefined> {
+async function fetchCover(track: Track, size?: number): Promise<ArrayBuffer | undefined> {
   if (!track.albumCover) return;
   try {
-    const res = await fetch(track.albumCover);
+    let url = track.albumCover;
+    if (size) {
+      url = url.replace(/\d+x\d+bb/, `${size}x${size}bb`);
+    }
+    const res = await fetch(url);
     if (res.ok) return res.arrayBuffer();
   } catch {}
 }
@@ -84,7 +145,7 @@ async function fetchLyrics(track: Track): Promise<string> {
 export async function downloadTrackEnhanced(opts: DownloadOpts): Promise<Blob> {
   const { track, quality: qualityOverride, signal } = opts;
   const { resolveRawStreamUrl } = useAddonStore.getState();
-  const { streamingQuality, downloadQuality } = useStreamingStore.getState();
+  const { streamingQuality, downloadQuality, embedLyricsInFiles, embedCoverArtInFiles, coverArtSize } = useStreamingStore.getState();
   const qual = qualityOverride || downloadQuality || streamingQuality || 'LOSSLESS';
 
   // 1. Resolve raw stream URL from addon
@@ -103,14 +164,14 @@ export async function downloadTrackEnhanced(opts: DownloadOpts): Promise<Blob> {
 
   // 2. Fetch audio at requested quality
   const audioBlob = await fetchAudioWithProgress(streamUrl, opts);
-  const ext = getExtensionFromBlob(audioBlob);
+  const ext = await getExtensionFromBlob(audioBlob);
 
   opts.onProgress?.(90);
 
-  // 5. Fetch cover + lyrics
+  // 5. Fetch cover + lyrics (respect settings)
   const [coverBuffer, lyricsText] = await Promise.all([
-    fetchCover(track),
-    fetchLyrics(track),
+    embedCoverArtInFiles !== false ? fetchCover(track, coverArtSize || undefined) : Promise.resolve(undefined),
+    embedLyricsInFiles !== false ? fetchLyrics(track) : Promise.resolve(''),
   ]);
 
   // 6. Enhanced metadata tagging
@@ -152,7 +213,7 @@ export async function downloadTracksBulk(
   } = {}
 ) {
   const { updateTask } = useDownloadStore.getState();
-  const { streamingQuality, downloadQuality, filenameTemplate, folderTemplate, bulkDownloadMethod } = useStreamingStore.getState();
+  const { streamingQuality, downloadQuality, filenameTemplate, folderTemplate, bulkDownloadMethod, writeArtistsSeparately, downloadConcurrentCount } = useStreamingStore.getState();
   const qual = opts.quality || downloadQuality || streamingQuality || 'LOSSLESS';
   const method = opts.method || bulkDownloadMethod || 'sequential';
   const ftpl = opts.template || filenameTemplate || '{artist} - {title}';
@@ -164,18 +225,16 @@ export async function downloadTracksBulk(
 
   const writer = await createBulkWriter(method, folderName);
   const trackPaths: (string | null)[] = [];
+  const concurrency = Math.max(1, Math.min(downloadConcurrentCount || 3, tracks.length));
 
   async function* yieldFiles(): AsyncGenerator<WriterEntry> {
-    // 1. Download all tracks, yield each immediately, collect paths
-    for (let i = 0; i < tracks.length; i++) {
-      const track = tracks[i];
+    let idx = 0;
+    async function processOne(track: Track, i: number): Promise<void> {
       const taskId = `bulk_${track.id}_${Date.now()}`;
       updateTask(taskId, { progress: 0, status: 'fetching' });
-
       try {
         const blob = await downloadTrackEnhanced({ track, quality: qual });
-        const ext = getExtensionFromBlob(blob);
-
+        const ext = await getExtensionFromBlob(blob);
         const name = buildTrackFilename({
           trackNumber: track.trackNumber || i + 1,
           discNumber: track.discNumber,
@@ -186,19 +245,36 @@ export async function downloadTracksBulk(
           ext,
           template: ftpl,
         });
-
-        const filePath = folderName ? `${folderName}/${name}` : name;
-        trackPaths.push(name);
-        yield { name: filePath, lastModified: new Date(), input: blob };
+        const filePath = folderName ? `${folderName}/${name}` : (writeArtistsSeparately && track.artist ? `${track.artist}/${name}` : name);
+        trackPaths[i] = name;
+        entries.push({ name: filePath, lastModified: new Date(), input: blob });
         updateTask(taskId, { progress: 100, status: 'done' });
       } catch (err: any) {
-        trackPaths.push(null);
+        trackPaths[i] = null;
         updateTask(taskId, { status: 'error', error: err.message });
       }
       setTimeout(() => useDownloadStore.getState().removeTask(taskId), 3000);
     }
 
-    // 2. Yield metadata files (m3u, cue) — SequentialFileWriter skips these; Zip/Folder writers include them
+    const entries: WriterEntry[] = [];
+    let nextIdx = 0;
+
+    const workers: Promise<void>[] = [];
+    for (let w = 0; w < concurrency; w++) {
+      workers.push((async () => {
+        while (nextIdx < tracks.length) {
+          const i = nextIdx++;
+          await processOne(tracks[i], i);
+        }
+      })());
+    }
+    await Promise.all(workers);
+
+    for (const entry of entries) {
+      yield entry;
+    }
+
+    // Yield metadata files (m3u, cue)
     if (tracks.length > 0 && folderName) {
       const folderLabel = opts.albumName || 'Album';
       const meta = { title: folderLabel, artist: opts.artistName || tracks[0].artist };
@@ -229,7 +305,7 @@ export async function downloadSingleTrack(track: Track, qualityOverride?: string
     });
     updateTask(id, { progress: 98, status: 'tagging' });
 
-    const ext = getExtensionFromBlob(blob);
+    const ext = await getExtensionFromBlob(blob);
     const writer = new SequentialFileWriter();
     const name = buildTrackFilename({
       trackNumber: track.trackNumber,

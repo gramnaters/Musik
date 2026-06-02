@@ -7,6 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { useDownloadStore } from '@/stores/downloadStore';
 import { useAddonStore } from '@/stores/addonStore';
+import { useStreamingStore } from '@/stores/streamingStore';
 import Sidebar from '@/components/layout/Sidebar';
 import RightPanel from '@/components/layout/RightPanel';
 import MobileNav from '@/components/layout/MobileNav';
@@ -60,12 +61,13 @@ export default function AppPage() {
     initializeDefaults();
   }, [initializeDefaults]);
 
-  // Cleanup audio on unmount
+  // Auto-check addon updates on start (silent, stores pending updates)
   useEffect(() => {
-    return () => {
-      cleanup();
-    };
-  }, [cleanup]);
+    const timer = setTimeout(() => {
+      useAddonStore.getState().checkForUpdates().catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Migrate persisted catalog choice away from removed Apple catalog option
   useEffect(() => {
@@ -134,6 +136,24 @@ export default function AppPage() {
   }, [handleKeyDown]);
 
   const { playerTheme } = useUIStore();
+  const theme = useStreamingStore((s) => s.theme);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    const darkThemes = ['dark', 'ocean', 'purple', 'forest', 'mocha'];
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+        root.classList.toggle('dark', e.matches);
+      };
+      root.classList.toggle('dark', mq.matches);
+      mq.addEventListener('change', handleChange);
+      return () => mq.removeEventListener('change', handleChange);
+    } else {
+      root.classList.toggle('dark', darkThemes.includes(theme));
+    }
+  }, [theme]);
 
   return (
     <>

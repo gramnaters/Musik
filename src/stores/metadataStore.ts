@@ -18,7 +18,7 @@ interface MetadataActions {
 export const useMetadataStore = create<MetadataState & MetadataActions>()(
   persist(
     (set) => ({
-      catalogProvider: 'apple',
+      catalogProvider: 'tidal',
       appleStorefront: 'US',
       setCatalogProvider: (catalogProvider) => set({ catalogProvider }),
       setAppleStorefront: (appleStorefront) =>

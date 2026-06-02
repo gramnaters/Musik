@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useStreamingStore } from '@/stores/streamingStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStreamQuality, formatLiveBadge, formatLiveTooltip } from '@/hooks/useStreamQuality';
 import {
   Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
   Volume2, Volume1, VolumeX, Heart, ListMusic, Maximize2,
@@ -38,11 +39,14 @@ export default function PlayerBar() {
   const { isFavourite, toggleFavourite } = useLibraryStore();
   const { rightPanel, setRightPanel, playerTheme, setPlayerTheme } = useUIStore();
   const { openDownload } = useDownloadStore();
-  const { glassEffect } = useStreamingStore();
+  const { glassEffect, showQualityBadges } = useStreamingStore();
   const seekbarStyle = useAudioSettingsStore((s) => s.seekbarStyle);
 
   const isFav = currentTrack ? isFavourite(currentTrack.id) : false;
   const qualityBadge = getQualityBadgeForTrack(currentTrack ?? undefined);
+  const liveQuality = useStreamQuality(currentTrack?.streamURL, currentTrack ? duration : undefined);
+  const liveBadgeText = formatLiveBadge(liveQuality);
+  const liveBadgeTitle = formatLiveTooltip(liveQuality, currentTrack?.quality);
   const qualityTip = getQualityTooltip(currentTrack ?? undefined);
   const showBuffering = Boolean(currentTrack && isLoadingPlayback && !isPlaying);
 
@@ -101,9 +105,14 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                           {currentTrack.explicit && (
                             <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
                           )}
-                          {qualityBadge && (
-                            <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-[2px] bg-white/10 text-white/80 border border-white/10">
+                          {showQualityBadges && qualityBadge && !liveBadgeText && (
+                            <span title={qualityBadge.tooltip} className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-[2px] bg-white/10 text-white/80 border border-white/10">
                               {qualityBadge.label}
+                            </span>
+                          )}
+                          {showQualityBadges && liveBadgeText && (
+                            <span title={liveBadgeTitle} className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-[2px] bg-white/10 text-white/80 border border-white/10">
+                              {liveBadgeText}
                             </span>
                           )}
                         </div>
@@ -285,7 +294,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                           {currentTrack.explicit && (
                             <span className="shrink-0 text-[8px] font-bold px-1 rounded-[1px] h-3.5 flex items-center bg-white/20 text-white/70">E</span>
                           )}
-                          {qualityBadge && (
+                          {showQualityBadges && qualityBadge && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span

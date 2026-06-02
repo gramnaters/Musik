@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Track, Playlist } from '@/types/music';
-import { demoPlaylists } from '@/lib/demo-data';
 
 let _lastAddedTrackId: string | null = null;
 
@@ -34,15 +33,7 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
       recentlyPlayed: [],
 
       initializeDefaults: () => {
-        const { playlists, recentlyPlayed } = get();
-        if (playlists.length === 0) {
-          set({
-            playlists: demoPlaylists.map((p) => ({
-              ...p,
-              tracks: p.tracks?.map((t) => ({ ...t })) || [],
-            })),
-          });
-        }
+        const { recentlyPlayed } = get();
         // Deduplicate recently played on init
         if (recentlyPlayed.length > 0) {
           const seen = new Set<string>();
@@ -107,6 +98,8 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
       toggleFavourite: (track: Track) => {
         const { favourites } = get();
         const isFav = favourites.includes(track.id);
+        // TEMP-DEBUG: log every toggleFavourite call to find auto-like source
+        console.log('[TEMP-DEBUG] toggleFavourite called:', { trackId: track.id, trackTitle: track.title, wasFav: isFav, stack: new Error().stack?.split('\n').slice(1, 6).join('\n') });
         if (isFav) {
           set({ favourites: favourites.filter((id) => id !== track.id) });
         } else {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-type Provider = 'spotify' | 'apple' | 'tidal';
+type Provider = 'spotify' | 'apple' | 'tidal' | 'monochrome';
 
 function appleArtworkUrl(item: Record<string, unknown>): string {
   const raw =
@@ -299,8 +299,8 @@ export async function GET(req: NextRequest) {
             title: item.title || '',
             artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || item.artist || '',
             album: item.album?.title || '',
-            albumCover: item.album?.cover 
-              ? `/api/cover?id=${item.album.cover}&size=1920` 
+            albumCover: item.album?.cover
+              ? `/api/cover?id=${item.album.cover}&size=1920`
               : '',
             duration: item.duration || 0,
             streamURL: undefined,
@@ -312,6 +312,19 @@ export async function GET(req: NextRequest) {
       }
     } catch (e) {
       console.error('Failed to resolve monochrome playlist:', e);
+    }
+  }
+
+  // 1b. If provider is monochrome (Tidal) and ID is numeric, fetch album directly
+  // from Tidal API since editor's picks come from monochrome's static JSON with raw Tidal IDs.
+  if (provider === 'monochrome' && /^\d+$/.test(rawId)) {
+    try {
+      const tracks = await tidalAlbumTracks(tidalId, market);
+      if (tracks && tracks.length > 0) {
+        return NextResponse.json({ tracks, provider: 'tidal' });
+      }
+    } catch (e) {
+      console.error('Tidal album lookup failed for monochrome provider:', e);
     }
   }
 
@@ -356,9 +369,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (provider === 'tidal') {
-      const isAlbum = rawId.startsWith('tidal_album_') || rawId.includes('album');
-      const tracks = isAlbum 
+    if (provider === 'tidal' || provider === 'monochrome') {
+      const isAlbum = rawId.startsWith('tidal_album_') || rawId.includes('album') || typeParam === 'album';
+      const tracks = isAlbum
         ? await tidalAlbumTracks(tidalId, market)
         : await tidalPlaylistTracks(tidalId, market);
       

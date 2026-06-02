@@ -8,6 +8,15 @@ export interface HomeLayoutState {
   showRecentlyPlayed: boolean;
   showRecommendedArtists: boolean;
   showBrowseAll: boolean;
+  showRecommendedAlbums: boolean;
+  showRecommendedSongs: boolean;
+  showJumpBackIn: boolean;
+  showEditorsPicks: boolean;
+  shuffleEditorsPicks: boolean;
+  editorsPicksSource: string;
+  compactAlbums: boolean;
+  compactArtists: boolean;
+  artistBanners: boolean;
 }
 
 interface HomeLayoutActions {
@@ -17,6 +26,15 @@ interface HomeLayoutActions {
   setShowRecentlyPlayed: (v: boolean) => void;
   setShowRecommendedArtists: (v: boolean) => void;
   setShowBrowseAll: (v: boolean) => void;
+  setShowRecommendedAlbums: (v: boolean) => void;
+  setShowRecommendedSongs: (v: boolean) => void;
+  setShowJumpBackIn: (v: boolean) => void;
+  setShowEditorsPicks: (v: boolean) => void;
+  setShuffleEditorsPicks: (v: boolean) => void;
+  setEditorsPicksSource: (v: string) => void;
+  setCompactAlbums: (v: boolean) => void;
+  setCompactArtists: (v: boolean) => void;
+  setArtistBanners: (v: boolean) => void;
 }
 
 export const useHomeLayoutStore = create<HomeLayoutState & HomeLayoutActions>()(
@@ -28,12 +46,30 @@ export const useHomeLayoutStore = create<HomeLayoutState & HomeLayoutActions>()(
       showRecentlyPlayed: true,
       showRecommendedArtists: true,
       showBrowseAll: true,
+      showRecommendedAlbums: true,
+      showRecommendedSongs: true,
+      showJumpBackIn: true,
+      showEditorsPicks: true,
+      shuffleEditorsPicks: true,
+      editorsPicksSource: 'current',
+      compactAlbums: false,
+      compactArtists: true,
+      artistBanners: true,
       setShowQuickPicks: (showQuickPicks) => set({ showQuickPicks }),
       setShowDiscover: (showDiscover) => set({ showDiscover }),
       setShowTopTen: (showTopTen) => set({ showTopTen }),
       setShowRecentlyPlayed: (showRecentlyPlayed) => set({ showRecentlyPlayed }),
       setShowRecommendedArtists: (showRecommendedArtists) => set({ showRecommendedArtists }),
       setShowBrowseAll: (showBrowseAll) => set({ showBrowseAll }),
+      setShowRecommendedAlbums: (showRecommendedAlbums) => set({ showRecommendedAlbums }),
+      setShowRecommendedSongs: (showRecommendedSongs) => set({ showRecommendedSongs }),
+      setShowJumpBackIn: (showJumpBackIn) => set({ showJumpBackIn }),
+      setShowEditorsPicks: (showEditorsPicks) => set({ showEditorsPicks }),
+      setShuffleEditorsPicks: (shuffleEditorsPicks) => set({ shuffleEditorsPicks }),
+      setEditorsPicksSource: (editorsPicksSource) => set({ editorsPicksSource }),
+      setCompactAlbums: (compactAlbums) => set({ compactAlbums }),
+      setCompactArtists: (compactArtists) => set({ compactArtists }),
+      setArtistBanners: (artistBanners) => set({ artistBanners }),
     }),
     { name: 'musik-home-layout' }
   )

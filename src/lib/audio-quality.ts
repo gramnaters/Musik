@@ -1,8 +1,10 @@
 import type { Track } from '@/types/music';
 
 export type QualityBadge = {
+  /** Short text shown inside the badge. */
   label: string;
-  detail?: string;
+  /** Native HTML `title=` tooltip text. Matches Monochrome: "Hi-Res Lossless" or "Dolby Atmos". */
+  tooltip: string;
 };
 
 /** How the stream is most likely encoded for end-user playback. */
@@ -131,11 +133,11 @@ export function classifyAudioDelivery(track: Pick<Track, 'format' | 'streamURL' 
 function lossyBadgeLabel(track: Pick<Track, 'format' | 'streamURL'>): QualityBadge {
   const u = (track.streamURL || '').toLowerCase();
   const f = (track.format || '').toLowerCase();
-  if (f.includes('mp3') || u.includes('.mp3')) return { label: 'MP3' };
-  if (f.includes('aac') || f.includes('m4a') || u.includes('.m4a') || u.includes('.aac')) return { label: 'AAC' };
-  if (f.includes('opus') || u.includes('.opus')) return { label: 'OPUS' };
-  if (f.includes('ogg') || u.includes('.ogg')) return { label: 'OGG' };
-  return { label: 'AAC' };
+  if (f.includes('mp3') || u.includes('.mp3')) return { label: 'MP3', tooltip: 'MP3' };
+  if (f.includes('aac') || f.includes('m4a') || u.includes('.m4a') || u.includes('.aac')) return { label: 'AAC', tooltip: 'AAC' };
+  if (f.includes('opus') || u.includes('.opus')) return { label: 'OPUS', tooltip: 'OPUS' };
+  if (f.includes('ogg') || u.includes('.ogg')) return { label: 'OGG', tooltip: 'OGG' };
+  return { label: 'AAC', tooltip: 'AAC' };
 }
 
 function lossyTooltip(track: Pick<Track, 'quality' | 'format' | 'streamURL'>): string {
@@ -215,28 +217,16 @@ export function inferFormatFromUrl(url: string | undefined | null): string | und
 export function getQualityBadgeForTrack(track: Pick<Track, 'quality' | 'format' | 'streamURL'> | null | undefined): QualityBadge | null {
   if (!track) return null;
   const raw = track.quality?.trim();
-  
+
   if (raw) {
     const normalized = normalizeQualityToken(raw);
-    if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS', detail: 'Dolby Atmos spatial audio' };
-    if (normalized === 'HI_RES_LOSSLESS') {
-      const detail = parseQualityDetail(raw) || 'Hi-Res Lossless';
-      return { label: 'HD', detail };
-    }
-    if (normalized === 'LOSSLESS') {
-      const detail = parseQualityDetail(raw) || 'CD-quality Lossless — 16-bit / 44.1 kHz';
-      return { label: 'HIFI', detail };
-    }
-    // We don't show HIGH (320) or LOW badges in the list, just like Monochrome
+    if (normalized === 'DOLBY_ATMOS') return { label: 'ATMOS', tooltip: 'Dolby Atmos' };
+    if (normalized === 'HI_RES_LOSSLESS') return { label: 'HD', tooltip: 'Hi-Res Lossless' };
+    // We don't show LOSSLESS (HIFI) / HIGH / LOW badges in the list, just like Monochrome
   }
 
-  // Fallback to inferred from delivery
-  const delivery = classifyAudioDelivery(track);
-  if (delivery === 'lossless_hint') {
-    // If it's lossless but not marked as Hi-Res in catalog, it's HIFI (CD quality)
-    return { label: 'HIFI', detail: 'CD-quality Lossless — 16-bit / 44.1 kHz' };
-  }
-
+  // Fallback to inferred from delivery: still no badge for plain CD lossless.
+  // Monochrome's "HD" badge is exclusively for catalog-tagged Hi-Res Lossless.
   return null;
 }
 
@@ -245,9 +235,9 @@ export function getQualityTooltip(track: Pick<Track, 'quality' | 'format' | 'str
   if (!track) return 'Quality';
   const raw = track.quality?.trim();
 
-  // Use badge detail when available (more precise)
+  // Use badge tooltip when available (matches the badge's native `title=` text)
   const badge = getQualityBadgeForTrack(track);
-  if (badge?.detail) return badge.detail;
+  if (badge?.tooltip) return badge.tooltip;
 
   const normalized = raw ? normalizeQualityToken(raw) : null;
   if (normalized === 'DOLBY_ATMOS') return 'Dolby Atmos spatial audio';

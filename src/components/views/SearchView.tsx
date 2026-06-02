@@ -32,6 +32,7 @@ import {
   AlertCircle,
   ChevronLeft,
   MoreHorizontal,
+  Heart,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -45,6 +46,7 @@ import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { addonThumbSrc } from '@/lib/addon-thumb';
 import { buildMergedCatalogBundle, parseAddonHubId } from '@/lib/search-addon-catalog';
 import type { AddonSearchResults } from '@/types/addon';
+import { extractVibrantColor, applyVibrantColor, resetVibrantColor } from '@/lib/vibrant-color';
 
 type CatalogArtist = { id: string; name: string; image?: string };
 type CatalogPlaylistRow = {
@@ -78,6 +80,7 @@ export default function SearchView() {
     subtitle?: string;
     tracks: Track[];
     loading: boolean;
+    coverUrl?: string;
   } | null>(null);
 
   const { play, addToQueue } = usePlayerStore();
@@ -113,12 +116,16 @@ export default function SearchView() {
       return;
     }
     setAddonSearchId((cur) => {
-      // Keep current selection if still valid
       if (cur && ordered.includes(cur)) return cur;
-      // Otherwise use the first addon from the reorder list
       return ordered[0]!;
     });
   }, [enabledAddons, getPlaybackOrderedSearchAddonIds, playbackPriorityIds]);
+
+  useEffect(() => {
+    return () => {
+      resetVibrantColor();
+    };
+  }, []);
 
   useEffect(() => {
     if (addonSearchId) setActiveAddon(addonSearchId);
@@ -380,9 +387,18 @@ export default function SearchView() {
       subtitle?: string;
       id?: string;
       artistName?: string;
+      coverUrl?: string;
     }) => {
     setBrowseHub(null);
-    setCatalogHub({ kind: opts.kind, title: opts.title, subtitle: opts.subtitle, tracks: [], loading: true });
+    setCatalogHub({ kind: opts.kind, title: opts.title, subtitle: opts.subtitle, tracks: [], loading: true, coverUrl: opts.coverUrl });
+
+    if (opts.coverUrl && typeof window !== 'undefined') {
+      extractVibrantColor(opts.coverUrl).then((color) => {
+        if (color) applyVibrantColor(color);
+      });
+    } else {
+      resetVibrantColor();
+    }
     try {
       let tracks: Track[] = [];
       const parsed = opts.id ? parseAddonHubId(opts.id) : null;
@@ -479,9 +495,10 @@ export default function SearchView() {
   }, [catalogProvider, appleStorefront, addToPlaylist]);
 
   const tabTriggerClass =
-    'rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/45 data-[state=active]:text-white pb-2 px-0 text-sm font-medium';
+    'rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-white/45 data-[state=active]:text-white pb-2 px-0 text-sm font-medium';
 
   const hubBack = () => {
+    resetVibrantColor();
     if (catalogHub) setCatalogHub(null);
     else setBrowseHub(null);
   };
@@ -492,22 +509,23 @@ export default function SearchView() {
     tracks: Track[],
     loading: boolean,
     sourceNote: string,
-    onBack: () => void
+    onBack: () => void,
+    coverUrl?: string
   ) => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white"
+          className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white shrink-0"
           aria-label="Back"
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={20} />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight truncate">{title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight truncate">{title}</h1>
           {subtitle && <p className="text-sm text-white/50 truncate">{subtitle}</p>}
-          <p className="text-[11px] text-white/40 mt-0.5">{sourceNote}</p>
+          <p className="text-[11px] text-white/35 mt-0.5">{sourceNote}</p>
         </div>
       </div>
       {loading ? (
@@ -521,16 +539,18 @@ export default function SearchView() {
         <>
           <Button
             size="sm"
-            className="rounded-full bg-white text-black hover:bg-white/90"
+            className="rounded-full h-11 px-5 font-bold flex items-center gap-2 bg-primary text-black hover:scale-102 transition-transform shadow-[0_0_20px_rgba(var(--primary-rgb,255,255,255),0.3)]"
             onClick={() => {
               play(tracks[0], tracks, 0);
               tracks.forEach((t) => addRecentlyPlayed(t));
             }}
           >
-            <Play size={16} fill="currentColor" className="mr-1.5" />
+            <Play size={16} fill="currentColor" />
             Play all ({tracks.length})
           </Button>
-          <TrackList tracks={tracks} showAlbumArt showIndex />
+          <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+            <TrackList tracks={tracks} showAlbumArt showIndex />
+          </div>
         </>
       )}
     </div>
@@ -546,7 +566,8 @@ export default function SearchView() {
             catalogHub.tracks,
             catalogHub.loading,
             `${catalogLabel} • ${catalogHub.kind === 'artist' ? 'Top results' : 'Track list'}`,
-            () => setCatalogHub(null)
+            hubBack,
+            catalogHub.coverUrl
           )
         ) : browseHub ? (
           renderHub(
@@ -555,12 +576,12 @@ export default function SearchView() {
             browseHub.tracks,
             browseHub.loading,
             `${catalogLabel} (Settings → Metadata provider)`,
-            () => setBrowseHub(null)
+            hubBack
           )
         ) : (
           <>
             <div className="flex items-start justify-between gap-3">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Search</h1>
+              <h1 className="text-[1.75rem] font-black tracking-tight">Search</h1>
               {hasAddons && enabledAddons.length > 1 ? (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -626,8 +647,8 @@ export default function SearchView() {
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 className={cn(
-                  'pl-12 pr-11 h-14 bg-[#1c1c1e] border border-white/10 text-white placeholder:text-white/40 rounded-full',
-                  'focus-visible:ring-1 focus-visible:ring-white/20 focus-visible:border-white/20'
+                  'pl-12 pr-11 h-14 bg-[#1c1c1e] border border-white/10 text-white placeholder:text-white/35 rounded-xl',
+                  'focus-visible:ring-1 focus-visible:ring-white/15 focus-visible:border-white/20'
                 )}
                 autoFocus
               />
@@ -650,7 +671,7 @@ export default function SearchView() {
             </div>
 
             {!hasAddons && (
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#1c1c1e] border border-white/10 text-sm">
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-sm">
                 <WifiOff size={20} className="text-white/50 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white/70">
@@ -727,12 +748,12 @@ export default function SearchView() {
                   className="space-y-4"
                 >
                   <div>
-                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                    <h2 className="text-[1.5rem] font-bold tracking-tight opacity-90">
                       Search results for &quot;{query.trim() || '…'}&quot;
                     </h2>
-                    <p className="text-xs text-white/40 mt-1">
+                    <p className="text-xs text-white/35 mt-1">
                       {addonSearchId
-                        ? `Results merge your module with ${catalogLabel}. Albums, playlists, and artists from the module open as playable lists.`
+                        ? `Results merge your module with ${catalogLabel}.`
                         : `${catalogLabel} catalog • storefront ${appleStorefront}`}
                     </p>
                   </div>
@@ -797,23 +818,25 @@ export default function SearchView() {
 
                       {!showBlockingLoader && trackListResults.length > 0 && (
                         <div className="flex items-center gap-4 mb-4">
-                          <h3 className="text-lg font-bold">Songs</h3>
+                          <h3 className="text-lg font-bold text-white opacity-90">Songs</h3>
                           <Button
                             size="sm"
                             onClick={() => {
                               play(trackListResults[0], trackListResults, 0);
                               trackListResults.forEach((t) => addRecentlyPlayed(t));
                             }}
-                            className="w-9 h-9 rounded-full bg-white hover:bg-white/90 text-black p-0"
+                            className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 text-black p-0 shadow-[0_0_20px_rgba(var(--primary-rgb,255,255,255),0.3)]"
                           >
-                            <Play size={16} fill="currentColor" className="ml-0.5" />
+                            <Play size={17} fill="currentColor" className="ml-0.5" />
                           </Button>
-                          <span className="text-sm text-white/50">{trackListResults.length} results</span>
+                          <span className="text-sm text-white/40">{trackListResults.length} results</span>
                         </div>
                       )}
 
                       {!showBlockingLoader && trackListResults.length > 0 && (
-                        <TrackList tracks={trackListResults} showAlbumArt showIndex />
+                        <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                          <TrackList tracks={trackListResults} showAlbumArt showIndex />
+                        </div>
                       )}
                     </TabsContent>
 
@@ -821,10 +844,10 @@ export default function SearchView() {
                       {catalogLoading && !(displayCatalogBundle?.albums?.length) ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
                           {Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className="skeleton-card">
-                              <div className="skeleton skeleton-card-image" />
-                              <div className="skeleton skeleton-card-title" />
-                              <div className="skeleton skeleton-card-subtitle" />
+                            <div key={i} className="space-y-3">
+                              <div className="aspect-square bg-zinc-900 rounded-2xl animate-pulse" />
+                              <div className="h-4 w-3/4 bg-zinc-900 rounded animate-pulse" />
+                              <div className="h-3 w-1/2 bg-zinc-900 rounded animate-pulse" />
                             </div>
                           ))}
                         </div>
@@ -833,35 +856,45 @@ export default function SearchView() {
                           {(displayCatalogBundle?.albums || []).map((album) => (
                             <div
                               key={album.id}
-                              className="text-left group cursor-pointer"
+                              className="text-left group cursor-pointer rounded-lg p-3 bg-white/[0.03] border border-transparent hover:bg-white/[0.06] hover:border-white/10 hover:shadow-lg transition-all duration-300"
                               onClick={() =>
                                 void openCatalogTracksHub({
                                   kind: 'album',
                                   title: album.title,
                                   subtitle: `${album.artist}${album.year ? ` • ${album.year}` : ''}`,
                                   id: album.id,
+                                  coverUrl: album.cover,
                                 })
                               }
                             >
-                              <div className="relative">
-                                <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10 shadow-lg">
-                                  {album.cover ? (
-                                    <img src={album.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                  ) : null}
-                                </div>
+                              <div className="relative mb-3 overflow-hidden rounded-lg shadow-md group-hover:shadow-xl transition-shadow duration-300 aspect-square">
+                                {album.cover ? (
+                                  <img src={album.cover} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 rounded-lg" loading="lazy" />
+                                ) : (
+                                  <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                    <span className="text-white/20 text-2xl">&#9835;</span>
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  className="absolute bottom-[2%] right-[2%] w-[42px] h-[42px] rounded-full bg-white/[0.87] text-black flex items-center justify-center opacity-0 translate-y-2.5 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-20 border-0 shadow-md hover:scale-110 hover:shadow-lg"
+                                  onClick={(e) => { e.stopPropagation(); void openCatalogTracksHub({ kind: 'album', title: album.title, subtitle: `${album.artist}${album.year ? ` • ${album.year}` : ''}`, id: album.id, coverUrl: album.cover }); }}
+                                >
+                                  <Play size={20} fill="currentColor" className="ml-0.5" />
+                                </button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
                                       type="button"
                                       onClick={(e) => e.stopPropagation()}
-                                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+                                      className="absolute left-[2%] top-[2%] w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-10 border border-white/10 text-white hover:bg-black/70 hover:rotate-12"
                                     >
-                                      <MoreHorizontal size={16} className="text-white" />
+                                      <MoreHorizontal size={20} />
                                     </button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border border-white/10" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuContent align="start" side="right" className="w-52 bg-zinc-900 border border-white/10" onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenuItem onClick={() => handleQuickPlayAlbum(album)}>
-                                      Play
+                                      <Play size={14} className="mr-2" />Play
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleAddAlbumToQueue(album)}>
                                       Add to Queue
@@ -885,20 +918,19 @@ export default function SearchView() {
                                           title: album.title,
                                           subtitle: `${album.artist}${album.year ? ` • ${album.year}` : ''}`,
                                           id: album.id,
+                                          coverUrl: album.cover,
                                         })
                                       }
                                     >
-                                      Open Album
+                                      View Details
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
-                              <p className="mt-2 text-sm font-semibold line-clamp-2 group-hover:text-red-400 transition-colors">
-                                {album.title}
-                              </p>
-                              <p className="text-xs text-white/45 line-clamp-1">
+                              <p className="font-semibold truncate text-white text-sm">{album.title}</p>
+                              <p className="text-[0.9rem] text-white/40 truncate">
                                 {album.artist}
-                                {album.year ? ` • ${album.year}` : ''}
+                                {album.year ? ` · ${album.year}` : ''}
                               </p>
                             </div>
                           ))}
@@ -912,7 +944,7 @@ export default function SearchView() {
                           <button
                             key={artist.id}
                             type="button"
-                            className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/10 hover:bg-white/5 text-left min-w-0"
+                            className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-transparent hover:bg-white/[0.06] hover:border-white/10 text-left min-w-0 transition-all duration-200"
                             onClick={() =>
                               void openCatalogTracksHub({
                                 kind: 'artist',
@@ -923,7 +955,7 @@ export default function SearchView() {
                               })
                             }
                           >
-                            <div className="w-14 h-14 rounded-full overflow-hidden bg-white/10 shrink-0">
+                            <div className="w-14 h-14 rounded-full overflow-hidden bg-zinc-800 shrink-0">
                               {artist.image ? (
                                 <img src={artist.image} alt="" className="w-full h-full object-cover" loading="lazy" />
                               ) : (
@@ -957,29 +989,40 @@ export default function SearchView() {
                         )}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4">
                         {(displayCatalogBundle?.playlists || []).map((pl) => (
-                          <button
+                          <div
                             key={pl.id}
-                            type="button"
-                            className="text-left group"
+                            className="text-left group cursor-pointer rounded-lg p-3 bg-white/[0.03] border border-transparent hover:bg-white/[0.06] hover:border-white/10 hover:shadow-lg transition-all duration-300"
                             onClick={() =>
                               void openCatalogTracksHub({
                                 kind: 'playlist',
                                 title: pl.name,
                                 subtitle: pl.description,
                                 id: pl.id,
+                                coverUrl: pl.cover,
                               })
                             }
                           >
-                            <div className="aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/10">
+                            <div className="relative mb-3 overflow-hidden rounded-lg shadow-md group-hover:shadow-xl transition-shadow duration-300 aspect-square">
                               {pl.cover ? (
-                                <img src={pl.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-                              ) : null}
+                                <img src={pl.cover} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 rounded-lg" loading="lazy" />
+                              ) : (
+                                <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                  <span className="text-white/20 text-2xl">&#9835;</span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="absolute bottom-[2%] right-[2%] w-[42px] h-[42px] rounded-full bg-white/[0.87] text-black flex items-center justify-center opacity-0 translate-y-2.5 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-20 border-0 shadow-md hover:scale-110 hover:shadow-lg"
+                                onClick={(e) => { e.stopPropagation(); void openCatalogTracksHub({ kind: 'playlist', title: pl.name, subtitle: pl.description, id: pl.id, coverUrl: pl.cover }); }}
+                              >
+                                <Play size={20} fill="currentColor" className="ml-0.5" />
+                              </button>
                             </div>
-                            <p className="mt-2 text-sm font-semibold line-clamp-2">{pl.name}</p>
-                            <p className="text-xs text-white/45">
+                            <p className="font-semibold truncate text-white text-sm">{pl.name}</p>
+                            <p className="text-[0.9rem] text-white/40 truncate">
                               {typeof pl.trackCount === 'number' ? `${pl.trackCount} tracks` : pl.description || ''}
                             </p>
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </TabsContent>
@@ -990,7 +1033,7 @@ export default function SearchView() {
                           <button
                             key={p.id}
                             type="button"
-                            className="text-left rounded-2xl border border-white/10 bg-[#141414] p-4 hover:bg-white/5 transition-colors"
+                            className="text-left rounded-2xl border border-transparent bg-white/[0.03] p-4 hover:bg-white/[0.06] hover:border-white/10 transition-all duration-200"
                             onClick={() => {
                               if (p.externalUrl) {
                                 window.open(p.externalUrl, '_blank', 'noopener,noreferrer');

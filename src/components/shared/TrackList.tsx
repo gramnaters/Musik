@@ -6,7 +6,7 @@ import { useLibraryStore } from '@/stores/libraryStore';
 import { useUIStore } from '@/stores/uiStore';
 import { formatDuration } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
-import { getQualityBadgeForTrack, getQualityTooltip } from '@/lib/audio-quality';
+import { getQualityBadgeForTrack } from '@/lib/audio-quality';
 import { useDownloadStore } from '@/stores/downloadStore';
 import { MoreHorizontal, Play, Pause, Heart, Plus, Volume2, CircleArrowUp } from 'lucide-react';
 import { AppleMusicPlayIcon } from '@/components/icons/AppleMusicPlayIcon';
@@ -144,7 +144,6 @@ export function TrackContextMenu({
 
 function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'streamURL' | 'explicit'> }) {
   const badge = getQualityBadgeForTrack(track);
-  const qTip = getQualityTooltip(track);
 
   if (!badge && !track.explicit) return null;
 
@@ -169,12 +168,13 @@ function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'stream
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <span
+          title={badge.tooltip}
           className={cn(
             'text-[9px] font-black px-1 rounded-[2px] leading-tight flex items-center justify-center h-3.5 cursor-default tracking-tighter',
-            badge.label === 'HD' 
-              ? 'bg-[#E0A82E]/15 text-[#E0A82E] border border-[#E0A82E]/30' 
-              : badge.label === 'HIFI'
-                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+            badge.label === 'HD'
+              ? 'bg-[#E0A82E]/15 text-[#E0A82E] border border-[#E0A82E]/30'
+              : badge.label === 'ATMOS'
+                ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-white/20'
                 : 'bg-white/10 text-white/70 border border-white/5'
           )}
         >
@@ -191,7 +191,7 @@ function TagBadge({ track }: { track: Pick<Track, 'quality' | 'format' | 'stream
         side="top"
         className="max-w-xs border border-white/20 bg-neutral-950 text-white text-xs px-2 py-1.5 shadow-lg"
       >
-        {qTip}
+        {badge.tooltip}
       </TooltipContent>
     </Tooltip>
   ) : null;
@@ -309,15 +309,15 @@ export default function TrackList({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="w-full">
-        {!compact && (
-          <div className="grid grid-cols-[16px_4fr_3fr_minmax(80px,1fr)] md:grid-cols-[16px_4fr_3fr_minmax(120px,1fr)_44px] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30 mb-2">
-            <span className="text-center">#</span>
-            <span>Title</span>
-            <span className="hidden sm:block">Album</span>
-            <span className="text-right">Time</span>
-            <span className="hidden md:block" aria-hidden />
-          </div>
-        )}
+         {!compact && (
+           <div className="grid grid-cols-[24px_1fr_60px] sm:grid-cols-[24px_4fr_3fr_70px] md:grid-cols-[24px_4fr_3fr_70px_44px] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30 mb-2">
+             <span className="text-center">#</span>
+             <span>Title</span>
+             <span className="hidden sm:block">Album</span>
+             <span className="text-right">Time</span>
+             <span className="hidden md:block" aria-hidden />
+           </div>
+         )}
 
         {tracks.map((track, index) => {
           const isThisTrack = currentTrack?.id === track.id;
@@ -329,26 +329,26 @@ export default function TrackList({
 
           return (
             <TrackContextMenu key={track.id} track={track} index={index} tracks={tracks}>
-              <div
-                className={cn(
-                  'group grid grid-cols-[16px_4fr_3fr_minmax(80px,1fr)] md:grid-cols-[16px_4fr_3fr_minmax(120px,1fr)_44px] gap-4 px-4 py-2 rounded-md',
-                  'cursor-pointer transition-colors duration-150',
-                  !spotifyPlaying && 'hover:bg-accent',
-                  !spotifyPlaying && isThisTrack && 'bg-accent/50',
-                  spotifyPlaying && 'hover:bg-[#2a2a2a]',
-                  tidalPlaying && 'bg-[#1a1a1a] hover:bg-[#222] border border-white/[0.06]',
-                  applePlaying && 'bg-accent/45 hover:bg-accent/60'
-                )}
-                onDoubleClick={() => handlePlay(track, index)}
-                onClick={() => handlePlay(track, index)}
-              >
+                <div
+                  className={cn(
+                    'group grid grid-cols-[24px_1fr_60px] sm:grid-cols-[24px_4fr_3fr_70px] md:grid-cols-[24px_4fr_3fr_70px_44px] gap-4 px-4 py-2 rounded-md',
+                    'cursor-pointer transition-colors duration-150',
+                   !spotifyPlaying && 'hover:bg-accent',
+                   !spotifyPlaying && isThisTrack && 'bg-accent/50',
+                   spotifyPlaying && 'hover:bg-[#2a2a2a]',
+                   tidalPlaying && 'bg-[#1a1a1a] hover:bg-[#222] border border-white/[0.06]',
+                   applePlaying && 'bg-accent/45 hover:bg-accent/60'
+                 )}
+                 onDoubleClick={() => handlePlay(track, index)}
+                 onClick={() => handlePlay(track, index)}
+               >
                 <div className="flex items-center justify-center">
                   {applePlaying ? (
-                    <span className="text-sm tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
+                    <span className="text-base tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
                   ) : tidalPlaying ? (
                     <Volume2 className="w-4 h-4 text-cyan-400 shrink-0" aria-hidden />
                   ) : spotifyPlaying ? (
-                    <span className="text-sm tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
+                    <span className="text-base tabular-nums text-muted-foreground">{showIndex ? index + 1 : ''}</span>
                   ) : isCurrentlyPlaying ? (
                     <div
                       className={cn(
@@ -456,7 +456,7 @@ export default function TrackList({
                     <div className="flex items-center gap-2 overflow-hidden flex-wrap">
                       <p
                         className={cn(
-                          'text-sm font-medium truncate',
+                          'text-[15px] font-medium truncate',
                           spotifyPlaying && 'text-foreground group-hover:text-white',
                           !spotifyPlaying && isThisTrack && playerTheme === 'spotify' && 'text-spotify-green',
                           !spotifyPlaying && isThisTrack && playerTheme === 'tidal' && 'text-cyan-400',
@@ -489,7 +489,7 @@ export default function TrackList({
                     </div>
                     <p
                       className={cn(
-                        'text-xs truncate',
+                        'text-[13px] truncate',
                         tidalPlaying && 'text-white/35',
                         applePlaying && 'text-muted-foreground',
                         spotifyPlaying && 'text-muted-foreground group-hover:text-white/60'
@@ -557,12 +557,12 @@ export default function TrackList({
                   )}
                   <span
                     className={cn(
-                      'text-sm tabular-nums shrink-0',
+                      'text-[14px] tabular-nums shrink-0',
                       tidalPlaying && 'text-white font-medium',
                       spotifyPlaying && 'text-muted-foreground group-hover:text-white/55'
                     )}
                   >
-                    {track.duration ? formatDuration(track.duration) : '--:--'}
+                    {typeof track.duration === 'number' && track.duration > 0 ? formatDuration(track.duration) : '--:--'}
                   </span>
                 </div>
 

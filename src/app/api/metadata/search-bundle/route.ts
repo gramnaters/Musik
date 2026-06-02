@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { initTidal, TidalClient } from '@/lib/tidal/client';
-import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearchAlbums, searchPlaylists as mcSearchPlaylists, searchPodcasts, mapMonochromeTrack, mapMonochromeAlbum, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
+import { searchTracks, searchArtists as mcSearchArtists, searchAlbums as mcSearchAlbums, searchPlaylists as mcSearchPlaylists, mapMonochromeTrack, mapMonochromeAlbum, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
 import { searchAppleProxy, appleArtworkUrl, mapAppleTrack, mapAppleAlbum, mapApplePlaylistFromAlbum } from '@/lib/apple-proxy';
 import { searchQobuzTracks, searchQobuzAlbums, searchQobuzArtists, mapQobuzTrack, mapQobuzAlbum, mapQobuzArtist, mapQobuzPlaylistFromAlbum } from '@/lib/qobuz';
 

@@ -27,7 +27,9 @@ let source: MediaElementAudioSourceNode | null = null;
 let low: BiquadFilterNode | null = null;
 let mid: BiquadFilterNode | null = null;
 let high: BiquadFilterNode | null = null;
+let monoMerger: ChannelMergerNode | null = null;
 let wiredElement: HTMLAudioElement | null = null;
+let monoEnabled = false;
 
 function ensureContext(): AudioContext {
   if (!ctx && typeof window !== 'undefined') {
@@ -44,6 +46,31 @@ function ensureContext(): AudioContext {
     throw new Error('AudioContext unavailable');
   }
   return ctx;
+}
+
+/**
+ * Enable/disable mono downmix. Disconnects high from destination and routes through
+ * a ChannelMergerNode (1-channel mono) when enabled, or direct when disabled.
+ */
+export function setMonoAudio(mono: boolean): void {
+  if (!ctx || !high) return;
+  if (mono === monoEnabled) return;
+  monoEnabled = mono;
+
+  try {
+    high.disconnect();
+    if (mono) {
+      monoMerger = ctx.createChannelMerger(1);
+      high.connect(monoMerger, 0, 0);
+      monoMerger.connect(ctx.destination);
+    } else {
+      high.connect(ctx.destination);
+      if (monoMerger) {
+        monoMerger.disconnect();
+        monoMerger = null;
+      }
+    }
+  } catch { /* noop */ }
 }
 
 export async function resumeAudioContext(): Promise<void> {
@@ -76,8 +103,11 @@ function wireOnce(audio: HTMLAudioElement): boolean {
     source.connect(low);
     low.connect(mid);
     mid.connect(high);
+
+    // Mono path: insert between high and destination
     high.connect(c.destination);
     wiredElement = audio;
+    monoEnabled = false;
     return true;
   } catch {
     /** Element may already have a MediaElementAudioSource node from a previous lifecycle */

@@ -73,6 +73,10 @@
   --popover-foreground: #121212;
   --primary: #121212;
   --primary-foreground: #ffffff;
+  --primary-rgb: 18, 18, 18;
+  --highlight: #121212;
+  --highlight-rgb: 18, 18, 18;
+  --active-highlight: #121212;
   --secondary: #ebebeb;
   --secondary-foreground: #121212;
   --muted: #f0f0f0;
@@ -107,6 +111,10 @@
   --popover-foreground: #ffffff;
   --primary: #ffffff;
   --primary-foreground: #121212;
+  --primary-rgb: 255, 255, 255;
+  --highlight: #ffffff;
+  --highlight-rgb: 255, 255, 255;
+  --active-highlight: #ffffff;
   --secondary: #282828;
   --secondary-foreground: #ffffff;
   --muted: #282828;
@@ -130,6 +138,71 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #1DB954;
+}
+
+[data-theme="ocean"] {
+  --primary: #00b4d8;
+  --primary-foreground: #000000;
+  --primary-rgb: 0, 180, 216;
+  --highlight: #00b4d8;
+  --highlight-rgb: 0, 180, 216;
+  --active-highlight: #00b4d8;
+  --ring: #00b4d8;
+  --sidebar-primary: #00b4d8;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-ring: #00b4d8;
+}
+
+[data-theme="purple"] {
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
+  --primary-rgb: 168, 85, 247;
+  --highlight: #a855f7;
+  --highlight-rgb: 168, 85, 247;
+  --active-highlight: #a855f7;
+  --ring: #a855f7;
+  --sidebar-primary: #a855f7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #a855f7;
+}
+
+[data-theme="forest"] {
+  --primary: #22c55e;
+  --primary-foreground: #000000;
+  --primary-rgb: 34, 197, 94;
+  --highlight: #22c55e;
+  --highlight-rgb: 34, 197, 94;
+  --active-highlight: #22c55e;
+  --ring: #22c55e;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-ring: #22c55e;
+}
+
+[data-theme="mocha"] {
+  --primary: #d97706;
+  --primary-foreground: #000000;
+  --primary-rgb: 217, 119, 6;
+  --highlight: #d97706;
+  --highlight-rgb: 217, 119, 6;
+  --active-highlight: #d97706;
+  --ring: #d97706;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-ring: #d97706;
+}
+
+[data-theme="latte"] {
+  --primary: #92400e;
+  --primary-foreground: #ffffff;
+  --primary-rgb: 146, 64, 14;
+  --highlight: #92400e;
+  --highlight-rgb: 146, 64, 14;
+  --active-highlight: #92400e;
+  --ring: #92400e;
+  --sidebar-primary: #92400e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #92400e;
 }
 
 @layer base {

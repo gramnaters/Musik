@@ -17,11 +17,11 @@ import {
 import { useStreamingStore } from '@/stores/streamingStore';
 import type { EqPreset, SeekbarStyle } from '@/stores/audioSettingsStore';
 import { useMetadataStore } from '@/stores/metadataStore';
-import { useHomeLayoutStore } from '@/stores/homeLayoutStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { toast } from '@/hooks/use-toast';
 import type { Track } from '@/types/music';
 import { APPLE_STOREFRONTS } from '@/lib/apple-storefronts';
+import AddonsView from '@/components/views/AddonsView';
 import { metadataSearchUrl } from '@/lib/catalog-api';
 import { getEqBandPreview } from '@/lib/equalizer-graph';
 import { cn } from '@/lib/utils';
@@ -66,6 +66,8 @@ import {
   Check,
   Cloud,
   RotateCcw,
+  EyeOff,
+  GripVertical,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 
@@ -159,7 +161,7 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 export default function SettingsView() {
-  const { setActiveView, setSelectedPlaylistId, navigateTo, playerTheme, setPlayerTheme, setConnectionsScreen } = useUIStore();
+  const { setActiveView, setSelectedPlaylistId, navigateTo, playerTheme, setPlayerTheme } = useUIStore();
   const {
     clearAddonSearchCache,
     sources,
@@ -174,14 +176,6 @@ export default function SettingsView() {
   const {
     eqEnabled, setEqEnabled, eqPreset, setEqPreset, seekbarStyle, setSeekbarStyle,
   } = useAudioSettingsStore();
-  const {
-    showQuickPicks, setShowQuickPicks,
-    showDiscover, setShowDiscover,
-    showTopTen, setShowTopTen,
-    showRecentlyPlayed, setShowRecentlyPlayed,
-    showRecommendedArtists, setShowRecommendedArtists,
-    showBrowseAll, setShowBrowseAll,
-  } = useHomeLayoutStore();
   const { clearRecentlyPlayed, importExternalPlaylist } = useLibraryStore();
   const {
     apiInstances, streamingInstances, qobuzInstances,
@@ -196,24 +190,19 @@ export default function SettingsView() {
     lastfmLoveOnLike, setLastfmLoveOnLike,
     listenbrainzEnabled, setListenbrainzEnabled,
     listenbrainzToken, setListenbrainzToken,
+    malojaEnabled, setMalojaEnabled,
+    malojaUrl, setMalojaUrl,
+    malojaApiKey, setMalojaApiKey,
     lyricsEnabled, setLyricsEnabled,
     lyricsDownloadWithTracks, setLyricsDownloadWithTracks,
     streamingQuality, setStreamingQuality,
     downloadQuality, setDownloadQuality,
-    preferDolbyAtmos, setPreferDolbyAtmos,
-    losslessContainer, setLosslessContainer,
-    gaplessPlayback, setGaplessPlayback,
-    replayGainMode, setReplayGainMode,
-    replayGainPreamp, setReplayGainPreamp,
-    malojaEnabled, setMalojaEnabled,
-    malojaUrl, setMalojaUrl,
-    malojaApiKey, setMalojaApiKey,
-    romajiLyrics, setRomajiLyrics,
+    binauralAudio, setBinauralAudio,
     bulkDownloadMethod, setBulkDownloadMethod,
     autoDownloadLikedTracks, setAutoDownloadLikedTracks,
     embedLyricsInFiles, setEmbedLyricsInFiles,
     embedCoverArtInFiles, setEmbedCoverArtInFiles,
-    forceZipAsBlob, setForceZipAsBlob,
+    downloadLyrics, setDownloadLyrics,
     writeArtistsSeparately, setWriteArtistsSeparately,
     coverArtSize, setCoverArtSize,
     filenameTemplate, setFilenameTemplate,
@@ -223,9 +212,65 @@ export default function SettingsView() {
     showExplicit, setShowExplicit,
     accentColor, setAccentColor,
     glassEffect, setGlassEffect,
-    normalizationEnabled, setNormalizationEnabled,
-    crossfadeSeconds, setCrossfadeSeconds,
     theme, setTheme,
+    showQualityBadges, setShowQualityBadges,
+    useAlbumYear, setUseAlbumYear,
+    monoAudio, setMonoAudio,
+    exponentialVolume, setExponentialVolume,
+    playbackSpeed, setPlaybackSpeed,
+    preservePitch, setPreservePitch,
+    gaplessPlayback, setGaplessPlayback,
+    replayGainMode, setReplayGainMode,
+    replayGainPreamp, setReplayGainPreamp,
+    losslessContainer, setLosslessContainer,
+    romajiLyrics, setRomajiLyrics,
+    generateM3U, setGenerateM3U,
+    generateM3U8, setGenerateM3U8,
+    generateCUE, setGenerateCUE,
+    generateNFO, setGenerateNFO,
+    generateJSON, setGenerateJSON,
+    relativePaths, setRelativePaths,
+    separateDiscs, setSeparateDiscs,
+    includeCoverFile, setIncludeCoverFile,
+    albumBackground, setAlbumBackground,
+    dynamicColors, setDynamicColors,
+    cdAlbumCover, setCdAlbumCover,
+    showRecommendedSongs, setShowRecommendedSongs,
+    showRecommendedAlbums, setShowRecommendedAlbums,
+    showRecommendedArtists, setShowRecommendedArtists,
+    showJumpBackIn, setShowJumpBackIn,
+    showEditorsPicks, setShowEditorsPicks,
+    shuffleEditorsPicks, setShuffleEditorsPicks,
+    editorsPicksSource, setEditorsPicksSource,
+    compactArtists, setCompactArtists,
+    artistBanners, setArtistBanners,
+    compactAlbums, setCompactAlbums,
+    sidebarHome, setSidebarHome,
+    sidebarLibrary, setSidebarLibrary,
+    sidebarRecent, setSidebarRecent,
+    sidebarSettings, setSidebarSettings,
+    sidebarAbout, setSidebarAbout,
+    sidebarDiscord, setSidebarDiscord,
+    sidebarParties, setSidebarParties,
+    sidebarGithub, setSidebarGithub,
+    closeModalsOnNav, setCloseModalsOnNav,
+    interceptBackModals, setInterceptBackModals,
+    nowPlayingViewMode, setNowPlayingViewMode,
+    fullscreenCoverAction, setFullscreenCoverAction,
+    fontType, setFontType,
+    fontName, setFontName,
+    fontSize, setFontSize,
+    waveformSeekbar, setWaveformSeekbar,
+    noRoundAlbumCover, setNoRoundAlbumCover,
+    vanillaTilt, setVanillaTilt,
+    tiltDistance, setTiltDistance,
+    tiltSpeed, setTiltSpeed,
+    fullscreenVisualizer, setFullscreenVisualizer,
+    visualizerStyle, setVisualizerStyle,
+    visualizerMode, setVisualizerMode,
+    visualizerSmartIntensity, setVisualizerSmartIntensity,
+    visualizerSensitivity, setVisualizerSensitivity,
+    visualizerBrightness, setVisualizerBrightness,
   } = useStreamingStore();
 
   const bandPreview = getEqBandPreview(eqEnabled, eqPreset);
@@ -255,7 +300,7 @@ export default function SettingsView() {
     { id: 'scrobbling', label: 'Scrobbling', icon: Wifi },
     { id: 'audio', label: 'Audio', icon: Waves },
     { id: 'downloads', label: 'Downloads', icon: Download },
-    { id: 'instances', label: 'Instances', icon: Link2 },
+    { id: 'instances', label: 'Connections', icon: Link2 },
     { id: 'metadata', label: 'Metadata', icon: ListMusic },
     { id: 'system', label: 'System', icon: SlidersHorizontal },
   ] as const;
@@ -294,154 +339,399 @@ export default function SettingsView() {
 
         {/* Settings Content Area */}
         <ScrollArea className="flex-1 min-h-0 custom-scrollbar bg-background">
-          <div className="p-8 max-w-3xl space-y-8">
+          {page === 'instances' ? (
+            <AddonsView />
+          ) : (
+          <div className="p-8 pb-28 max-w-3xl space-y-8">
             {page === 'appearance' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Theme */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Theme & Personalization</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Theme</h3>
+                  <div className="grid grid-cols-6 gap-2 mb-2">
+                    {[
+                      { key: 'system', label: 'System', color: 'bg-gradient-to-br from-orange-500 to-yellow-400' },
+                      { key: 'black', label: 'Black', color: 'bg-black border border-white/10' },
+                      { key: 'white', label: 'White', color: 'bg-white border border-zinc-200' },
+                      { key: 'dark', label: 'Dark', color: 'bg-zinc-900 border border-white/10' },
+                      { key: 'ocean', label: 'Ocean', color: 'bg-gradient-to-br from-cyan-600 to-blue-800' },
+                      { key: 'purple', label: 'Purple', color: 'bg-gradient-to-br from-purple-600 to-pink-600' },
+                    ].map(t => (
+                      <button key={t.key} onClick={() => setTheme(t.key as any)} className={cn(
+                        "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all",
+                        theme === t.key ? "ring-2 ring-primary scale-105" : "hover:ring-1 hover:ring-white/20"
+                      )}>
+                        <div className={cn("w-10 h-10 rounded-lg", t.color)} />
+                        <span className="text-[10px] font-medium text-muted-foreground">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-6 gap-2 mb-4">
+                    {[
+                      { key: 'forest', label: 'Forest', color: 'bg-gradient-to-br from-green-700 to-emerald-500' },
+                      { key: 'mocha', label: 'Mocha', color: 'bg-gradient-to-br from-amber-800 to-yellow-700' },
+                      { key: 'machiatto', label: 'Machiatto', color: 'bg-gradient-to-br from-rose-700 to-pink-400' },
+                      { key: 'frappe', label: 'Frappé', color: 'bg-gradient-to-br from-blue-300 to-cyan-200' },
+                      { key: 'latte', label: 'Latte', color: 'bg-gradient-to-br from-amber-200 to-orange-100' },
+                      { key: 'custom', label: 'Custom', color: 'bg-gradient-to-br from-gray-400 to-gray-600' },
+                    ].map(t => (
+                      <button key={t.key} onClick={() => setTheme(t.key as any)} className={cn(
+                        "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all",
+                        theme === t.key ? "ring-2 ring-primary scale-105" : "hover:ring-1 hover:ring-white/20"
+                      )}>
+                        <div className={cn("w-10 h-10 rounded-lg", t.color)} />
+                        <span className="text-[10px] font-medium text-muted-foreground">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Playbar Style</Label>
+                    <div className="flex gap-3">
+                      {(['tidal', 'apple', 'spotify'] as const).map(s => (
+                        <button key={s} onClick={() => setPlayerTheme(s)} className={cn(
+                          "px-5 py-2 rounded-lg text-sm font-medium capitalize transition-all",
+                          playerTheme === s ? "bg-primary text-primary-foreground" : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                        )}>{s}</button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                </div>
+
+                {/* Font */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Font</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">App Theme</Label>
-                        <p className="text-sm text-muted-foreground">System follows your device settings</p>
-                      </div>
-                      <Select value={theme} onValueChange={(v) => setTheme(v as any)}>
-                        <SelectTrigger className="w-32 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label className="text-sm">Font Type</Label>
+                      <Select value={fontType} onValueChange={(v) => setFontType(v as any)}>
+                        <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="system">System</SelectItem>
-                          <SelectItem value="dark">Dark</SelectItem>
-                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="preset">Preset</SelectItem>
+                          <SelectItem value="google">Google Fonts</SelectItem>
+                          <SelectItem value="url">URL</SelectItem>
+                          <SelectItem value="upload">Upload</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Accent Color</Label>
-                        <p className="text-sm text-muted-foreground">Customize the primary UI color</p>
+                    {fontType === 'preset' && (
+                      <div className="flex items-center justify-between p-4">
+                        <Label className="text-sm">Font Name</Label>
+                        <Select value={fontName} onValueChange={(v) => setFontName(v)}>
+                          <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Inter','System','Roboto','Poppins','Nunito','Montserrat','Lato'].map(f => (
+                              <SelectItem key={f} value={f === 'Inter' ? 'Inter' : f}>{f}{f === 'Inter' ? ' (Default)' : ''}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-6 h-6 rounded-full border border-white/20 shadow-sm" 
-                          style={{ backgroundColor: accentColor }}
-                        />
-                        <Input 
-                          type="color" 
-                          value={accentColor} 
-                          onChange={(e) => setAccentColor(e.target.value)}
-                          className="w-10 h-8 p-0 border-none bg-transparent cursor-pointer"
-                        />
+                    )}
+                    {fontType === 'google' && (
+                      <div className="p-4">
+                        <Label className="text-sm">Google Font Name</Label>
+                        <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="e.g. Roboto" className="mt-2 h-8 text-xs" />
                       </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Glass Effects</Label>
-                        <p className="text-sm text-muted-foreground">Frosted glass transparency on UI elements</p>
+                    )}
+                    {fontType === 'url' && (
+                      <div className="p-4">
+                        <Label className="text-sm">Font CSS URL</Label>
+                        <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="https://fonts.googleapis.com/css2?..." className="mt-2 h-8 text-xs" />
                       </div>
-                      <Switch checked={glassEffect} onCheckedChange={setGlassEffect} />
+                    )}
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-sm">Font Size</Label>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={50} max={200} step={1} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-16 h-7 text-xs text-center" />
+                          <span className="text-xs text-muted-foreground">%</span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setFontSize(100)}>
+                            <RotateCcw size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                      <Slider value={[fontSize]} onValueChange={([v]) => setFontSize(v)} min={50} max={200} step={1} />
                     </div>
                   </div>
                 </div>
 
+                {/* Album Art */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Player Experience</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Album Art</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">Layout Style</Label>
-                        <p className="text-sm text-muted-foreground">Select the overall player aesthetic</p>
+                        <Label className="text-base">Waveform Seekbar</Label>
+                        <p className="text-sm text-muted-foreground">Visual waveform in progress bar (experimental)</p>
                       </div>
-                      <Select value={playerTheme} onValueChange={(v) => setPlayerTheme(v as any)}>
-                        <SelectTrigger className="w-40 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="spotify">Spotify</SelectItem>
-                          <SelectItem value="tidal">Tidal</SelectItem>
-                          <SelectItem value="apple">Apple Music</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Switch checked={waveformSeekbar} onCheckedChange={setWaveformSeekbar} />
                     </div>
-
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">Progress Bar Style</Label>
-                        <p className="text-sm text-muted-foreground">Animation and shape of the seekbar</p>
+                        <Label className="text-base">Album Cover Background</Label>
+                        <p className="text-sm text-muted-foreground">Use blurred album cover as page background</p>
                       </div>
-                      <Select value={seekbarStyle} onValueChange={(v) => setSeekbarStyle(v as any)}>
-                        <SelectTrigger className="w-40 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Switch checked={albumBackground} onCheckedChange={setAlbumBackground} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Dynamic Colors</Label>
+                        <p className="text-sm text-muted-foreground">Change accent based on playing track's album art</p>
+                      </div>
+                      <Switch checked={dynamicColors} onCheckedChange={setDynamicColors} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">No Round Album Cover</Label>
+                        <p className="text-sm text-muted-foreground">Disable rounded corners on album cover in fullscreen</p>
+                      </div>
+                      <Switch checked={noRoundAlbumCover} onCheckedChange={setNoRoundAlbumCover} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Vanilla Tilt Album Cover</Label>
+                        <p className="text-sm text-muted-foreground">3D tilt effect on album cover in fullscreen</p>
+                      </div>
+                      <Switch checked={vanillaTilt} onCheckedChange={setVanillaTilt} />
+                    </div>
+                    {vanillaTilt && (
+                      <>
+                        <div className="flex items-center justify-between p-4">
+                          <Label className="text-sm">Tilt Distance</Label>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" min={1} max={30} step={1} value={tiltDistance} onChange={(e) => setTiltDistance(Number(e.target.value))} className="w-16 h-7 text-xs text-center" />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-4">
+                          <Label className="text-sm">Tilt Speed</Label>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" min={50} max={1000} step={10} value={tiltSpeed} onChange={(e) => setTiltSpeed(Number(e.target.value))} className="w-16 h-7 text-xs text-center" />
+                            <span className="text-xs text-muted-foreground">ms</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Visualizer */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Visualizer</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Full-screen Visualizer</Label>
+                        <p className="text-sm text-muted-foreground">Enable visualizer in fullscreen mode</p>
+                      </div>
+                      <Switch checked={fullscreenVisualizer} onCheckedChange={setFullscreenVisualizer} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <Label className="text-sm">Visualizer Style</Label>
+                      <Select value={visualizerStyle} onValueChange={(v) => setVisualizerStyle(v as any)}>
+                        <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {SEEKBAR_STYLES.map((s) => (
-                            <SelectItem key={s} value={s}>{SEEKBAR_STYLE_LABELS[s]}</SelectItem>
-                          ))}
+                          <SelectItem value="kawarp">Kawarp</SelectItem>
+                          <SelectItem value="bars">Bars</SelectItem>
+                          <SelectItem value="circular">Circular</SelectItem>
+                          <SelectItem value="wave">Wave</SelectItem>
+                          <SelectItem value="particles">Particles</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex items-center justify-between p-4">
+                      <Label className="text-sm">Visualizer Mode</Label>
+                      <Select value={visualizerMode} onValueChange={(v) => setVisualizerMode(v as any)}>
+                        <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solid">Solid Background</SelectItem>
+                          <SelectItem value="overlay">Overlay</SelectItem>
+                          <SelectItem value="behind">Behind Cover</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Smart Intensity Switching</Label>
+                        <p className="text-sm text-muted-foreground">Auto-adjust visualizer intensity based on song energy</p>
+                      </div>
+                      <Switch checked={visualizerSmartIntensity} onCheckedChange={setVisualizerSmartIntensity} />
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-sm">Visualizer Sensitivity</Label>
+                        <span className="text-xs text-muted-foreground">{visualizerSensitivity}%</span>
+                      </div>
+                      <Slider value={[visualizerSensitivity]} onValueChange={([v]) => setVisualizerSensitivity(v)} min={0} max={200} step={1} />
+                      <p className="text-[11px] text-red-400/80 font-medium leading-relaxed">Warning: High sensitivity may cause flashing lights and rapid motion, which can trigger seizures in people with photosensitive epilepsy.</p>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-sm">Visualizer Brightness</Label>
+                        <span className="text-xs text-muted-foreground">{visualizerBrightness}%</span>
+                      </div>
+                      <Slider value={[visualizerBrightness]} onValueChange={([v]) => setVisualizerBrightness(v)} min={0} max={200} step={1} />
+                    </div>
                   </div>
+                </div>
+
+                {/* CD */}
+                <div className="flex items-center justify-between p-4 rounded-2xl border border-border/40 bg-card/20">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">CD Album Cover</Label>
+                    <p className="text-sm text-muted-foreground">Spin album cover and add CD hole in fullscreen</p>
+                  </div>
+                  <Switch checked={cdAlbumCover} onCheckedChange={setCdAlbumCover} />
                 </div>
               </div>
             )}
 
             {page === 'interface' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Home Page */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Language & Region</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Home Page</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    {[
+                      { label: 'Show Recommended Songs', desc: 'Show recommended songs section on home', value: showRecommendedSongs, setter: setShowRecommendedSongs },
+                      { label: 'Show Recommended Albums', desc: 'Show recommended albums on home', value: showRecommendedAlbums, setter: setShowRecommendedAlbums },
+                      { label: 'Show Recommended Artists', desc: 'Show recommended artists on home', value: showRecommendedArtists, setter: setShowRecommendedArtists },
+                      { label: 'Show Jump Back In', desc: 'Show recent albums, playlists and mixes on home', value: showJumpBackIn, setter: setShowJumpBackIn },
+                      { label: "Show Editor's Picks", desc: 'Show curated album selections on home', value: showEditorsPicks, setter: setShowEditorsPicks },
+                    ].map(({ label, desc, value, setter }) => (
+                      <div key={label} className="flex items-center justify-between p-4">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">{label}</Label>
+                          <p className="text-sm text-muted-foreground">{desc}</p>
+                        </div>
+                        <Switch checked={value} onCheckedChange={setter} />
+                      </div>
+                    ))}
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">App Language</Label>
-                        <p className="text-sm text-muted-foreground">Primary interface language</p>
+                        <Label className="text-base">Shuffle Editor's Picks</Label>
+                        <p className="text-sm text-muted-foreground">Randomize editor's picks order on each load</p>
                       </div>
-                      <Select value={language} onValueChange={setLanguage}>
-                        <SelectTrigger className="w-32 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Switch checked={shuffleEditorsPicks} onCheckedChange={setShuffleEditorsPicks} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Editor's Picks Source</Label>
+                        <p className="text-sm text-muted-foreground">Which curated selections to display</p>
+                      </div>
+                      <Select value={editorsPicksSource || 'current'} onValueChange={(v) => setEditorsPicksSource(v as any)}>
+                        <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="ko">한국어</SelectItem>
-                          <SelectItem value="ja">日本語</SelectItem>
-                          <SelectItem value="zh">中文</SelectItem>
+                          <SelectItem value="current">Current</SelectItem>
+                          <SelectItem value="all">All</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                 </div>
 
+                {/* Layout */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Content Filtering</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Layout</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">Explicit Content</Label>
-                        <p className="text-sm text-muted-foreground">Allow tracks with explicit lyrics</p>
+                        <Label className="text-base">Compact Artists</Label>
+                        <p className="text-sm text-muted-foreground">Show artist cards in compact horizontal layout</p>
                       </div>
-                      <Switch checked={showExplicit} onCheckedChange={setShowExplicit} />
+                      <Switch checked={compactArtists} onCheckedChange={setCompactArtists} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Artist Banners</Label>
+                        <p className="text-sm text-muted-foreground">Display video banners on artist pages</p>
+                      </div>
+                      <Switch checked={artistBanners} onCheckedChange={setArtistBanners} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Compact Albums</Label>
+                        <p className="text-sm text-muted-foreground">Show album cards in compact horizontal layout</p>
+                      </div>
+                      <Switch checked={compactAlbums} onCheckedChange={setCompactAlbums} />
                     </div>
                   </div>
                 </div>
 
+                {/* Navigation */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Home Page Sections</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Navigation</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Close Modals on Navigation</Label>
+                        <p className="text-sm text-muted-foreground">Close lyrics/queue panels when navigating</p>
+                      </div>
+                      <Switch checked={closeModalsOnNav} onCheckedChange={setCloseModalsOnNav} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Intercept Back to Close Modals</Label>
+                        <p className="text-sm text-muted-foreground">Press back to close modal, press again to navigate</p>
+                      </div>
+                      <Switch checked={interceptBackModals} onCheckedChange={setInterceptBackModals} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Now Playing View Mode</Label>
+                        <p className="text-sm text-muted-foreground">What shows when clicking album art</p>
+                      </div>
+                      <Select value={nowPlayingViewMode} onValueChange={(v) => setNowPlayingViewMode(v as any)}>
+                        <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fullscreen">Fullscreen Mode</SelectItem>
+                          <SelectItem value="mini">Mini Player</SelectItem>
+                          <SelectItem value="disabled">Disabled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Fullscreen Cover Click Action</Label>
+                        <p className="text-sm text-muted-foreground">Action when clicking cover in fullscreen</p>
+                      </div>
+                      <Select value={fullscreenCoverAction} onValueChange={(v) => setFullscreenCoverAction(v as any)}>
+                        <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="exit">Exit fullscreen mode</SelectItem>
+                          <SelectItem value="lyrics">Show lyrics</SelectItem>
+                          <SelectItem value="queue">Show queue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Sidebar</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     {[
-                      { label: 'Quick picks', value: showQuickPicks, set: setShowQuickPicks },
-                      { label: 'Discover', value: showDiscover, set: setShowDiscover },
-                      { label: 'Top 10', value: showTopTen, set: setShowTopTen },
-                      { label: 'Recently played', value: showRecentlyPlayed, set: setShowRecentlyPlayed },
-                      { label: 'Recommended artists', value: showRecommendedArtists, set: setShowRecommendedArtists },
-                      { label: 'Browse all', value: showBrowseAll, set: setShowBrowseAll },
-                    ].map(({ label, value, set }) => (
+                      { label: 'Home', value: sidebarHome, setter: setSidebarHome },
+                      { label: 'Library', value: sidebarLibrary, setter: setSidebarLibrary },
+                      { label: 'Recent', value: sidebarRecent, setter: setSidebarRecent },
+                    ].map(({ label, value, setter }) => (
                       <div key={label} className="flex items-center justify-between p-4">
-                        <span className="text-sm font-medium">{label}</span>
-                        <Switch checked={value} onCheckedChange={set} />
+                        <div className="flex items-center gap-3">
+                          <GripVertical size={14} className="text-muted-foreground/40" />
+                          <Label className="text-sm">{label}</Label>
+                        </div>
+                        <Switch checked={value} onCheckedChange={setter} />
                       </div>
                     ))}
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <GripVertical size={14} className="text-muted-foreground/40" />
+                        <Label className="text-sm">Settings</Label>
+                      </div>
+                      <Switch checked={true} disabled />
+                    </div>
                   </div>
+                  
                 </div>
               </div>
             )}
@@ -547,36 +837,55 @@ export default function SettingsView() {
 
             {page === 'audio' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Streaming Quality */}
                 <div className="space-y-4">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Streaming Quality</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(['LOW', 'HIGH', 'LOSSLESS', 'HI_RES'] as const).map((q) => (
-                      <button
-                        key={q}
-                        onClick={() => setStreamingQuality(q)}
-                        className={cn(
-                          "flex flex-col items-start p-4 rounded-2xl border text-left transition-all",
-                          streamingQuality === q 
-                            ? "bg-primary/10 border-primary ring-1 ring-primary" 
-                            : "bg-card/20 border-border/40 hover:bg-accent/20"
-                        )}
-                      >
-                        <span className="text-sm font-bold">
-                          {q === 'HI_RES' ? 'HD' : q === 'LOSSLESS' ? 'HIFI' : q.replace('_', ' ')}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                          {q === 'LOW' && '96 kbps • Data Saver'}
-                          {q === 'HIGH' && '320 kbps • High Quality'}
-                          {q === 'LOSSLESS' && '16-bit • CD Quality'}
-                          {q === 'HI_RES' && '24-bit • Hi-Res Audio'}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Preferred Bitrate</Label>
+                        <p className="text-sm text-muted-foreground">Quality for online playback streams</p>
+                      </div>
+                      <Select value={streamingQuality} onValueChange={(v) => setStreamingQuality(v as any)}>
+                        <SelectTrigger className="w-48 h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto (Adaptive)</SelectItem>
+                          <SelectItem value="hi_res_lossless">Hi-Res Lossless (24-bit)</SelectItem>
+                          <SelectItem value="lossless">Lossless (16-bit)</SelectItem>
+                          <SelectItem value="aac_320">AAC 320kbps</SelectItem>
+                          <SelectItem value="aac_96">AAC 96kbps</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
+                {/* Display */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Playback Settings</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Display</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Show Quality Badges</Label>
+                        <p className="text-sm text-muted-foreground">Display HD badge for Hi-Res tracks</p>
+                      </div>
+                      <Switch checked={showQualityBadges} onCheckedChange={setShowQualityBadges} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Album Release Year</Label>
+                        <p className="text-sm text-muted-foreground">Show original album year instead of track date</p>
+                      </div>
+                      <Switch checked={useAlbumYear} onCheckedChange={setUseAlbumYear} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Playback */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Playback</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
@@ -584,35 +893,6 @@ export default function SettingsView() {
                         <p className="text-sm text-muted-foreground">Seamless transitions between tracks</p>
                       </div>
                       <Switch checked={gaplessPlayback} onCheckedChange={setGaplessPlayback} />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Audio Normalization</Label>
-                        <p className="text-sm text-muted-foreground">Equalize volume across tracks</p>
-                      </div>
-                      <Switch checked={normalizationEnabled} onCheckedChange={setNormalizationEnabled} />
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <Label className="text-sm">Crossfade</Label>
-                        <span className="text-xs font-mono text-primary">{crossfadeSeconds}s</span>
-                      </div>
-                      <Slider 
-                        value={[crossfadeSeconds]} 
-                        onValueChange={([v]) => setCrossfadeSeconds(v)}
-                        max={12} 
-                        step={1} 
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Dolby Atmos</Label>
-                        <p className="text-sm text-muted-foreground">Prefer spatial audio when available</p>
-                      </div>
-                      <Switch checked={preferDolbyAtmos} onCheckedChange={setPreferDolbyAtmos} />
                     </div>
 
                     <div className="flex items-center justify-between p-4">
@@ -632,45 +912,116 @@ export default function SettingsView() {
                       </Select>
                     </div>
 
-                    <div className="p-4 space-y-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <Label className="text-sm">Preamp Gain</Label>
-                        <span className="text-xs font-mono text-primary">+{replayGainPreamp} dB</span>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">ReplayGain Pre-Amp</Label>
+                        <p className="text-sm text-muted-foreground">Additional gain after normalization</p>
                       </div>
-                      <Slider 
-                        value={[replayGainPreamp]} 
-                        onValueChange={([v]) => setReplayGainPreamp(v)}
-                        min={0}
-                        max={12}
-                        step={0.5}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={12}
+                          step={0.5}
+                          value={replayGainPreamp}
+                          onChange={(e) => setReplayGainPreamp(Number(e.target.value))}
+                          className="w-16 h-9 text-xs text-center"
+                        />
+                        <span className="text-xs text-muted-foreground">dB</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl border border-border/40 bg-card/20 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <SlidersHorizontal className="text-primary w-5 h-5" />
+                {/* Audio Effects */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Audio Effects</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Mono Audio</Label>
+                        <p className="text-sm text-muted-foreground">Combine left and right channels</p>
+                      </div>
+                      <Switch checked={monoAudio} onCheckedChange={setMonoAudio} />
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-base font-medium">Equalizer</p>
-                      <p className="text-xs text-muted-foreground uppercase tracking-tight">
-                        {eqEnabled ? EQ_PRESET_LABELS[eqPreset] : 'Disabled'}
-                      </p>
+
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Exponential Volume</Label>
+                        <p className="text-sm text-muted-foreground">Logarithmic volume curve for finer low-volume control</p>
+                      </div>
+                      <Switch checked={exponentialVolume} onCheckedChange={setExponentialVolume} />
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <Label className="text-sm">Playback Speed</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0.5}
+                            max={3}
+                            step={0.1}
+                            value={playbackSpeed}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (v >= 0.5 && v <= 3) setPlaybackSpeed(v);
+                            }}
+                            className="w-16 h-7 text-xs text-center"
+                          />
+                          <span className="text-xs font-mono text-primary">x</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full hover:bg-accent/50"
+                            onClick={() => setPlaybackSpeed(1)}
+                          >
+                            <RotateCcw size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[playbackSpeed * 10]}
+                        onValueChange={([v]) => setPlaybackSpeed(v / 10)}
+                        min={5}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Preserve Pitch</Label>
+                        <p className="text-sm text-muted-foreground">Keep original pitch when changing speed</p>
+                      </div>
+                      <Switch checked={preservePitch} onCheckedChange={setPreservePitch} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Binaural / Spatial DSP</Label>
+                        <p className="text-sm text-muted-foreground">Immersive 3D spatial audio rendering</p>
+                      </div>
+                      <Switch checked={binauralAudio} onCheckedChange={setBinauralAudio} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">EQ Studio</Label>
+                        <p className="text-sm text-muted-foreground">Fine-tune frequencies with graphic equalizer</p>
+                      </div>
+                      <Switch checked={eqEnabled} onCheckedChange={setEqEnabled} />
                     </div>
                   </div>
-                  <Button variant={eqEnabled ? "secondary" : "outline"} size="sm" className="rounded-full px-6" onClick={() => setEqEnabled(!eqEnabled)}>
-                    {eqEnabled ? 'On' : 'Off'}
-                  </Button>
                 </div>
               </div>
             )}
 
             {page === 'downloads' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Quality & Format */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Quality & Format</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Quality &amp; Format</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
@@ -682,21 +1033,31 @@ export default function SettingsView() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="LOW">Low (96k)</SelectItem>
-                          <SelectItem value="HIGH">High (320k)</SelectItem>
-                          <SelectItem value="LOSSLESS">HIFI (CD)</SelectItem>
-                          <SelectItem value="HI_RES">HD (Hi-Res)</SelectItem>
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-wider font-bold">Lossless</div>
+                          <SelectItem value="lossless_24">Hi-Res Lossless (24-bit)</SelectItem>
+                          <SelectItem value="lossless_16">Lossless (16-bit)</SelectItem>
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-1">AAC</div>
+                          <SelectItem value="aac_320">AAC 320kbps</SelectItem>
+                          <SelectItem value="aac_256">AAC 256kbps</SelectItem>
+                          <SelectItem value="aac_96">AAC 96kbps</SelectItem>
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-1">MP3</div>
+                          <SelectItem value="mp3_320">MP3 320kbps</SelectItem>
+                          <SelectItem value="mp3_256">MP3 256kbps</SelectItem>
+                          <SelectItem value="mp3_128">MP3 128kbps</SelectItem>
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-1">OGG</div>
+                          <SelectItem value="ogg_320">OGG 320kbps</SelectItem>
+                          <SelectItem value="ogg_256">OGG 256kbps</SelectItem>
+                          <SelectItem value="ogg_128">OGG 128kbps</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
                         <Label className="text-base">Lossless Container</Label>
                         <p className="text-sm text-muted-foreground">Format for FLAC/ALAC files</p>
                       </div>
                       <Select value={losslessContainer} onValueChange={(v) => setLosslessContainer(v as any)}>
-                        <SelectTrigger className="w-32 h-9">
+                        <SelectTrigger className="w-24 h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -708,37 +1069,9 @@ export default function SettingsView() {
                   </div>
                 </div>
 
+                {/* Download Method */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Organization</h3>
-                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
-                    <div className="p-4 space-y-2">
-                      <Label className="text-sm">Filename Template</Label>
-                      <Input 
-                        value={filenameTemplate} 
-                        onChange={(e) => setFilenameTemplate(e.target.value)}
-                        className="h-9 font-mono text-xs"
-                      />
-                    </div>
-                    <div className="p-4 space-y-2">
-                      <Label className="text-sm">Folder Template</Label>
-                      <Input 
-                        value={folderTemplate} 
-                        onChange={(e) => setFolderTemplate(e.target.value)}
-                        className="h-9 font-mono text-xs"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Write Artists Separately</Label>
-                        <p className="text-sm text-muted-foreground">Save each artist in their own folder</p>
-                      </div>
-                      <Switch checked={writeArtistsSeparately} onCheckedChange={setWriteArtistsSeparately} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Advanced</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Method</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
@@ -746,119 +1079,178 @@ export default function SettingsView() {
                         <p className="text-sm text-muted-foreground">How albums are processed</p>
                       </div>
                       <Select value={bulkDownloadMethod} onValueChange={(v) => setBulkDownloadMethod(v as any)}>
-                        <SelectTrigger className="w-40 h-9">
+                        <SelectTrigger className="w-32 h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="browser">Browser Native</SelectItem>
-                          <SelectItem value="zip">ZIP Client-Side</SelectItem>
-                          <SelectItem value="server">Server-Side ZIP</SelectItem>
+                          <SelectItem value="zip">ZIP Archive</SelectItem>
+                          <SelectItem value="individual">Individual Files</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">Force ZIP as Blob</Label>
-                        <p className="text-sm text-muted-foreground">Better compatibility for large files</p>
+                        <Label className="text-base">Write Artists Separately</Label>
+                        <p className="text-sm text-muted-foreground">Write multiple artists as separate metadata tags</p>
                       </div>
-                      <Switch checked={forceZipAsBlob} onCheckedChange={setForceZipAsBlob} />
+                      <Switch checked={writeArtistsSeparately} onCheckedChange={setWriteArtistsSeparately} />
                     </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Separate Discs</Label>
+                        <p className="text-sm text-muted-foreground">Put tracks in Disc folders for multi-disc albums</p>
+                      </div>
+                      <Switch checked={separateDiscs} onCheckedChange={setSeparateDiscs} />
+                    </div>
+                  </div>
+                </div>
 
-                     <div className="flex items-center justify-between p-4">
+                {/* Content */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Content</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Download Lyrics</Label>
+                        <p className="text-sm text-muted-foreground">Include .lrc files in downloads</p>
+                      </div>
+                      <Switch checked={downloadLyrics} onCheckedChange={setDownloadLyrics} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
                         <Label className="text-base">Romaji Lyrics</Label>
-                        <p className="text-sm text-muted-foreground">Transliterate non-latin lyrics</p>
+                        <p className="text-sm text-muted-foreground">Convert Japanese lyrics to Romaji</p>
                       </div>
                       <Switch checked={romajiLyrics} onCheckedChange={setRomajiLyrics} />
                     </div>
-
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base">Auto-download Liked</Label>
+                        <Label className="text-base">Embed Lyrics</Label>
+                        <p className="text-sm text-muted-foreground">Include lyrics inside audio file tags</p>
+                      </div>
+                      <Switch checked={embedLyricsInFiles} onCheckedChange={setEmbedLyricsInFiles} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Embed Cover Art</Label>
+                        <p className="text-sm text-muted-foreground">Include cover art inside audio file tags</p>
+                      </div>
+                      <Switch checked={embedCoverArtInFiles} onCheckedChange={setEmbedCoverArtInFiles} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Include Cover File</Label>
+                        <p className="text-sm text-muted-foreground">Include cover.jpg in download folder</p>
+                      </div>
+                      <Switch checked={includeCoverFile} onCheckedChange={setIncludeCoverFile} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Auto-Download Liked</Label>
                         <p className="text-sm text-muted-foreground">Automatically download tracks you heart</p>
                       </div>
                       <Switch checked={autoDownloadLikedTracks} onCheckedChange={setAutoDownloadLikedTracks} />
                     </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Embed Lyrics</Label>
-                        <p className="text-sm text-muted-foreground">Include lyrics in downloaded files</p>
-                      </div>
-                      <Switch checked={embedLyricsInFiles} onCheckedChange={setEmbedLyricsInFiles} />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Embed Artwork</Label>
-                        <p className="text-sm text-muted-foreground">Include cover art in downloaded files</p>
-                      </div>
-                      <Switch checked={embedCoverArtInFiles} onCheckedChange={setEmbedCoverArtInFiles} />
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <Label className="text-sm">Cover Art Size</Label>
-                        <span className="text-xs font-mono text-primary">{coverArtSize}px</span>
-                      </div>
-                      <Slider 
-                        value={[coverArtSize]} 
-                        onValueChange={([v]) => setCoverArtSize(v)}
-                        min={300}
-                        max={3000}
-                        step={100}
-                      />
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <Label className="text-sm">Concurrent Downloads</Label>
-                        <span className="text-xs font-mono text-primary">{downloadConcurrentCount}</span>
-                      </div>
-                      <Slider 
-                        value={[downloadConcurrentCount]} 
-                        onValueChange={([v]) => setDownloadConcurrentCount(v)}
-                        min={1}
-                        max={10}
-                        step={1}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {page === 'interface' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Home Layout</h3>
-                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
-                    {[
-                      { label: 'Quick Picks', value: showQuickPicks, set: setShowQuickPicks },
-                      { label: 'Discover', value: showDiscover, set: setShowDiscover },
-                      { label: 'Top 10', value: showTopTen, set: setShowTopTen },
-                      { label: 'Recently Played', value: showRecentlyPlayed, set: setShowRecentlyPlayed },
-                      { label: 'Recommended Artists', value: showRecommendedArtists, set: setShowRecommendedArtists },
-                      { label: 'Browse All', value: showBrowseAll, set: setShowBrowseAll },
-                    ].map(({ label, value, set }) => (
-                      <div key={label} className="flex items-center justify-between p-4">
-                        <Label className="text-base font-medium">{label}</Label>
-                        <Switch checked={value} onCheckedChange={set} />
-                      </div>
-                    ))}
                   </div>
                 </div>
 
+                {/* Playlist Files */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Visual Effects</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Playlist Files</h3>
                   <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="space-y-0.5">
-                        <Label className="text-base font-medium">Glassmorphism</Label>
-                        <p className="text-sm text-muted-foreground">Apply blur and transparency to UI elements</p>
+                        <Label className="text-base">Generate M3U</Label>
+                        <p className="text-sm text-muted-foreground">Include M3U playlist in downloads</p>
                       </div>
-                      <Switch checked={glassEffect} onCheckedChange={setGlassEffect} />
+                      <Switch checked={generateM3U} onCheckedChange={setGenerateM3U} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Generate M3U8</Label>
+                        <p className="text-sm text-muted-foreground">Include M3U8 playlist</p>
+                      </div>
+                      <Switch checked={generateM3U8} onCheckedChange={setGenerateM3U8} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Generate CUE</Label>
+                        <p className="text-sm text-muted-foreground">Include CUE sheet</p>
+                      </div>
+                      <Switch checked={generateCUE} onCheckedChange={setGenerateCUE} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Generate NFO</Label>
+                        <p className="text-sm text-muted-foreground">Include NFO file</p>
+                      </div>
+                      <Switch checked={generateNFO} onCheckedChange={setGenerateNFO} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Generate JSON</Label>
+                        <p className="text-sm text-muted-foreground">Include JSON metadata file</p>
+                      </div>
+                      <Switch checked={generateJSON} onCheckedChange={setGenerateJSON} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Relative Paths</Label>
+                        <p className="text-sm text-muted-foreground">Use relative paths in playlist files</p>
+                      </div>
+                      <Switch checked={relativePaths} onCheckedChange={setRelativePaths} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Templates */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Templates</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="p-4 space-y-2">
+                      <Label className="text-sm">Filename Template</Label>
+                      <Input value={filenameTemplate} onChange={(e) => setFilenameTemplate(e.target.value)} className="h-8 text-xs font-mono" />
+                      <p className="text-[11px] text-muted-foreground">Variables: {'{discNumber}'}, {'{trackNumber}'}, {'{artist}'}, {'{title}'}, {'{album}'}</p>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      <Label className="text-sm">Folder Template</Label>
+                      <Input value={folderTemplate} onChange={(e) => setFolderTemplate(e.target.value)} className="h-8 text-xs font-mono" />
+                      <p className="text-[11px] text-muted-foreground">Variables: {'{albumTitle}'}, {'{albumArtist}'}, {'{year}'}</p>
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Cover Art Size</Label>
+                        <p className="text-sm text-muted-foreground">Maximum resolution of embedded cover art</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={300}
+                          max={3000}
+                          step={100}
+                          value={coverArtSize}
+                          onChange={(e) => setCoverArtSize(Number(e.target.value))}
+                          className="w-20 h-8 text-xs text-center"
+                        />
+                        <span className="text-xs text-muted-foreground">px</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Concurrent Downloads</Label>
+                        <p className="text-sm text-muted-foreground">Maximum parallel download tasks</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          step={1}
+                          value={downloadConcurrentCount}
+                          onChange={(e) => setDownloadConcurrentCount(Number(e.target.value))}
+                          className="w-16 h-8 text-xs text-center"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -902,120 +1294,6 @@ export default function SettingsView() {
                       <Switch checked={listenbrainzEnabled} onCheckedChange={setListenbrainzEnabled} />
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {page === 'audio' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Playback Quality</h3>
-                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base font-medium">Streaming Quality</Label>
-                        <p className="text-sm text-muted-foreground">Preferred bitrate for online playback</p>
-                      </div>
-                      <Select value={streamingQuality} onValueChange={(v) => setStreamingQuality(v as any)}>
-                        <SelectTrigger className="w-32 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low (128k)</SelectItem>
-                          <SelectItem value="medium">Medium (256k)</SelectItem>
-                          <SelectItem value="high">High (320k)</SelectItem>
-                          <SelectItem value="lossless">Lossless (FLAC)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center justify-between p-4">
-                      <div className="space-y-0.5">
-                        <Label className="text-base font-medium">Prefer Dolby Atmos</Label>
-                        <p className="text-sm text-muted-foreground">Use spatial audio when available</p>
-                      </div>
-                      <Switch checked={preferDolbyAtmos} onCheckedChange={setPreferDolbyAtmos} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Equalizer</h3>
-                  <div className="rounded-2xl border border-border/40 bg-card/20 p-6 space-y-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base font-medium">Enable Equalizer</Label>
-                        <p className="text-sm text-muted-foreground">Apply custom sound profiling</p>
-                      </div>
-                      <Switch checked={eqEnabled} onCheckedChange={setEqEnabled} />
-                    </div>
-                    
-                    {eqEnabled && (
-                      <div className="space-y-6 animate-in zoom-in-95 duration-200">
-                        <div className="flex flex-wrap gap-2">
-                          {(Object.keys(EQ_PRESET_LABELS) as EqPreset[]).map((key) => (
-                            <button
-                              key={key}
-                              onClick={() => setEqPreset(key)}
-                              className={cn(
-                                "px-4 py-2 rounded-full text-xs font-bold transition-all border",
-                                eqPreset === key 
-                                  ? "bg-primary border-primary text-primary-foreground shadow-[0_2px_10px_rgba(var(--primary),0.3)]" 
-                                  : "bg-background/50 border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary"
-                              )}
-                            >
-                              {EQ_PRESET_LABELS[key]}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex justify-between items-end h-32 gap-2 px-4 pt-2">
-                          {bandPreview.map((h, i) => (
-                            <div key={i} className="flex-1 h-full flex flex-col justify-end gap-2 group">
-                              <div className="w-full bg-primary/10 rounded-full relative overflow-hidden h-full">
-                                <motion.div 
-                                  initial={{ height: 0 }}
-                                  animate={{ height: `${h * 100}%` }}
-                                  transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary/80 to-primary rounded-full"
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {page === 'instances' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Instances & Connections</h3>
-                  <Button size="sm" variant="outline" className="h-8 rounded-full gap-2 text-xs" onClick={() => setInstanceDialogOpen(true)}>
-                    <Plus size={14} /> Add Custom
-                  </Button>
-                </div>
-                
-                <div className="space-y-6">
-                  {/* Consolidated into Addons -> Sources */}
-                  <div className="p-6 rounded-[24px] bg-zinc-900/40 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 group">
-                    <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
-                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(var(--primary),0.1)]">
-                        <Cloud size={28} />
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold">Legacy Proxy Instances</p>
-                        <p className="text-sm text-muted-foreground max-w-sm">Metadata and streaming instances have been moved to the Addon Store sources for better management.</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" className="rounded-full px-6 border-white/10 hover:bg-white/5" onClick={() => {
-                      setSourcesDialogOpen(true);
-                    }}>
-                      Manage Sources
-                    </Button>
-                  </div>
-
                 </div>
               </div>
             )}
@@ -1222,11 +1500,50 @@ export default function SettingsView() {
                           <span className="text-sm font-mono">MIT</span>
                         </div>
                       </div>
+                </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">File Generation</h3>
+                  <div className="rounded-2xl border border-border/40 bg-card/20 divide-y divide-border/20 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Generate M3U</span>
+                      <Switch checked={generateM3U} onCheckedChange={setGenerateM3U} />
                     </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Generate M3U8</span>
+                      <Switch checked={generateM3U8} onCheckedChange={setGenerateM3U8} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Generate CUE</span>
+                      <Switch checked={generateCUE} onCheckedChange={setGenerateCUE} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Generate NFO</span>
+                      <Switch checked={generateNFO} onCheckedChange={setGenerateNFO} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Generate JSON</span>
+                      <Switch checked={generateJSON} onCheckedChange={setGenerateJSON} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Relative Paths</span>
+                      <Switch checked={relativePaths} onCheckedChange={setRelativePaths} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Separate Discs</span>
+                      <Switch checked={separateDiscs} onCheckedChange={setSeparateDiscs} />
+                    </div>
+                    <div className="flex items-center justify-between p-4">
+                      <span className="text-sm font-medium">Include Cover File</span>
+                      <Switch checked={includeCoverFile} onCheckedChange={setIncludeCoverFile} />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
+          )}
         </ScrollArea>
       </div>
 

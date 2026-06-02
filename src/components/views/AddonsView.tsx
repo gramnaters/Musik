@@ -163,6 +163,11 @@ export default function AddonsView() {
     useModuleFallback: storeUseModuleFallback,
     setUseModulesOnGo,
     setUseModuleFallback,
+    checkForUpdates,
+    installPendingUpdate,
+    isUpdating,
+    pendingUpdates,
+    lastUpdateCheck,
   } = useAddonStore();
 
 
@@ -841,14 +846,27 @@ export default function AddonsView() {
               >
                 <ChevronLeft size={22} strokeWidth={2} />
               </button>
-              <h1 className="text-base font-semibold tracking-tight text-white">Modules</h1>
-              <button
-                type="button"
-                onClick={() => setConnectionsScreen('sources')}
-                className="rounded-full bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-white/90 shrink-0"
-              >
-                Sources
-              </button>
+              <div className="flex gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => checkForUpdates()}
+                  disabled={isUpdating}
+                  className="rounded-full bg-white/10 text-white text-sm font-semibold px-4 py-2 hover:bg-white/20 shrink-0 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isUpdating ? (
+                    <><Loader2 size={14} className="animate-spin" /> Checking...</>
+                  ) : (
+                    'Check Updates'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConnectionsScreen('sources')}
+                  className="rounded-full bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-white/90 shrink-0"
+                >
+                  Sources
+                </button>
+              </div>
             </div>
 
             {addons.length === 0 ? (
@@ -858,13 +876,13 @@ export default function AddonsView() {
             ) : (
               <div className="space-y-6">
                 {/* Section 1 — Global Settings */}
-                <div className="bg-[#121212] rounded-[24px] p-5 space-y-5">
+                <div className="bg-[#0a0a0a] rounded-[28px] p-6 space-y-6 border border-white/[0.06] sm:max-w-[calc(66.666%-0.5rem)] shadow-lg shadow-black/30">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <Music className="w-[18px] h-[18px] text-white mt-0.5 shrink-0" />
+                      <Music className="w-5 h-5 text-white mt-0.5 shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white leading-snug">Use modules to play music on the go</p>
-                        <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">Stream unowned tracks using installed modules</p>
+                        <p className="text-[15px] font-semibold text-white leading-snug">Use modules to play music on the go</p>
+                        <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">Stream unowned tracks using installed modules</p>
                       </div>
                     </div>
                     <Switch checked={storeUseModulesOnGo} onCheckedChange={setUseModulesOnGo} />
@@ -872,8 +890,8 @@ export default function AddonsView() {
 
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white leading-snug">Module Fallback (beta)</p>
-                      <p className="text-xs text-[#8A8A8A] mt-1 leading-relaxed">If playback fails, try the next active module</p>
+                      <p className="text-[15px] font-semibold text-white leading-snug">Module Fallback</p>
+                      <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">If playback fails, try the next active module</p>
                     </div>
                     <Switch checked={storeUseModuleFallback} onCheckedChange={setUseModuleFallback} />
                   </div>
@@ -889,8 +907,8 @@ export default function AddonsView() {
                     }}
                   >
                     <div className="flex items-center gap-2.5">
-                      <List className="w-4 h-4 text-white" />
-                      <span className="text-xs font-semibold text-white">Reorder Active Modules</span>
+                      <List className="w-5 h-5 text-white" />
+                      <span className="text-[14px] font-semibold text-white">Reorder Active Modules</span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-[#8A8A8A]" />
                   </button>
@@ -898,10 +916,17 @@ export default function AddonsView() {
 
                 {/* Section 2 — Installed Modules */}
                 <div>
-                  <h2 className="text-[13px] font-semibold tracking-[0.04em] text-[#8A8A8A] px-0.5 uppercase">Installed Modules</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+                  <h2 className="text-[13px] font-semibold tracking-[0.04em] text-[#8A8A8A] px-0.5 uppercase">
+                    Installed Modules
+                    {lastUpdateCheck && Object.keys(pendingUpdates).length === 0 && (
+                      <span className="ml-2 text-[10px] text-green-400 font-normal normal-case">All up to date</span>
+                    )}
+                    {Object.keys(pendingUpdates).length > 0 && (
+                      <span className="ml-2 text-[10px] text-cyan-400 font-normal normal-case">{Object.keys(pendingUpdates).length} update{Object.keys(pendingUpdates).length > 1 ? 's' : ''} available</span>
+                    )}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
                     {addons.map((addon) => {
-                      const shortId = addon.manifest.id.split('.').pop() || addon.manifest.id.slice(0, 8);
                       const tagList = (addon.manifest.resources || []).slice(0, 8);
                       return (
                         <div
@@ -917,8 +942,16 @@ export default function AddonsView() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="text-sm font-semibold text-white truncate max-w-[140px]">{addon.manifest.name}</p>
-                                  <span className="shrink-0 text-[10px] text-zinc-400 bg-zinc-800 rounded-md px-2 py-0.5 font-medium">#{shortId}</span>
                                   <span className="shrink-0 text-[11px] text-zinc-500">v{addon.manifest.version}</span>
+                                  {pendingUpdates[addon.manifest.id] && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); installPendingUpdate(addon.manifest.id); }}
+                                      className="shrink-0 text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold bg-cyan-400/10 rounded-md px-2 py-0.5"
+                                      title={`Update to v${pendingUpdates[addon.manifest.id]}`}
+                                    >
+                                      Update available
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1012,17 +1045,58 @@ export default function AddonsView() {
 
             {/* Install module */}
             <div className="pt-2">
-              <Button
-                type="button"
-                className="w-full h-14 rounded-[20px] bg-[#1A1A1A] border border-zinc-800 text-white font-semibold text-sm hover:bg-[#262626]"
-                onClick={() => {
-                  setConnectionsScreen('browse');
-                  setConnectionsCatalogSourceId(null);
-                }}
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Install module
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    type="button"
+                    className="w-full h-14 rounded-[20px] bg-[#1A1A1A] border border-zinc-800 text-white font-semibold text-sm hover:bg-[#262626]"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Install module
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-foreground">Install Module</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-2 block">Module manifest URL or base URL (any format)</label>
+                      <Input
+                        placeholder="https://example.com/addon/manifest.json"
+                        value={installUrl}
+                        onChange={(e) => setInstallUrl(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && installUrl.trim()) handleInstall(installUrl); }}
+                        className="bg-background border-border text-foreground"
+                        autoFocus
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-2">Supports 8SPINE, Eclipse, REST API, and custom modules — just paste the URL.</p>
+                    </div>
+                    {installError && <p className="text-sm text-red-400">{installError}</p>}
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => handleInstall(installUrl)}
+                        disabled={!installUrl.trim() || installing}
+                        className="flex-1 bg-white text-black font-semibold hover:bg-white/90 rounded-full"
+                      >
+                        {installing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                        Install
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-full border-zinc-700 font-semibold"
+                        onClick={() => {
+                          setDialogOpen(false);
+                          setConnectionsScreen('browse');
+                          setConnectionsCatalogSourceId(null);
+                        }}
+                      >
+                        Browse Sources
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </>
         )}
@@ -1066,77 +1140,14 @@ export default function AddonsView() {
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="border-zinc-700 bg-[#262626] text-white rounded-full hover:bg-zinc-800"
-                >
-                  <Globe size={16} className="mr-1" />
-                  Custom URL
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-foreground">Install from URL</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-2 block">
-                      Addon manifest URL or base URL
-                    </label>
-                    <Input
-                      placeholder="https://example.com/addon/ or manifest.json"
-                      value={installUrl}
-                      onChange={(e) => setInstallUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && installUrl.trim()) {
-                          handleInstall(installUrl);
-                        }
-                      }}
-                      className="bg-background border-border text-foreground"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={() => handleInstall(installUrl)}
-                      disabled={!installUrl.trim() || installing}
-                      className="flex-1 bg-spotify-green hover:bg-spotify-green-hover text-white"
-                    >
-                      {installing ? (
-                        <Loader2 size={16} className="animate-spin mr-1" />
-                      ) : null}
-                      Install
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setDialogOpen(false);
-                        setInstallError('');
-                      }}
-                      className="border-border text-foreground"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-
-                  {installError && (
-                    <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-                      <X size={14} className="flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Installation Failed</p>
-                        <p className="text-xs opacity-80 mt-1">{installError}</p>
-                        <p className="text-xs opacity-60 mt-1">
-                          Make sure the URL is correct and the addon server is online.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="outline"
+              className="border-zinc-700 bg-[#262626] text-white rounded-full hover:bg-zinc-800"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Globe size={16} className="mr-1" />
+              Custom URL
+            </Button>
         </div>
 
         {/* Error banner */}
@@ -1271,7 +1282,7 @@ export default function AddonsView() {
                 )}
 
                 {!loading && !err && rows.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                     {rows.map((addon) => {
                       const installed = isInstalled(addon);
                       const installedAddon = addons.find((a) =>

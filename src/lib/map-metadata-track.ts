@@ -18,7 +18,7 @@ export function mapMetadataSearchTrack(x: Record<string, unknown>): Track {
     albumId: x.albumId ? String(x.albumId) : undefined,
     artistId: x.artistId ? String(x.artistId) : undefined,
     isrc: x.isrc ? String(x.isrc) : undefined,
-    duration: typeof x.duration === 'number' ? x.duration : undefined,
+    duration: typeof x.duration === 'number' ? x.duration : (typeof x.duration === 'string' ? parseFloat(x.duration) : undefined),
     streamURL,
     format: inferFormatFromUrl(streamURL),
     quality: typeof x.quality === 'string' ? x.quality : undefined,

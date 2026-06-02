@@ -99,6 +99,10 @@ interface AddonState {
   /** Try order for stream fallback + optional home feed (search-capable modules only). */
   playbackPriorityIds: string[];
   isSearching: boolean;
+  isUpdating: boolean;
+  lastUpdateCheck: number | null;
+  /** addonId → newVersion for addons with pending updates */
+  pendingUpdates: Record<string, string>;
   searchResults: AddonSearchResults;
   error: string | null;
   useModulesOnGo: boolean;
@@ -145,8 +149,12 @@ interface AddonActions {
   movePlaybackPriority: (addonId: string, delta: -1 | 1) => void;
   setPlaybackPriorityIds: (ids: string[]) => void;
   cleanupBrokenAddons: () => void;
-  /** Re-fetch source for each installed addon and update if a newer version is available. */
+  /** Re-fetch source for each installed addon and store pending updates. Call installPendingUpdate to apply. */
   checkForUpdates: () => Promise<void>;
+  /** Install a specific pending update by addon ID. */
+  installPendingUpdate: (addonId: string) => Promise<void>;
+  /** Apply all pending updates at once. */
+  installAllPendingUpdates: () => Promise<void>;
   setUseModulesOnGo: (v: boolean) => void;
   setUseModuleFallback: (v: boolean) => void;
 }
@@ -161,6 +169,9 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       activeAddonId: null,
       playbackPriorityIds: [],
       isSearching: false,
+      isUpdating: false,
+      lastUpdateCheck: null,
+      pendingUpdates: {},
       searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
       error: null,
       useModulesOnGo: false,
@@ -647,7 +658,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       },
 
       resolveStreamUrl: async (track: AddonTrack & { source?: string }): Promise<string> => {
-        const { addons, getPlaybackOrderedSearchAddonIds } = get();
+        const { addons, getPlaybackOrderedSearchAddonIds, useModulesOnGo, useModuleFallback } = get();
         let url: string | undefined;
 
         // Read quality from global streaming setting, then check per-addon config
@@ -655,61 +666,65 @@ export const useAddonStore = create<AddonState & AddonActions>()(
         const nativeAddon = track.addonId ? addons.find((a) => a.manifest.id === track.addonId && a.enabled) : null;
         const addonQuality = nativeAddon?.config?.quality ?? nativeAddon?.config?.eclipseQuality ?? null;
         const effectiveQuality = addonQuality || globalQuality?.toLowerCase() || undefined;
-        
-        // 1. Try the track's native addon resolution first (if it came from an addon)
-        if (track.addonId) {
-          const addon = nativeAddon;
-          if (addon) {
-            try {
-              const targetId = (track as any).addonTrackId || track.id;
-              if (addon.eightspineInnerCode) {
-                const api = await getEightspineApi(addon);
-                const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
-                if (typeof getTrackStreamUrl === 'function') {
-                  const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, effectiveQuality, { settings: {} })
-                           : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, effectiveQuality)
-                           : await getTrackStreamUrl(targetId);
-                  url = pickStreamUrlFromEightspineResult(out);
+
+        // "Use modules to play music on the go" — if off, skip all addon-based stream resolution
+        if (useModulesOnGo) {
+          // 1. Try the track's native addon resolution first (if it came from an addon)
+          if (track.addonId) {
+            const addon = nativeAddon;
+            if (addon) {
+              try {
+                const targetId = (track as any).addonTrackId || track.id;
+                if (addon.eightspineInnerCode) {
+                  const api = await getEightspineApi(addon);
+                  const getTrackStreamUrl = (api.getTrackStreamUrl ?? api.getStreamUrl ?? api.getTrackUrl ?? api.streamUrl) as Function | undefined;
+                  if (typeof getTrackStreamUrl === 'function') {
+                    const out = getTrackStreamUrl.length >= 3 ? await getTrackStreamUrl(targetId, effectiveQuality, { settings: {} })
+                             : getTrackStreamUrl.length >= 2 ? await getTrackStreamUrl(targetId, effectiveQuality)
+                             : await getTrackStreamUrl(targetId);
+                    url = pickStreamUrlFromEightspineResult(out);
+                  }
                 }
-              }
-              if (!url) {
-                const baseURL = addon.manifest.baseURL || '';
-                const qualityParam = effectiveQuality ? `?quality=${encodeURIComponent(effectiveQuality)}` : '';
-                const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/stream/${targetId}${qualityParam}`)}`);
-                if (res.ok) {
-                  const data = await res.json();
-                  url = pickStreamUrlFromEightspineResult(data);
+                if (!url) {
+                  const baseURL = addon.manifest.baseURL || '';
+                  const qualityParam = effectiveQuality ? `?quality=${encodeURIComponent(effectiveQuality)}` : '';
+                  const res = await fetch(`/api/addons/proxy?url=${encodeURIComponent(`${baseURL}/stream/${targetId}${qualityParam}`)}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    url = pickStreamUrlFromEightspineResult(data);
+                  }
                 }
+                if (url) return `/api/stream?url=${encodeURIComponent(url)}`;
+              } catch (e) {
+                console.warn(`[AddonStore] Primary resolution failed for ${addon.manifest.id}:`, e);
               }
-              if (url) return `/api/stream?url=${encodeURIComponent(url)}`;
-            } catch (e) {
-              console.warn(`[AddonStore] Primary resolution failed for ${addon.manifest.id}:`, e);
             }
           }
-        }
 
-        // 2. FALLBACK CHAIN: Try all enabled search-capable addons in priority order
-        if (!(track as any).isFallback) {
-          const fallbackAddonIds = getPlaybackOrderedSearchAddonIds();
-          const query = `${track.title} ${track.artist}`.trim();
+          // 2. FALLBACK CHAIN: Try all enabled search-capable addons in priority order
+          // "Module Fallback" — only runs when enabled
+          if (useModuleFallback && !(track as any).isFallback) {
+            const fallbackAddonIds = getPlaybackOrderedSearchAddonIds();
+            const query = `${track.title} ${track.artist}`.trim();
 
-          for (const addonId of fallbackAddonIds) {
-            if (addonId === track.addonId) continue; // Skip what we already tried
-            
-            const addon = addons.find((a) => a.manifest.id === addonId);
-            if (!addon) continue;
+            for (const addonId of fallbackAddonIds) {
+              if (addonId === track.addonId) continue; // Skip what we already tried
 
-            try {
-              const results = await get().searchWithAddon(addonId, query);
-              const match = results.tracks?.[0];
-              
-              if (match) {
-                // Recursive call with isFallback=true to prevent infinite loop
-                const url = await get().resolveStreamUrl({ ...match, isFallback: true } as any);
-                if (url) return url;
+              const addon = addons.find((a) => a.manifest.id === addonId);
+              if (!addon) continue;
+
+              try {
+                const results = await get().searchWithAddon(addonId, query);
+                const match = results.tracks?.[0];
+
+                if (match) {
+                  // Recursive call with isFallback=true to prevent infinite loop
+                  const url = await get().resolveStreamUrl({ ...match, isFallback: true } as any);
+                  if (url) return url;
+                }
+              } catch (e) {
+                console.warn(`[AddonStore] Fallback resolution failed for ${addon.manifest.id}:`, e);
               }
-            } catch (e) {
-              console.warn(`[AddonStore] Fallback resolution failed for ${addon.manifest.id}:`, e);
             }
           }
         }
@@ -1032,8 +1047,10 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       },
 
       checkForUpdates: async () => {
-        const { addons, fetchManifest, addAddon } = get();
-        let updated = 0;
+        const { addons, fetchManifest } = get();
+        set({ isUpdating: true });
+        const pending: Record<string, string> = {};
+        let found = 0;
         for (const addon of addons) {
           const src = addon.installSourceUrl;
           if (!src) continue;
@@ -1045,36 +1062,63 @@ export const useAddonStore = create<AddonState & AddonActions>()(
                 body: JSON.stringify({ url: src }),
               });
               if (!kindRes.ok) continue;
-              const meta = await kindRes.json() as { manifest?: AddonManifest; eightspineKind?: string; eightspineInnerCode?: string };
+              const meta = await kindRes.json() as { manifest?: AddonManifest };
               const newVer = meta.manifest?.version ?? '';
               if (newVer && newVer !== addon.manifest.version) {
-                console.log(`[AddonStore] Updating ${addon.manifest.id}: ${addon.manifest.version} -> ${newVer}`);
-                addAddon(meta.manifest!, {
-                  sourceId: addon.sourceId,
-                  installSourceUrl: src,
-                  eightspineInnerCode: meta.eightspineInnerCode,
-                  eightspineKind: meta.eightspineKind as 'wrapped' | 'bare',
-                  config: addon.config,
-                });
-                updated++;
+                pending[addon.manifest.id] = newVer;
+                found++;
               }
             } else if (addon.manifest.baseURL) {
               try {
                 const { manifest } = await fetchManifest(src);
                 if (manifest.version && manifest.version !== addon.manifest.version) {
-                  console.log(`[AddonStore] Updating ${addon.manifest.id}: ${addon.manifest.version} -> ${manifest.version}`);
-                  addAddon(manifest, { sourceId: addon.sourceId, installSourceUrl: src });
-                  updated++;
+                  pending[addon.manifest.id] = manifest.version;
+                  found++;
                 }
-              } catch { /* skip if manifest fetch fails */ }
+              } catch { /* skip */ }
             }
-          } catch { /* skip if update check fails */ }
+          } catch { /* skip */ }
         }
-        if (updated > 0) {
-          toast(`Updated ${updated} addon(s)`);
-          console.log(`[AddonStore] Updated ${updated} addon(s)`);
-        } else {
-          console.log('[AddonStore] All addons up-to-date');
+        set({ isUpdating: false, lastUpdateCheck: Date.now(), pendingUpdates: pending });
+        console.log(`[AddonStore] Checked updates: ${found} pending`);
+      },
+
+      installPendingUpdate: async (addonId: string) => {
+        const { addons, pendingUpdates, fetchManifest } = get();
+        const addon = addons.find((a) => a.manifest.id === addonId);
+        const src = addon?.installSourceUrl;
+        if (!addon || !src || !pendingUpdates[addonId]) return;
+        const newVer = pendingUpdates[addonId];
+        try {
+          if (addon.eightspineInnerCode) {
+            const kindRes = await fetch('/api/addons/eightspine-install', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: src }),
+            });
+            if (!kindRes.ok) return;
+            const meta = await kindRes.json() as { manifest?: AddonManifest; eightspineKind?: string; eightspineInnerCode?: string };
+            if (!meta.manifest) return;
+            get().addAddon(meta.manifest, {
+              sourceId: addon.sourceId, installSourceUrl: src,
+              eightspineInnerCode: meta.eightspineInnerCode,
+              eightspineKind: meta.eightspineKind as 'wrapped' | 'bare',
+              config: addon.config,
+            });
+          } else if (addon.manifest.baseURL) {
+            const { manifest } = await fetchManifest(src);
+            get().addAddon(manifest, { sourceId: addon.sourceId, installSourceUrl: src });
+          }
+          const next = { ...get().pendingUpdates };
+          delete next[addonId];
+          set({ pendingUpdates: next });
+          console.log(`[AddonStore] Updated ${addonId}: -> ${newVer}`);
+        } catch { /* skip */ }
+      },
+
+      installAllPendingUpdates: async () => {
+        const ids = Object.keys(get().pendingUpdates);
+        for (const id of ids) {
+          await get().installPendingUpdate(id);
         }
       },
 
