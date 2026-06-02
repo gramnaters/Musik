@@ -18,12 +18,12 @@ interface MetadataActions {
 export const useMetadataStore = create<MetadataState & MetadataActions>()(
   persist(
     (set) => ({
-      catalogProvider: 'tidal',
+      catalogProvider: 'monochrome',
       appleStorefront: 'US',
       setCatalogProvider: (catalogProvider) => set({ catalogProvider }),
       setAppleStorefront: (appleStorefront) =>
         set({ appleStorefront: appleStorefront.trim().toUpperCase().slice(0, 2) || 'US' }),
     }),
-    { name: 'musik-metadata', version: 2, migrate: () => ({ catalogProvider: 'tidal' as CatalogMetadataProvider, appleStorefront: 'US' }), partialize: (s) => ({ catalogProvider: s.catalogProvider, appleStorefront: s.appleStorefront }) }
+    { name: 'musik-metadata', version: 3, migrate: () => ({ catalogProvider: 'monochrome' as CatalogMetadataProvider, appleStorefront: 'US' }), partialize: (s) => ({ catalogProvider: s.catalogProvider, appleStorefront: s.appleStorefront }) }
   )
 );
