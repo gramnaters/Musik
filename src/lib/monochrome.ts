@@ -1,23 +1,76 @@
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0';
 
-function parseIsoDuration(iso: string): number {
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
-  if (!match) return 0;
-  const h = parseInt(match[1] || '0', 10);
-  const m = parseInt(match[2] || '0', 10);
-  const s = parseFloat(match[3] || '0');
-  return h * 3600 + m * 60 + Math.round(s);
+async function fetchInstances(): Promise<string[]> {
+  const primary = 'https://api.monochrome.tf';
+  try {
+    const res = await fetch(primary, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
+    if (res.ok) return [primary];
+  } catch {}
+
+  const knownInstances = [
+    'https://monochrome.tf/api',
+    'https://api.monochrome.tf',
+  ];
+  const working: string[] = [];
+  for (const url of knownInstances) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
+      if (res.ok) working.push(url);
+    } catch {}
+  }
+  return working.length > 0 ? working : [primary];
+}
+
+let tidalApiFallback: ((path: string) => Promise<any>) | null = null;
+
+export function registerTidalFallback(fn: (path: string) => Promise<any>) {
+  tidalApiFallback = fn;
 }
 
 async function query<T = any>(relativePath: string, options?: { type?: string; signal?: AbortSignal }): Promise<T> {
-  const baseUrl = 'https://api.monochrome.tf';
-  const url = `${baseUrl}${relativePath}`;
-  const res = await fetch(url, { 
-    signal: options?.signal ?? AbortSignal.timeout(15000),
-    headers: { 'User-Agent': UA, Accept: 'application/json', 'Accept-Language': 'en-US' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const type = options?.type || 'api';
+  const instances = await fetchInstances();
+  const maxAttempts = instances.length * 2;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const instance = instances[(attempt - 1) % instances.length];
+    const baseUrl = typeof instance === 'string' ? instance : instance.url;
+    const url = baseUrl.endsWith('/')
+      ? `${baseUrl}${relativePath.substring(1)}`
+      : `${baseUrl}${relativePath}`;
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(url, { signal: options?.signal ?? ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.detail) {
+          lastError = new Error(json.detail);
+          continue;
+        }
+        return json;
+      }
+      if (res.status === 429 || res.status >= 500) continue;
+      lastError = new Error(`Monochrome API error: ${res.status}`);
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      lastError = err;
+    }
+  }
+
+  if (tidalApiFallback) {
+    try {
+      const result = await tidalApiFallback(relativePath);
+      if (result) return result as T;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+
+  throw lastError || new Error('All Monochrome instances failed');
 }
 
 export function stripPrefix(id: string): string {
@@ -91,32 +144,24 @@ export async function search(query: string, limit = 25) {
   return raw?.data || raw;
 }
 
-export async function searchTracks(q: string, limit = 25) {
-  const raw = await query<any>(`/search/?s=${encodeURIComponent(q)}&limit=${limit}`);
-  const data = raw?.data || raw;
-  const items = data?.items || data?.tracks || [];
-  return { tracks: Array.isArray(items) ? items : [] };
+export async function searchTracks(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.tracks || raw?.tracks || raw?.items || [];
 }
 
-export async function searchAlbums(q: string, limit = 25) {
-  const raw = await query<any>(`/search/?s=${encodeURIComponent(q)}&limit=${limit}`);
-  const data = raw?.data || raw;
-  const items = data?.items || data?.tracks || [];
-  return { albums: [] };
+export async function searchAlbums(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?a=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.albums || raw?.albums || raw?.items || [];
 }
 
-export async function searchArtists(q: string, limit = 25) {
-  const raw = await query<any>(`/search/?ar=${encodeURIComponent(q)}&limit=${limit}`);
-  const data = raw?.data || raw;
-  const items = data?.items || data?.artists || [];
-  return Array.isArray(items) ? items : [];
+export async function searchArtists(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?ar=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.artists || raw?.artists || raw?.items || [];
 }
 
-export async function searchPlaylists(q: string, limit = 25) {
-  const raw = await query<any>(`/search/?p=${encodeURIComponent(q)}&limit=${limit}`);
-  const data = raw?.data || raw;
-  const items = data?.items || data?.playlists || [];
-  return Array.isArray(items) ? items : [];
+export async function searchPlaylists(query: string, limit = 25) {
+  const raw = await query<any>(`/search/?p=${encodeURIComponent(query)}&limit=${limit}`);
+  return raw?.data?.playlists || raw?.playlists || raw?.items || [];
 }
 
 export async function getArtistAlbums(id: string): Promise<{ albums: any[]; eps: any[] }> {
@@ -219,9 +264,7 @@ export function mapMonochromeTrack(item: any): any {
     albumCover,
     albumId: item.album?.id || item.albumId || '',
     artistId: item.artist?.id || item.artistId || '',
-    duration: typeof item.duration === 'number' ? item.duration 
-      : (typeof item.durationMs === 'number' ? Math.round(item.durationMs / 1000) 
-        : (typeof item.duration === 'string' ? parseIsoDuration(item.duration) : 0)),
+    duration: typeof item.duration === 'number' ? item.duration : (typeof item.durationMs === 'number' ? Math.round(item.durationMs / 1000) : 0),
     isrc: item.isrc || '',
     explicit: item.explicit || false,
     quality: (item.audioQuality || item.quality || 'LOW').toLowerCase(),

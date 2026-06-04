@@ -151,43 +151,66 @@ export async function GET(req: NextRequest) {
       let playlists: any[] = [];
 
       try {
-        const tracksData = await searchTracks(q, per);
-        const rawTracks = Array.isArray(tracksData) ? tracksData : (tracksData.tracks || []);
-        tracks = rawTracks.map(mapMonochromeTrack).filter((t: any) => t.title);
+        const [tracksData, albumsData, artistsData, playlistsData] = await Promise.all([
+          searchTracks(q, per),
+          mcSearchAlbums(q),
+          mcSearchArtists(q),
+          mcSearchPlaylists(q),
+        ]);
 
-        // Extract unique albums, artists from track results by ID
-        const artistMap = new Map<string, any>();
-        const albumMap = new Map<string, any>();
-        const playlistMap = new Map<string, any>();
-
-        rawTracks.forEach((t: any) => {
-          const artistName = t.artist?.name || '';
-          const artistId = String(t.artist?.id || '');
-          if (artistName && artistId && !artistMap.has(artistId)) {
-            artistMap.set(artistId, mapMonochromeArtist(t.artist));
-          }
-          
-          const album = t.album;
-          const albumId = String(album?.id || '');
-          if (album?.title && albumId && !albumMap.has(albumId)) {
-            const mapped = mapMonochromeAlbum(album);
-            albumMap.set(albumId, mapped);
-            playlistMap.set(albumId, {
-              id: mapped.id, name: album.title,
-              description: `${artistName} • Album`,
-              cover: mapped.cover, trackCount: mapped.trackCount,
-            });
-          }
-        });
-
-        albums = [...albumMap.values()];
-        artists = [...artistMap.values()];
-        playlists = [...playlistMap.values()];
+        tracks = (tracksData.tracks || []).map(mapMonochromeTrack).filter((t: any) => t.title);
+        albums = (albumsData.albums || []).map(mapMonochromeAlbum).filter((a: any) => a.title);
+        artists = (artistsData.artists || []).map(mapMonochromeArtist).filter((a: any) => a.name);
+        playlists = (playlistsData.playlists || []).map(mapMonochromePlaylist).filter((p: any) => p.name);
       } catch (e) {
-        console.warn('Monochrome search-bundle failed:', e);
+        // Fallback to native Tidal API when all Monochrome instances fail
+        console.warn('Monochrome instances failed, falling back to Tidal:', e);
+        try {
+          const client = TidalClient.getInstance();
+          const tidalData = await client.search(q, per);
+          if (tidalData) {
+            tracks = (tidalData.tracks?.items ?? []).map((item: any) => ({
+              id: `tidal_${item.id}`,
+              title: String(item.title ?? ''),
+              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+              album: String(item.album?.title ?? ''),
+              albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
+              duration: typeof item.duration === 'number' ? item.duration : 0,
+              source: 'tidal' as const,
+              explicit: Boolean(item.explicit),
+              audioQuality: item.audioQuality || 'LOSSLESS',
+            }));
+            albums = (tidalData.albums?.items ?? []).map((item: any) => ({
+              id: `tidal_album_${item.id}`,
+              title: String(item.title ?? ''),
+              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
+              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
+              year: item.releaseDate?.slice(0, 4),
+              trackCount: item.numberOfTracks,
+              source: 'tidal' as const,
+              explicit: Boolean(item.explicit),
+            }));
+            artists = (tidalData.artists?.items ?? []).map((item: any) => ({
+              id: `tidal_${item.id}`,
+              name: String(item.name ?? ''),
+              image: item.picture ? `/api/cover?id=${item.picture}&size=1920` : '',
+            }));
+            playlists = (tidalData.playlists?.items ?? []).map((item: any) => ({
+              id: `tidal_pl_${item.id}`,
+              name: String(item.title ?? ''),
+              description: 'Tidal Playlist',
+              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
+              source: 'tidal' as const,
+            }));
+          }
+        } catch (tidalErr) {
+          console.error('Tidal fallback also failed:', tidalErr);
+        }
       }
 
-      return NextResponse.json({ tracks, albums, artists, playlists, podcasts: [], provider: 'monochrome' });
+      const podcasts = await searchPodcasts(q, 5);
+
+      return NextResponse.json({ tracks, albums, artists, playlists, podcasts, provider: 'monochrome' });
     }
 
     if (provider === 'qobuz') {

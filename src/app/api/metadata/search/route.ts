@@ -2,15 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchTracks, searchTracksExplicit, searchArtists as mcSearchArtists, searchPlaylists as mcSearchPlaylists, getTrackInfo, mapMonochromeTrack, mapMonochromeArtist, mapMonochromePlaylist } from '@/lib/monochrome';
 import { searchAppleProxy, appleArtworkUrl, mapAppleTrack, mapAppleArtist, mapApplePlaylistFromAlbum, mapAppleAlbum } from '@/lib/apple-proxy';
 import { searchQobuzTracks, searchQobuzAlbums, searchQobuzArtists, mapQobuzTrack, mapQobuzArtist, mapQobuzPlaylistFromAlbum, mapQobuzAlbum } from '@/lib/qobuz';
-
-function parseIsoDurationString(iso: string): number {
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
-  if (!match) return 0;
-  const h = parseInt(match[1] || '0', 10);
-  const m = parseInt(match[2] || '0', 10);
-  const s = parseFloat(match[3] || '0');
-  return Math.round(h * 3600 + m * 60 + s);
-}
+import { initTidal, TidalClient } from '@/lib/tidal/client';
 
 const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
 const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
@@ -20,7 +12,7 @@ try {
   console.error('Tidal initialization failed:', e);
 }
 
-type Provider = 'spotify' | 'apple' | 'monochrome' | 'qobuz' | 'tidal';
+type Provider = 'spotify' | 'apple' | 'monochrome' | 'qobuz';
 
 type TokenResult =
   | { ok: true; token: string }
@@ -254,14 +246,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ tracks, artists, playlists, provider: 'apple', country: appleCountry });
     }
     if (entity === 'artist') {
-      if (provider === 'monochrome' || provider === 'tidal') {
+      if (provider === 'monochrome') {
         try {
           const data = await mcSearchArtists(q);
-          const artists = (Array.isArray(data) ? data : (data.artists || [])).map(mapMonochromeArtist);
+          const artists = (data.artists || []).map(mapMonochromeArtist);
           return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'monochrome' });
         } catch {
-        return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome' });
-      }
+          try {
+            const client = TidalClient.getInstance();
+            const tidalData = await client.search(q, limit);
+            const artists = (tidalData.artists?.items || []).map((a: any) => ({
+              id: `tidal_${a.id}`,
+              name: a.name,
+              image: a.picture ? `/api/cover?id=${a.picture}&size=1920` : '',
+            }));
+            return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'monochrome', fallback: 'tidal' });
+          } catch {
+            return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome', fallback: 'tidal' });
+          }
+        }
       }
       const { artists, error, detail } = await searchSpotifyArtists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'spotify', error, detail });
@@ -292,17 +295,31 @@ export async function GET(req: NextRequest) {
       const playlists = albums.map(mapQobuzPlaylistFromAlbum);
       return NextResponse.json({ tracks, artists, playlists, provider: 'qobuz' });
     }
-    if (provider === 'monochrome' || provider === 'tidal') {
+    if (provider === 'monochrome') {
       try {
         const data = await searchTracks(q, limit);
         const tracks = (data.tracks || []).map(mapMonochromeTrack);
-        if (tracks.length > 0) {
-          return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
+        return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
+      } catch {
+        try {
+          const client = TidalClient.getInstance();
+          const tidalData = await client.search(q, limit);
+          const tracks = (tidalData.tracks?.items || []).map((item: any) => ({
+            id: `tidal_${item.id}`,
+            title: item.title,
+            artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
+            album: item.album?.title || '',
+            albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
+            duration: item.duration || 0,
+            streamURL: undefined,
+            source: 'tidal' as const,
+            explicit: item.explicit === true,
+          }));
+          return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome', fallback: 'tidal' });
+        } catch {
+          return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome', fallback: 'tidal' });
         }
-      } catch (e) {
-        console.error('[Monochrome search] error:', e);
       }
-      return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome' });
     }
     const { tracks, error, detail } = await searchSpotify(q, spotifyLimit, market);
     return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'spotify', error, detail });
