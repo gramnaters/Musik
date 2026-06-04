@@ -2052,7 +2052,7 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
                           <div key={item.id} className="shrink-0 w-36 text-center">
                             <Card
                               title={item.name}
-                              image={item.image ? `/api/cover?id=${item.image}&size=160` : ''}
+                              image={item.image ? (item.image.startsWith('http') || item.image.startsWith('/') ? item.image : `/api/cover?id=${item.image}&size=160`) : ''}
                               onClick={() => openSearchHub({ ...item, name: item.name }, 'artist')}
                               type="artist"
                             />
