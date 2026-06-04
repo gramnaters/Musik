@@ -321,13 +321,26 @@ interface StreamingActions {
 }
 
 const DEFAULT_API_INSTANCES: StreamingInstance[] = [
-  { url: 'https://api.monochrome.tf', version: '2.5', type: 'api' },
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'api' },
+  { url: 'https://eu-central.monochrome.tf', version: '2.7', type: 'api' },
+  { url: 'https://us-west.monochrome.tf', version: '2.7', type: 'api' },
+  { url: 'https://api.monochrome.tf', version: '2.5', type: 'api' },
+  { url: 'https://monochrome-api.samidy.com', version: '2.3', type: 'api' },
+  { url: 'https://maus.qqdl.site', version: '2.6', type: 'api' },
+  { url: 'https://vogel.qqdl.site', version: '2.6', type: 'api' },
+  { url: 'https://katze.qqdl.site', version: '2.6', type: 'api' },
+  { url: 'https://hund.qqdl.site', version: '2.6', type: 'api' },
+  { url: 'https://tidal.kinoplus.online', version: '2.2', type: 'api' },
+  { url: 'https://wolf.qqdl.site', version: '2.2', type: 'api' },
 ];
 
 const DEFAULT_STREAMING_INSTANCES: StreamingInstance[] = [
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'streaming' },
   { url: 'https://maus.qqdl.site', version: '2.6', type: 'streaming' },
+  { url: 'https://vogel.qqdl.site', version: '2.6', type: 'streaming' },
+  { url: 'https://katze.qqdl.site', version: '2.6', type: 'streaming' },
+  { url: 'https://hund.qqdl.site', version: '2.6', type: 'streaming' },
+  { url: 'https://wolf.qqdl.site', version: '2.6', type: 'streaming' },
   { url: 'https://stream.monochrome.tf', version: '2.7', type: 'streaming' },
 ];
 
