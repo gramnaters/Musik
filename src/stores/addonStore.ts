@@ -168,8 +168,8 @@ export const useAddonStore = create<AddonState & AddonActions>()(
       pendingUpdates: {},
       searchResults: { tracks: [], albums: [], artists: [], playlists: [] },
       error: null,
-      useModulesOnGo: false,
-      useModuleFallback: false,
+      useModulesOnGo: true,
+      useModuleFallback: true,
 
       addSource: (name: string, registryUrl: string) => {
         const trimmed = registryUrl.trim();
@@ -1143,7 +1143,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
     }),
     {
       name: 'musik-addons',
-      version: 9,
+      version: 10,
       partialize: (state) => ({
         addons: state.addons,
         activeAddonId: state.activeAddonId,
