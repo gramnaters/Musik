@@ -64,12 +64,6 @@ const DEFAULT_SOURCES: AddonSource[] = [
     builtIn: true,
   },
   {
-    id: 'monochrome-instances',
-    name: 'Monochrome Instances',
-    registryUrl: '', // Static custom catalog handling
-    builtIn: true,
-  },
-  {
     id: 'jimmy-source',
     name: 'Jimmy',
     registryUrl: 'https://jimmy-iota.vercel.app/index.json',
@@ -1149,7 +1143,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
     }),
     {
       name: 'musik-addons',
-      version: 8,
+      version: 9,
       partialize: (state) => ({
         addons: state.addons,
         activeAddonId: state.activeAddonId,

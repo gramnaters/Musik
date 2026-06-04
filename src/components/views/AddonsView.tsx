@@ -9,26 +9,6 @@ import { pickStreamUrlFromEightspineResult } from '@/lib/eightspine-runtime';
 import { usePlayerStore } from '@/stores/playerStore';
 import type { Track } from '@/types/music';
 
-const MONOCHROME_INSTANCES = [
-  // API Instances
-  { id: 'geeked', name: 'Geeked (Hi-Fi)', url: 'https://hifi.geeked.wtf', version: '2.7', author: 'Geeked', type: 'api' },
-  { id: 'eu-central', name: 'EU Central API', url: 'https://eu-central.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'api' },
-  { id: 'us-west', name: 'US West API', url: 'https://us-west.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'api' },
-  { id: 'api-v25', name: 'Standard API (v2.5)', url: 'https://api.monochrome.tf', version: '2.5', author: 'Monochrome', type: 'api' },
-  { id: 'musik-v30', name: 'Musik API (v3.0)', url: 'https://musik.v.api.monochrome.tf', version: '3.0', author: 'V', type: 'api' },
-  
-  // Streaming Servers
-  { id: 'stream-mono', name: 'Monochrome Streaming Server', url: 'https://stream.monochrome.tf', version: '2.7', author: 'Monochrome', type: 'streaming' },
-  { id: 'dl-musik', name: 'Musik DL Server', url: 'https://dl.musik.monochrome.tf', version: '2.8', author: 'Monochrome', type: 'streaming' },
-  { id: 'maus-stream', name: 'Maus Streaming Server', url: 'https://maus.qqdl.site', version: '2.6', author: 'Maus', type: 'streaming' },
-
-  // Qobuz Instances
-  { id: 'qdl-api', name: 'QDL Qobuz API', url: 'https://qdl-api.monochrome.tf', version: '1.0', author: 'Monochrome', type: 'qobuz' },
-  { id: 'qobuz-kennyy', name: 'Kennyy Qobuz API', url: 'https://qobuz.kennyy.com.br', version: '1.0', author: 'Kennyy', type: 'qobuz' },
-  { id: 'qobuz-mono', name: 'Monochrome Qobuz API', url: 'https://qobuz.monochrome.tf', version: '1.1', author: 'Monochrome', type: 'qobuz' },
-  { id: 'qobuz-proxy', name: 'Qobuz Proxy API', url: 'https://qobuz-proxy.monochrome.tf', version: '1.0', author: 'Monochrome', type: 'qobuz' },
-];
-
 const RICKY_MODULES: StoreAddon[] = [
   {
     id: 'ricky-all-in-one',
@@ -259,24 +239,6 @@ export default function AddonsView() {
 
     await Promise.all(
       visibleSources.map(async (source) => {
-        if (source.id === 'monochrome-instances') {
-          results[source.id] = {
-            addons: MONOCHROME_INSTANCES.map(inst => ({
-              id: inst.id,
-              name: inst.name,
-              version: inst.version,
-              author: inst.author,
-              description: `Direct Monochrome ${inst.type.toUpperCase()} server at ${inst.url}`,
-              setupUrl: inst.url,
-              isInstance: true,
-              instanceType: inst.type,
-            } as any)),
-            loading: false,
-            error: '',
-          };
-          return;
-        }
-
         if (source.id === 'ricky-8spine') {
           results[source.id] = {
             addons: RICKY_MODULES,
