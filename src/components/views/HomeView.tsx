@@ -1126,22 +1126,20 @@ const renderHome = () => {
             /* ─── ARTIST PAGE ─── */
             <div className="relative z-10 space-y-10">
               {/* Artist Header */}
-              <header className="flex items-end gap-8 min-h-[550px] -mx-8 -mt-8 px-8 pt-48 pb-12 relative overflow-hidden" style={{
-                background: (!artistBannerVideo && collectionHub.image)
-                  ? `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
-                  : '#0a0a0f'
+              <header className="flex items-end gap-8 min-h-[480px] -mx-8 md:-mx-12 -mt-8 md:-mt-[72px] px-8 md:px-12 pt-32 md:pt-[200px] pb-10 relative overflow-hidden rounded-b-none" style={{
+                background: !artistBannerVideo && collectionHub.image
+                  ? `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
+                  : 'linear-gradient(to bottom, #12101a, #0a0a0f)'
               }}>
                 {artistBannerVideo && (
                   <video
                     ref={artistVideoRef}
                     autoPlay muted loop playsInline
-                    className="absolute inset-0 w-full h-full object-cover z-0 opacity-0 transition-opacity duration-700"
-                    style={{ filter: 'brightness(0.6)' }}
-                    onLoadedData={(e) => (e.target as HTMLVideoElement).style.opacity = '1'}
+                    className="absolute inset-0 w-full h-full object-cover z-0"
+                    style={{ filter: 'brightness(0.5)' }}
                   />
                 )}
-                {/* Gradient overlay matching Monochrome */}
-                <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.1) 70%, #0a0a0f 100%)' }} />
+                <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 30%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.95) 100%)' }} />
                 {collectionHub.image && (
                   <img src={collectionHub.image} alt={collectionHub.title}
                     className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
@@ -1169,7 +1167,7 @@ const renderHome = () => {
                 <section>
                   <h2 className="text-[1.75rem] font-bold text-white mb-6">Popular Tracks</h2>
                   <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
-                    <TrackList tracks={collectionHub.tracks.slice(0, 10)} showAlbumArt showIndex />
+                    <TrackList tracks={collectionHub.tracks.slice(0, 20)} showAlbumArt showIndex />
                   </div>
                 </section>
               )}
