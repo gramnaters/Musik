@@ -727,59 +727,57 @@ export default function HomeView() {
     setSearchLoading(true);
     try {
       const addonStore = useAddonStore.getState();
-      if (catalogProvider === 'addon' && activeAddonId) {
-        const results = await addonStore.searchWithAddon(activeAddonId, q);
-        const tracks = (results.tracks || []).map((t: any) => mapMetadataSearchTrack(t.addonTrack || t));
-        const albums = results.albums || [];
-        const artists = results.artists || [];
-        const playlists = results.playlists || [];
-        setSearchResults({ tracks, albums, artists, playlists });
-      } else {
-        const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
-        const res = await fetch(`/api/metadata/search?provider=${provider}&country=${appleStorefront || 'US'}&limit=30&q=${encodeURIComponent(q)}`);
-        const data = res.ok ? await res.json() : { tracks: [] };
-        const rawTracks = data.tracks || [];
-        const tracks = rawTracks.map(mapMetadataSearchTrack);
-        
-        const artistMap = new Map<string, { id: string; name: string; image: string }>();
-        const albumMap = new Map<string, { id: string; title: string; artist: string; cover: string; year?: string }>();
-        const playlistMap = new Map<string, any>();
-        
-        rawTracks.forEach((t: any) => {
-          const artistName = t.artist || '';
-          const artistId = t.artistId || '';
-          if (artistName && !artistMap.has(artistName)) {
-            artistMap.set(artistName, { id: artistId || artistName, name: artistName, image: '' });
+      // Try addon search first if addons are installed
+      const searchAddonId = activeAddonId || addonStore.activeAddonId;
+      if (searchAddonId) {
+        try {
+          const results = await addonStore.searchWithAddon(searchAddonId, q);
+          if (results.tracks?.length || results.albums?.length || results.artists?.length) {
+            const tracks = (results.tracks || []).map((t: any) => mapMetadataSearchTrack(t.addonTrack || t));
+            setSearchResults({ tracks, albums: results.albums || [], artists: results.artists || [], playlists: results.playlists || [] });
+            setSearchLoading(false);
+            return;
           }
-          const albumTitle = t.album || '';
-          const albumId = t.albumId || '';
-          const cover = t.albumCover || '';
-          if (albumTitle && !albumMap.has(albumTitle)) {
-            albumMap.set(albumTitle, {
-              id: albumId || `alb_${albumTitle}`, title: albumTitle,
-              artist: artistName,
-              cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
-            });
-          }
-          // Extract as playlists too
-          if (albumTitle && !playlistMap.has(albumTitle)) {
-            playlistMap.set(albumTitle, {
-              id: albumId || `pl_${albumTitle}`,
-              name: albumTitle,
-              description: `${artistName} • Album`,
-              cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
-              trackCount: 0,
-            });
-          }
-        });
-        
-        setSearchResults({
-          tracks,
-          albums: [...albumMap.values()],
-          artists: [...artistMap.values()],
-          playlists: [...playlistMap.values()],
-        });
+        } catch { /* fallthrough */ }
       }
+      
+      // Fallback to Monochrome
+      const res = await fetch(`/api/metadata/search?provider=monochrome&country=${appleStorefront || 'US'}&limit=30&q=${encodeURIComponent(q)}`);
+      const data = res.ok ? await res.json() : { tracks: [] };
+      const rawTracks = data.tracks || [];
+      const tracks = rawTracks.map(mapMetadataSearchTrack);
+      
+      const artistMap = new Map<string, { id: string; name: string; image: string }>();
+      const albumMap = new Map<string, { id: string; title: string; artist: string; cover: string; year?: string }>();
+      const playlistMap = new Map<string, any>();
+      
+      rawTracks.forEach((t: any) => {
+        const artistName = t.artist || '';
+        const artistId = t.artistId || '';
+        if (artistName && !artistMap.has(artistName)) {
+          artistMap.set(artistName, { id: artistId || artistName, name: artistName, image: '' });
+        }
+        const albumTitle = t.album || '';
+        const albumId = t.albumId || '';
+        const cover = t.albumCover || '';
+        if (albumTitle && !albumMap.has(albumTitle)) {
+          albumMap.set(albumTitle, {
+            id: albumId || `alb_${albumTitle}`, title: albumTitle,
+            artist: artistName,
+            cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
+          });
+        }
+        if (albumTitle && !playlistMap.has(albumTitle)) {
+          playlistMap.set(albumTitle, {
+            id: albumId || `pl_${albumTitle}`, name: albumTitle,
+            description: `${artistName} • Album`,
+            cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
+            trackCount: 0,
+          });
+        }
+      });
+      
+      setSearchResults({ tracks, albums: [...albumMap.values()], artists: [...artistMap.values()], playlists: [...playlistMap.values()] });
       setSearchResults({ tracks: [], albums: [], artists: [], playlists: [] });
     } finally {
       setSearchLoading(false);
