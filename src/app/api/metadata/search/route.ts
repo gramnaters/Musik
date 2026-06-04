@@ -294,8 +294,8 @@ export async function GET(req: NextRequest) {
     }
     if (provider === 'monochrome' || provider === 'tidal') {
       try {
-        const raw = await searchTracks(q, limit);
-        const tracks = (Array.isArray(raw) ? raw : []).map(mapMonochromeTrack);
+        const data = await searchTracks(q, limit);
+        const tracks = (data.tracks || []).map(mapMonochromeTrack);
         if (tracks.length > 0) {
           return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
         }

@@ -95,14 +95,14 @@ export async function searchTracks(q: string, limit = 25) {
   const raw = await query<any>(`/search/?s=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
   const items = data?.items || data?.tracks || [];
-  return Array.isArray(items) ? items : [];
+  return { tracks: Array.isArray(items) ? items : [] };
 }
 
 export async function searchAlbums(q: string, limit = 25) {
-  const raw = await query<any>(`/search/?a=${encodeURIComponent(q)}&limit=${limit}`);
+  const raw = await query<any>(`/search/?s=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
-  const items = data?.items || data?.albums || [];
-  return Array.isArray(items) ? items : [];
+  const items = data?.items || data?.tracks || [];
+  return { albums: [] };
 }
 
 export async function searchArtists(q: string, limit = 25) {
