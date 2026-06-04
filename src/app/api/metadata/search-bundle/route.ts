@@ -155,23 +155,28 @@ export async function GET(req: NextRequest) {
         const rawTracks = Array.isArray(tracksData) ? tracksData : (tracksData.tracks || []);
         tracks = rawTracks.map(mapMonochromeTrack).filter((t: any) => t.title);
 
-        // Extract unique albums, artists from track results (Monochrome ?a=/?ar=/?p= return 400)
+        // Extract unique albums, artists from track results by ID
         const artistMap = new Map<string, any>();
         const albumMap = new Map<string, any>();
         const playlistMap = new Map<string, any>();
 
         rawTracks.forEach((t: any) => {
-          const artistName = t.artist?.name || t.artistName || t.artists?.[0]?.name || '';
-          const artistId = t.artist?.id || t.artistId || '';
-          if (artistName && !artistMap.has(artistName)) {
-            artistMap.set(artistName, mapMonochromeArtist({ id: artistId, name: artistName, picture: t.artist?.picture }));
+          const artistName = t.artist?.name || '';
+          const artistId = String(t.artist?.id || '');
+          if (artistName && artistId && !artistMap.has(artistId)) {
+            artistMap.set(artistId, mapMonochromeArtist(t.artist));
           }
-          const albumTitle = t.album?.title || t.albumName || '';
-          const albumId = t.album?.id || t.albumId || '';
-          if (albumTitle && !albumMap.has(albumTitle)) {
-            const album = mapMonochromeAlbum({ id: albumId, title: albumTitle, cover: t.album?.cover, artist: artistName, releaseDate: t.album?.releaseDate });
-            albumMap.set(albumTitle, album);
-            playlistMap.set(albumTitle, { id: album.id, name: albumTitle, description: `${artistName} • Album`, cover: album.cover, trackCount: album.trackCount });
+          
+          const album = t.album;
+          const albumId = String(album?.id || '');
+          if (album?.title && albumId && !albumMap.has(albumId)) {
+            const mapped = mapMonochromeAlbum(album);
+            albumMap.set(albumId, mapped);
+            playlistMap.set(albumId, {
+              id: mapped.id, name: album.title,
+              description: `${artistName} • Album`,
+              cover: mapped.cover, trackCount: mapped.trackCount,
+            });
           }
         });
 
