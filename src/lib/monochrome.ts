@@ -91,32 +91,29 @@ export async function search(query: string, limit = 25) {
   return raw?.data || raw;
 }
 
-export async function searchTracks(query: string, limit = 25) {
-  const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
-  if (!raw) return [];
+export async function searchTracks(q: string, limit = 25) {
+  const raw = await query<any>(`/search/?s=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
   const items = data?.items || data?.tracks || [];
-  const result = Array.isArray(items) ? items : [];
-  console.log('[monochrome] searchTracks got', result.length, 'tracks for', query);
-  return result;
+  return Array.isArray(items) ? items : [];
 }
 
-export async function searchAlbums(query: string, limit = 25) {
-  const raw = await query<any>(`/search/?a=${encodeURIComponent(query)}&limit=${limit}`);
+export async function searchAlbums(q: string, limit = 25) {
+  const raw = await query<any>(`/search/?a=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
   const items = data?.items || data?.albums || [];
   return Array.isArray(items) ? items : [];
 }
 
-export async function searchArtists(query: string, limit = 25) {
-  const raw = await query<any>(`/search/?ar=${encodeURIComponent(query)}&limit=${limit}`);
+export async function searchArtists(q: string, limit = 25) {
+  const raw = await query<any>(`/search/?ar=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
   const items = data?.items || data?.artists || [];
   return Array.isArray(items) ? items : [];
 }
 
-export async function searchPlaylists(query: string, limit = 25) {
-  const raw = await query<any>(`/search/?p=${encodeURIComponent(query)}&limit=${limit}`);
+export async function searchPlaylists(q: string, limit = 25) {
+  const raw = await query<any>(`/search/?p=${encodeURIComponent(q)}&limit=${limit}`);
   const data = raw?.data || raw;
   const items = data?.items || data?.playlists || [];
   return Array.isArray(items) ? items : [];
