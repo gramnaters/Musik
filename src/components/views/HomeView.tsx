@@ -726,29 +726,44 @@ export default function HomeView() {
     if (!q.trim()) { setSearchResults(null); setSearchLoading(false); return; }
     setSearchLoading(true);
     try {
-      const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
-      const baseParams = `provider=${provider}&country=${appleStorefront || 'US'}&limit=30`;
-      const [tracksRes, albumsRes, artistsRes] = await Promise.all([
-        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}`),
-        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}&entity=album`),
-        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}&entity=artist`),
-      ]);
-      
-      const [tracksData, albumsData, artistsData] = await Promise.all([
-        tracksRes.ok ? tracksRes.json() : { tracks: [] },
-        albumsRes.ok ? albumsRes.json() : { albums: [] },
-        artistsRes.ok ? artistsRes.json() : { artists: [] },
-      ]);
-
-      const tracks = (tracksData.tracks || []).map(mapMetadataSearchTrack);
-      const albums = (albumsData.albums || []).map((a: any) => ({
-        id: a.id, title: a.title || '', artist: a.artist || '', cover: a.cover, year: a.year,
-      }));
-      const artists = (artistsData.artists || []).map((a: any) => ({
-        id: a.id, name: a.name || '', image: a.image || a.cover,
-      }));
-      
-      setSearchResults({ tracks, albums, artists, playlists: [] });
+      const addonStore = useAddonStore.getState();
+      // Use active addon for search if available
+      if (catalogProvider === 'addon' && activeAddonId) {
+        const results = await addonStore.searchWithAddon(activeAddonId, q);
+        const tracks = (results.tracks || []).map((t: any) => mapMetadataSearchTrack(t.addonTrack || t));
+        const albums = results.albums || [];
+        const artists = results.artists || [];
+        const playlists = results.playlists || [];
+        setSearchResults({ tracks, albums, artists, playlists });
+      } else {
+        // Fallback to Monochrome metadata search
+        const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
+        const base = `provider=${provider}&country=${appleStorefront || 'US'}&limit=30&q=${encodeURIComponent(q)}`;
+        const [tracksRes] = await Promise.all([
+          fetch(`/api/metadata/search?${base}`),
+        ]);
+        const tracksData = tracksRes.ok ? await tracksRes.json() : { tracks: [] };
+        const tracks = (tracksData.tracks || []).map(mapMetadataSearchTrack);
+        
+        // Extract unique artists and albums from track results
+        const artistMap = new Map<string, { id: string; name: string; image: string }>();
+        const albumMap = new Map<string, { id: string; title: string; artist: string; cover: string }>();
+        (tracksData.tracks || []).forEach((t: any) => {
+          const artistName = t.artist || t.artistName || '';
+          const artistId = t.artistId || t.artist?.id || '';
+          if (artistName && !artistMap.has(artistName)) {
+            artistMap.set(artistName, { id: artistId || artistName, name: artistName, image: '' });
+          }
+          const albumTitle = t.album || t.albumName || t.album?.title || '';
+          const albumId = t.albumId || t.album?.id || '';
+          const albumCover = t.albumCover || t.album?.cover || '';
+          if (albumTitle && !albumMap.has(albumTitle)) {
+            albumMap.set(albumTitle, { id: albumId || `alb_${albumTitle}`, title: albumTitle, artist: artistName, cover: albumCover ? (typeof albumCover === 'string' && albumCover.startsWith('http') ? albumCover : `/api/cover?id=${albumCover}&size=640`) : '' });
+          }
+        });
+        
+        setSearchResults({ tracks, albums: [...albumMap.values()], artists: [...artistMap.values()], playlists: [] });
+      }
     } catch {
       setSearchResults({ tracks: [], albums: [], artists: [], playlists: [] });
     } finally {
