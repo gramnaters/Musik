@@ -32,6 +32,7 @@ import { toast } from '@/hooks/use-toast';
 import { resolveAssetUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { extractVibrantColor, applyVibrantColor, resetVibrantColor } from '@/lib/vibrant-color';
+import { getArtistBanner } from '@/lib/artist-banner';
 import { formatDuration } from '@/lib/demo-data';
 
 /** Monochrome Genres */
@@ -224,6 +225,7 @@ export default function HomeView() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTab, setSearchTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists'>('tracks');
   const [searchHub, setSearchHub] = useState<{ title: string; subtitle?: string; tracks: Track[]; loading: boolean; coverUrl?: string } | null>(null);
+  const [artistBannerVideo, setArtistBannerVideo] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exploreData, setExploreData] = useState<any>(null);
   const [exploreLoading, setExploreLoading] = useState(true);
@@ -447,6 +449,16 @@ export default function HomeView() {
       }
 
       setCollectionHub(h => h ? { ...h, tracks, loading: false, meta: metaStr, copyright: albumMeta.copyright || '' } : null);
+
+      // Fetch artist banner video
+      if (type === 'artist') {
+        const artistName = item.title || item.name || '';
+        getArtistBanner(artistName).then(url => {
+          if (url) setArtistBannerVideo(url);
+        }).catch(() => {});
+      } else {
+        setArtistBannerVideo(null);
+      }
 
       // Fetch similar albums, artists, and artist's other albums/EPs
       if ((type === 'album' || type === 'playlist' || type === 'artist') && !addonId) {
@@ -1099,10 +1111,19 @@ const renderHome = () => {
             <div className="relative z-10 space-y-10">
               {/* Artist Header */}
               <header className="flex items-end gap-8 min-h-[360px] -mx-8 -mt-8 px-8 pt-32 pb-8 relative overflow-hidden" style={{
-                background: collectionHub.image
+                background: collectionHub.image && !artistBannerVideo
                   ? `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
                   : 'linear-gradient(to bottom, #1a1a2e, #0a0a0f)'
               }}>
+                {artistBannerVideo && (
+                  <video
+                    autoPlay muted loop playsInline
+                    src={artistBannerVideo}
+                    className="absolute inset-0 w-full h-full object-cover z-0"
+                    style={{ filter: 'brightness(0.45)' }}
+                  />
+                )}
+                <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.85) 100%)' }} />
                 {collectionHub.image && (
                   <img src={collectionHub.image} alt={collectionHub.title}
                     className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
