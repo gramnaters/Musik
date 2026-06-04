@@ -1129,10 +1129,9 @@ const renderHome = () => {
             <div className="-mx-8 -mt-8">
               {/* Artist Header — covers full screen top */}
               <header className="flex items-end gap-8 min-h-[520px] px-8 pt-[140px] pb-10 relative" style={{
-
                 background: !artistBannerVideo && collectionHub.image
-                  ? `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
-                  : 'linear-gradient(to bottom, #12101a, #0a0a0f)'
+                  ? `url(${collectionHub.image}) center/cover`
+                  : '#12101a'
               }}>
                 {/* Back button */}
                 <Button
@@ -1150,7 +1149,6 @@ const renderHome = () => {
                     style={{ filter: 'brightness(0.5)' }}
                   />
                 )}
-                <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 30%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.95) 100%)' }} />
                 {collectionHub.image && (
                   <img src={collectionHub.image} alt={collectionHub.title}
                     className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
