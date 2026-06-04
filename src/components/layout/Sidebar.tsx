@@ -117,7 +117,7 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="px-2 space-y-1">
         {filteredNavItems.map((item) => {
-          const isActive = activeView === item.view && !selectedPlaylistId;
+          const isActive = activeView === item.view && !selectedPlaylistId && item.id !== 'recent';
           return (
             <button
             key={item.label}

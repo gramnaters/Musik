@@ -1442,10 +1442,6 @@ export default function SettingsView() {
 
                   <div className="pt-8 border-t border-border/20 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 px-2">
                     <div className="flex flex-col gap-2 w-full max-w-[200px] order-2 md:order-1">
-                      <Button variant="outline" size="sm" className="rounded-full justify-start gap-3 hover:bg-primary/5" onClick={() => setPage('help')}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                        Help & FAQ
-                      </Button>
                       <Button variant="ghost" size="sm" className="rounded-full justify-start gap-3" onClick={() => setPage('about')}>
                         <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
                         About musik
