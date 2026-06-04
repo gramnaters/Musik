@@ -158,59 +158,15 @@ export async function GET(req: NextRequest) {
           mcSearchPlaylists(q),
         ]);
 
-        tracks = (tracksData.tracks || []).map(mapMonochromeTrack).filter((t: any) => t.title);
-        albums = (albumsData.albums || []).map(mapMonochromeAlbum).filter((a: any) => a.title);
-        artists = (artistsData.artists || []).map(mapMonochromeArtist).filter((a: any) => a.name);
-        playlists = (playlistsData.playlists || []).map(mapMonochromePlaylist).filter((p: any) => p.name);
+        tracks = (Array.isArray(tracksData) ? tracksData : (tracksData.tracks || [])).map(mapMonochromeTrack).filter((t: any) => t.title);
+        albums = (Array.isArray(albumsData) ? albumsData : (albumsData.albums || [])).map(mapMonochromeAlbum).filter((a: any) => a.title);
+        artists = (Array.isArray(artistsData) ? artistsData : (artistsData.artists || [])).map(mapMonochromeArtist).filter((a: any) => a.name);
+        playlists = (Array.isArray(playlistsData) ? playlistsData : (playlistsData.playlists || [])).map(mapMonochromePlaylist).filter((p: any) => p.name);
       } catch (e) {
-        // Fallback to native Tidal API when all Monochrome instances fail
-        console.warn('Monochrome instances failed, falling back to Tidal:', e);
-        try {
-          const client = TidalClient.getInstance();
-          const tidalData = await client.search(q, per);
-          if (tidalData) {
-            tracks = (tidalData.tracks?.items ?? []).map((item: any) => ({
-              id: `tidal_${item.id}`,
-              title: String(item.title ?? ''),
-              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-              album: String(item.album?.title ?? ''),
-              albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
-              duration: typeof item.duration === 'number' ? item.duration : 0,
-              source: 'tidal' as const,
-              explicit: Boolean(item.explicit),
-              audioQuality: item.audioQuality || 'LOSSLESS',
-            }));
-            albums = (tidalData.albums?.items ?? []).map((item: any) => ({
-              id: `tidal_album_${item.id}`,
-              title: String(item.title ?? ''),
-              artist: Array.isArray(item.artists) ? item.artists.map((a: any) => a.name).join(', ') : (item.artist?.name ?? ''),
-              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
-              year: item.releaseDate?.slice(0, 4),
-              trackCount: item.numberOfTracks,
-              source: 'tidal' as const,
-              explicit: Boolean(item.explicit),
-            }));
-            artists = (tidalData.artists?.items ?? []).map((item: any) => ({
-              id: `tidal_${item.id}`,
-              name: String(item.name ?? ''),
-              image: item.picture ? `/api/cover?id=${item.picture}&size=1920` : '',
-            }));
-            playlists = (tidalData.playlists?.items ?? []).map((item: any) => ({
-              id: `tidal_pl_${item.id}`,
-              name: String(item.title ?? ''),
-              description: 'Tidal Playlist',
-              cover: item.cover ? `/api/cover?id=${item.cover}&size=1920` : '',
-              source: 'tidal' as const,
-            }));
-          }
-        } catch (tidalErr) {
-          console.error('Tidal fallback also failed:', tidalErr);
-        }
+        console.warn('Monochrome search-bundle failed:', e);
       }
 
-      const podcasts = await searchPodcasts(q, 5);
-
-      return NextResponse.json({ tracks, albums, artists, playlists, podcasts, provider: 'monochrome' });
+      return NextResponse.json({ tracks, albums, artists, playlists, podcasts: [], provider: 'monochrome' });
     }
 
     if (provider === 'qobuz') {
