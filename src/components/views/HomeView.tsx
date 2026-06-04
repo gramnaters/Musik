@@ -22,7 +22,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-import { ChevronRight, ChevronLeft, Loader2, Play, Music, Disc, Users, ListMusic, Globe, MoreHorizontal, RotateCw, Trash2, Heart, Search, X, Volume2, Check, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Play, Music, Disc, Users, ListMusic, Globe, MoreHorizontal, RotateCw, Trash2, Heart, Search, X, Volume2, Check, ChevronDown, ListPlus } from 'lucide-react';
 import type { Track, Album, Playlist } from '@/types/music';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -250,6 +250,8 @@ export default function HomeView() {
     artistEPs?: any[];
     similarAlbums?: any[];
     similarArtists?: any[];
+    isArtist?: boolean;
+    artistBio?: string;
   } | null>(null);
   
   const { play, addToQueue, currentTrack, isPlaying } = usePlayerStore();
@@ -352,13 +354,16 @@ export default function HomeView() {
     setCollectionHub({
       id: item.id || item.uuid,
       title: item.title || item.name || 'Collection',
-      subtitle: item.artist?.name || item.artists?.[0]?.name || item.artist || '',
+      subtitle: item.artist?.name || item.artists?.[0]?.name || item.artist || (type === 'artist' ? '' : ''),
       image: img,
       tracks: [],
       loading: true,
       addonId: item.addonId,
       meta: '',
       copyright: '',
+      artistAlbums: [],
+      artistEPs: [],
+      isArtist: type === 'artist',
       artistAlbums: [],
       artistEPs: [],
     });
@@ -444,8 +449,8 @@ export default function HomeView() {
       setCollectionHub(h => h ? { ...h, tracks, loading: false, meta: metaStr, copyright: albumMeta.copyright || '' } : null);
 
       // Fetch similar albums, artists, and artist's other albums/EPs
-      if ((type === 'album' || type === 'playlist') && !addonId) {
-        const artistId = item.artist?.id || item.artists?.[0]?.id || item.artistId || albumMeta.artistId || albumMeta.artist?.id;
+      if ((type === 'album' || type === 'playlist' || type === 'artist') && !addonId) {
+        const artistId = type === 'artist' ? (item.id || item.uuid) : (item.artist?.id || item.artists?.[0]?.id || item.artistId || albumMeta.artistId || albumMeta.artist?.id);
         const albumId = item.id || item.uuid;
         
         if (artistId) {
@@ -1087,7 +1092,103 @@ const renderHome = () => {
           {collectionHub.loading ? (
             <div className="relative z-10 flex flex-col items-center justify-center py-32 space-y-4">
               <Loader2 className="animate-spin text-white/20" size={40} />
-              <p className="text-white/20 text-sm font-medium">Gathering collection tracks...</p>
+              <p className="text-white/20 text-sm font-medium">Gathering {collectionHub.isArtist ? 'artist' : 'collection'} data...</p>
+            </div>
+          ) : collectionHub.isArtist ? (
+            /* ─── ARTIST PAGE ─── */
+            <div className="relative z-10 space-y-10">
+              {/* Artist Header */}
+              <header className="flex items-end gap-8 min-h-[360px] -mx-8 -mt-8 px-8 pt-32 pb-8 relative overflow-hidden" style={{
+                background: collectionHub.image
+                  ? `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
+                  : 'linear-gradient(to bottom, #1a1a2e, #0a0a0f)'
+              }}>
+                {collectionHub.image && (
+                  <img src={collectionHub.image} alt={collectionHub.title}
+                    className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
+                )}
+                <div className="flex-1 min-w-0 z-10">
+                  <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Artist</p>
+                  <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight drop-shadow-lg">{collectionHub.title}</h1>
+                  <div className="flex items-center gap-3 mt-4">
+                    <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
+                      onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
+                      disabled={!collectionHub.tracks.length}>
+                      <Play size={16} className="mr-1.5" fill="currentColor" /> Play
+                    </Button>
+                    <Button variant="outline" className="rounded-full border-white/20 hover:bg-white/5"
+                      onClick={() => collectionHub.tracks.forEach(t => addToQueue(t))}
+                      disabled={!collectionHub.tracks.length}>
+                      <ListPlus size={16} className="mr-1.5" /> Queue
+                    </Button>
+                  </div>
+                </div>
+              </header>
+
+              {/* Popular Tracks */}
+              {collectionHub.tracks.length > 0 && (
+                <section>
+                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Popular Tracks</h2>
+                  <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                    <TrackList tracks={collectionHub.tracks.slice(0, 10)} showAlbumArt showIndex />
+                  </div>
+                </section>
+              )}
+
+              {/* Albums */}
+              {collectionHub.artistAlbums && collectionHub.artistAlbums.length > 0 && (
+                <section>
+                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Albums</h2>
+                  <Grid minSize="180px">
+                    {collectionHub.artistAlbums.slice(0, 12).map((item: any) => (
+                      <Card key={item.id} title={item.title}
+                        subtitle={item.artist?.name || item.artist || ''}
+                        image={getImageUrl(item, '640')}
+                        onClick={() => loadCollection(item, 'album')}
+                        onMenuPlay={() => handleQuickPlayItem(item)}
+                        onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                        onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                        menuPlaylists={myPlaylists} />
+                    ))}
+                  </Grid>
+                </section>
+              )}
+
+              {/* EPs & Singles */}
+              {collectionHub.artistEPs && collectionHub.artistEPs.length > 0 && (
+                <section>
+                  <h2 className="text-[1.75rem] font-bold text-white mb-6">EPs &amp; Singles</h2>
+                  <Grid minSize="180px">
+                    {collectionHub.artistEPs.slice(0, 12).map((item: any) => (
+                      <Card key={item.id} title={item.title}
+                        subtitle={item.artist?.name || item.artist || ''}
+                        image={getImageUrl(item, '640')}
+                        onClick={() => loadCollection(item, 'album')}
+                        onMenuPlay={() => handleQuickPlayItem(item)}
+                        onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                        onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                        menuPlaylists={myPlaylists} />
+                    ))}
+                  </Grid>
+                </section>
+              )}
+
+              {/* Similar Artists */}
+              {collectionHub.similarArtists && collectionHub.similarArtists.length > 0 && (
+                <section>
+                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Similar Artists</h2>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-4">
+                    {collectionHub.similarArtists.slice(0, 14).map((item: any) => (
+                      <div key={item.id} className="text-center">
+                        <Card title={item.name}
+                          image={item.picture ? (typeof item.picture === 'string' && item.picture.startsWith('http') ? item.picture : `/api/cover?id=${item.picture}&size=160`) : ''}
+                          onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
+                          type="artist" />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           ) : (
             <div className="relative z-10 space-y-12">
