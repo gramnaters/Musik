@@ -1155,7 +1155,7 @@ export const useAddonStore = create<AddonState & AddonActions>()(
     }),
     {
       name: 'musik-addons',
-      version: 6,
+      version: 7,
       partialize: (state) => ({
         addons: state.addons,
         activeAddonId: state.activeAddonId,
