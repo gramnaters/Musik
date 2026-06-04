@@ -9,77 +9,15 @@ function parseIsoDuration(iso: string): number {
   return h * 3600 + m * 60 + Math.round(s);
 }
 
-async function fetchInstances(): Promise<string[]> {
-  const primary = 'https://api.monochrome.tf';
-  try {
-    const res = await fetch(primary, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
-    if (res.ok) return [primary];
-  } catch {}
-
-  const knownInstances = [
-    'https://monochrome.tf/api',
-    'https://api.monochrome.tf',
-  ];
-  const working: string[] = [];
-  for (const url of knownInstances) {
-    try {
-      const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
-      if (res.ok) working.push(url);
-    } catch {}
-  }
-  return working.length > 0 ? working : [primary];
-}
-
-let tidalApiFallback: ((path: string) => Promise<any>) | null = null;
-
-export function registerTidalFallback(fn: (path: string) => Promise<any>) {
-  tidalApiFallback = fn;
-}
-
 async function query<T = any>(relativePath: string, options?: { type?: string; signal?: AbortSignal }): Promise<T> {
-  const type = options?.type || 'api';
-  const instances = await fetchInstances();
-  const maxAttempts = instances.length * 2;
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const instance = instances[(attempt - 1) % instances.length];
-    const baseUrl = typeof instance === 'string' ? instance : instance.url;
-    const url = baseUrl.endsWith('/')
-      ? `${baseUrl}${relativePath.substring(1)}`
-      : `${baseUrl}${relativePath}`;
-
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 10000);
-      const res = await fetch(url, { signal: options?.signal ?? ctrl.signal });
-      clearTimeout(timer);
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.detail) {
-          lastError = new Error(json.detail);
-          continue;
-        }
-        return json;
-      }
-      if (res.status === 429 || res.status >= 500) continue;
-      lastError = new Error(`Monochrome API error: ${res.status}`);
-    } catch (err: any) {
-      if (err.name === 'AbortError') throw err;
-      lastError = err;
-    }
-  }
-
-  if (tidalApiFallback) {
-    try {
-      const result = await tidalApiFallback(relativePath);
-      if (result) return result as T;
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
-    }
-  }
-
-  throw lastError || new Error('All Monochrome instances failed');
+  const baseUrl = 'https://api.monochrome.tf';
+  const url = `${baseUrl}${relativePath}`;
+  const res = await fetch(url, { 
+    signal: options?.signal ?? AbortSignal.timeout(15000),
+    headers: { 'User-Agent': UA, Accept: 'application/json', 'Accept-Language': 'en-US' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 export function stripPrefix(id: string): string {
@@ -155,22 +93,33 @@ export async function search(query: string, limit = 25) {
 
 export async function searchTracks(query: string, limit = 25) {
   const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
-  return raw?.data?.tracks || raw?.data?.items || raw?.tracks || raw?.items || [];
+  if (!raw) return [];
+  const data = raw?.data || raw;
+  const items = data?.items || data?.tracks || [];
+  const result = Array.isArray(items) ? items : [];
+  console.log('[monochrome] searchTracks got', result.length, 'tracks for', query);
+  return result;
 }
 
 export async function searchAlbums(query: string, limit = 25) {
   const raw = await query<any>(`/search/?a=${encodeURIComponent(query)}&limit=${limit}`);
-  return raw?.data?.albums || raw?.albums || raw?.items || [];
+  const data = raw?.data || raw;
+  const items = data?.items || data?.albums || [];
+  return Array.isArray(items) ? items : [];
 }
 
 export async function searchArtists(query: string, limit = 25) {
   const raw = await query<any>(`/search/?ar=${encodeURIComponent(query)}&limit=${limit}`);
-  return raw?.data?.artists || raw?.artists || raw?.items || [];
+  const data = raw?.data || raw;
+  const items = data?.items || data?.artists || [];
+  return Array.isArray(items) ? items : [];
 }
 
 export async function searchPlaylists(query: string, limit = 25) {
   const raw = await query<any>(`/search/?p=${encodeURIComponent(query)}&limit=${limit}`);
-  return raw?.data?.playlists || raw?.playlists || raw?.items || [];
+  const data = raw?.data || raw;
+  const items = data?.items || data?.playlists || [];
+  return Array.isArray(items) ? items : [];
 }
 
 export async function getArtistAlbums(id: string): Promise<{ albums: any[]; eps: any[] }> {

@@ -305,12 +305,15 @@ export async function GET(req: NextRequest) {
     }
     if (provider === 'monochrome' || provider === 'tidal') {
       try {
-        const data = await searchTracks(q, limit);
-        const tracks = (Array.isArray(data) ? data : (data.tracks || data.items || [])).map(mapMonochromeTrack);
-        return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
-      } catch {
-        return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome' });
+        const raw = await searchTracks(q, limit);
+        const tracks = (Array.isArray(raw) ? raw : []).map(mapMonochromeTrack);
+        if (tracks.length > 0) {
+          return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
+        }
+      } catch (e) {
+        console.error('[Monochrome search] error:', e);
       }
+      return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome' });
     }
     const { tracks, error, detail } = await searchSpotify(q, spotifyLimit, market);
     return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'spotify', error, detail });
