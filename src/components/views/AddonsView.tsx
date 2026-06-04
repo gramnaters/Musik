@@ -873,6 +873,14 @@ export default function AddonsView() {
                 >
                   Sources
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(true)}
+                  className="rounded-full bg-white text-black w-9 h-9 flex items-center justify-center hover:bg-white/90 shrink-0"
+                  title="Install custom module"
+                >
+                  <Plus size={18} />
+                </button>
               </div>
             </div>
 
@@ -1050,63 +1058,53 @@ export default function AddonsView() {
               </div>
             )}
 
-            {/* Install module */}
-            <div className="pt-2">
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    type="button"
-                    className="w-full h-14 rounded-[20px] bg-[#1A1A1A] border border-zinc-800 text-white font-semibold text-sm hover:bg-[#262626]"
-                  >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Install module
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-foreground">Install Module</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-2 block">Module manifest URL or base URL (any format)</label>
-                      <Input
-                        placeholder="https://example.com/addon/manifest.json"
-                        value={installUrl}
-                        onChange={(e) => setInstallUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && installUrl.trim()) handleInstall(installUrl); }}
-                        className="bg-background border-border text-foreground"
-                        autoFocus
-                      />
-                      <p className="text-[11px] text-muted-foreground mt-2">Supports 8SPINE, Eclipse, REST API, and custom modules — just paste the URL.</p>
-                    </div>
-                    {installError && <p className="text-sm text-red-400">{installError}</p>}
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={() => handleInstall(installUrl)}
-                        disabled={!installUrl.trim() || installing}
-                        className="flex-1 bg-white text-black font-semibold hover:bg-white/90 rounded-full"
-                      >
-                        {installing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                        Install
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="rounded-full border-zinc-700 font-semibold"
-                        onClick={() => {
-                          setDialogOpen(false);
-                          setConnectionsScreen('browse');
-                          setConnectionsCatalogSourceId(null);
-                        }}
-                      >
-                        Browse Sources
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
           </>
         )}
+
+        {/* Install dialog — always available, opened via + button in header */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="bg-zinc-950 border-white/20 text-foreground sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Install Module</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">Module manifest URL or base URL (any format)</label>
+                <Input
+                  placeholder="https://example.com/addon/manifest.json"
+                  value={installUrl}
+                  onChange={(e) => setInstallUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && installUrl.trim()) handleInstall(installUrl); }}
+                  className="bg-background border-border text-foreground"
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground mt-2">Supports 8SPINE, Eclipse, REST API, and custom modules — just paste the URL.</p>
+              </div>
+              {installError && <p className="text-sm text-red-400">{installError}</p>}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleInstall(installUrl)}
+                  disabled={!installUrl.trim() || installing}
+                  className="flex-1 bg-white text-black font-semibold hover:bg-white/90 rounded-full"
+                >
+                  {installing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Install
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-zinc-700 font-semibold"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setConnectionsScreen('browse');
+                    setConnectionsCatalogSourceId(null);
+                  }}
+                >
+                  Browse Sources
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {connectionsScreen === 'browse' && (
           <>
