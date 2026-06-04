@@ -39,3 +39,15 @@ next-env.d.ts
 
 monochrome-ref/
 monochrome-source/
+
+# temp / test / scratch
+/scratch/
+/player-ui-backup/
+/qobuz-api/
+/*.log
+/dev_pid.txt
+/hot_response.json
+/server.js
+/check_album.py
+/apple_music.*
+/apple_token.txt
