@@ -62,25 +62,39 @@ export default function AppPage() {
     if (catalogProvider === 'apple') setCatalogProvider('spotify');
   }, []);
 
-  // Auto-install Jimmy addon and check updates on launch
+  // Auto-install Jimmy addon on launch
   useEffect(() => {
     const timer = setTimeout(async () => {
       const store = useAddonStore.getState();
-      // Install Jimmy if not already installed
-      const hasJimmy = store.addons.some(a => a.manifest.id === 'jimmy' || (a.sourceId === 'jimmy-source'));
-      if (!hasJimmy) {
-        try {
-          const res = await fetch('https://jimmy-iota.vercel.app/index.json');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.manifest) {
-              store.addAddon(data.manifest, { sourceId: 'jimmy-source', installSourceUrl: 'https://jimmy-iota.vercel.app/index.json' });
-              console.log('[Init] Installed Jimmy addon');
-            }
-          }
-        } catch {}
-      }
-      store.checkForUpdates().catch(() => {});
+      const hasJimmy = store.addons.some(a => a.manifest.id === 'jimmy' || a.sourceId === 'jimmy-source');
+      if (hasJimmy) return;
+      try {
+        const res = await fetch('https://jimmy-iota.vercel.app/index.json');
+        if (!res.ok) return;
+        const data = await res.json();
+        const modules = data['category:modules'];
+        const jimmy = Array.isArray(modules) ? modules.find((m: any) => m.id === 'jimmy') : null;
+        if (!jimmy) return;
+        // Fetch the 8SPINE source code
+        const downloadUrl = jimmy.download || 'https://jimmy-iota.vercel.app/jimmy.js';
+        const codeRes = await fetch(downloadUrl);
+        if (!codeRes.ok) return;
+        const code = await codeRes.text();
+        store.addAddon({
+          id: 'jimmy',
+          name: 'Jimmy',
+          version: jimmy.version || '2.0.0',
+          description: jimmy.description || 'Universal search with multi-source support',
+          author: jimmy.author || 'Jimmy',
+          resources: ['search', 'stream', 'home', 'album', 'playlist'],
+        }, {
+          sourceId: 'jimmy-source',
+          installSourceUrl: downloadUrl,
+          eightspineInnerCode: code,
+          eightspineKind: 'bare',
+        });
+        console.log('[Init] Installed Jimmy addon');
+      } catch {}
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
