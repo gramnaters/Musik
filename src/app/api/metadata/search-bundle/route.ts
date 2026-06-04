@@ -151,17 +151,33 @@ export async function GET(req: NextRequest) {
       let playlists: any[] = [];
 
       try {
-        const [tracksData, albumsData, artistsData, playlistsData] = await Promise.all([
-          searchTracks(q, per),
-          mcSearchAlbums(q),
-          mcSearchArtists(q),
-          mcSearchPlaylists(q),
-        ]);
+        const tracksData = await searchTracks(q, per);
+        const rawTracks = Array.isArray(tracksData) ? tracksData : (tracksData.tracks || []);
+        tracks = rawTracks.map(mapMonochromeTrack).filter((t: any) => t.title);
 
-        tracks = (Array.isArray(tracksData) ? tracksData : (tracksData.tracks || [])).map(mapMonochromeTrack).filter((t: any) => t.title);
-        albums = (Array.isArray(albumsData) ? albumsData : (albumsData.albums || [])).map(mapMonochromeAlbum).filter((a: any) => a.title);
-        artists = (Array.isArray(artistsData) ? artistsData : (artistsData.artists || [])).map(mapMonochromeArtist).filter((a: any) => a.name);
-        playlists = (Array.isArray(playlistsData) ? playlistsData : (playlistsData.playlists || [])).map(mapMonochromePlaylist).filter((p: any) => p.name);
+        // Extract unique albums, artists from track results (Monochrome ?a=/?ar=/?p= return 400)
+        const artistMap = new Map<string, any>();
+        const albumMap = new Map<string, any>();
+        const playlistMap = new Map<string, any>();
+
+        rawTracks.forEach((t: any) => {
+          const artistName = t.artist?.name || t.artistName || t.artists?.[0]?.name || '';
+          const artistId = t.artist?.id || t.artistId || '';
+          if (artistName && !artistMap.has(artistName)) {
+            artistMap.set(artistName, mapMonochromeArtist({ id: artistId, name: artistName, picture: t.artist?.picture }));
+          }
+          const albumTitle = t.album?.title || t.albumName || '';
+          const albumId = t.album?.id || t.albumId || '';
+          if (albumTitle && !albumMap.has(albumTitle)) {
+            const album = mapMonochromeAlbum({ id: albumId, title: albumTitle, cover: t.album?.cover, artist: artistName, releaseDate: t.album?.releaseDate });
+            albumMap.set(albumTitle, album);
+            playlistMap.set(albumTitle, { id: album.id, name: albumTitle, description: `${artistName} • Album`, cover: album.cover, trackCount: album.trackCount });
+          }
+        });
+
+        albums = [...albumMap.values()];
+        artists = [...artistMap.values()];
+        playlists = [...playlistMap.values()];
       } catch (e) {
         console.warn('Monochrome search-bundle failed:', e);
       }
