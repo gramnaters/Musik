@@ -33,6 +33,7 @@ import { resolveAssetUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { extractVibrantColor, applyVibrantColor, resetVibrantColor } from '@/lib/vibrant-color';
 import { getArtistBanner } from '@/lib/artist-banner';
+import Hls from 'hls.js';
 import { formatDuration } from '@/lib/demo-data';
 
 /** Monochrome Genres */
@@ -226,6 +227,8 @@ export default function HomeView() {
   const [searchTab, setSearchTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists'>('tracks');
   const [searchHub, setSearchHub] = useState<{ title: string; subtitle?: string; tracks: Track[]; loading: boolean; coverUrl?: string } | null>(null);
   const [artistBannerVideo, setArtistBannerVideo] = useState<string | null>(null);
+  const artistVideoRef = useRef<HTMLVideoElement | null>(null);
+  const artistHlsRef = useRef<Hls | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exploreData, setExploreData] = useState<any>(null);
   const [exploreLoading, setExploreLoading] = useState(true);
@@ -628,11 +631,24 @@ export default function HomeView() {
     }
   }, [exploreData, fetchExplore]);
 
+  // HLS video banner for artist pages
   useEffect(() => {
-    if (catalogProvider === 'monochrome' && !editorsPicks) {
-      fetchEditorsPicks();
+    if (!artistBannerVideo || !artistVideoRef.current) return;
+    const video = artistVideoRef.current;
+    if (artistBannerVideo.endsWith('.m3u8') && Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(artistBannerVideo);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      artistHlsRef.current = hls;
+    } else {
+      video.src = artistBannerVideo;
+      video.play().catch(() => {});
     }
-  }, [catalogProvider, editorsPicks, fetchEditorsPicks]);
+    return () => {
+      if (artistHlsRef.current) { artistHlsRef.current.destroy(); artistHlsRef.current = null; }
+    };
+  }, [artistBannerVideo]);
 
   useEffect(() => {
     if (activeTab === 'home' && recentlyPlayed.length > 0) {
@@ -1111,14 +1127,14 @@ const renderHome = () => {
             <div className="relative z-10 space-y-10">
               {/* Artist Header */}
               <header className="flex items-end gap-8 min-h-[360px] -mx-8 -mt-8 px-8 pt-32 pb-8 relative overflow-hidden" style={{
-                background: collectionHub.image && !artistBannerVideo
+                background: !artistBannerVideo && collectionHub.image
                   ? `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
                   : 'linear-gradient(to bottom, #1a1a2e, #0a0a0f)'
               }}>
                 {artistBannerVideo && (
                   <video
+                    ref={artistVideoRef}
                     autoPlay muted loop playsInline
-                    src={artistBannerVideo}
                     className="absolute inset-0 w-full h-full object-cover z-0"
                     style={{ filter: 'brightness(0.45)' }}
                   />
