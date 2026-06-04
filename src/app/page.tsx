@@ -56,14 +56,6 @@ export default function AppPage() {
   const { cleanup } = usePlayerStore();
   const [showSplash] = useState(false);
 
-  // Auto-check addon updates on start (silent, stores pending updates)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      useAddonStore.getState().checkForUpdates().catch(() => {});
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Migrate persisted catalog choice away from removed Apple catalog option
   useEffect(() => {
     const { catalogProvider, setCatalogProvider } = useMetadataStore.getState();

@@ -72,12 +72,6 @@ const DEFAULT_SOURCES: AddonSource[] = [
   {
     id: 'monochrome-instances',
     name: 'Monochrome Instances',
-    registryUrl: '',
-    builtIn: true,
-  },
-  {
-    id: 'monochrome-instances',
-    name: 'Monochrome Instances',
     registryUrl: '', // Static custom catalog handling
     builtIn: true,
   },
