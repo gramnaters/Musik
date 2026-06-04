@@ -34,6 +34,7 @@ export default function PlayerBar() {
     togglePlayPause, nextTrack, previousTrack,
     setVolume, toggleMute, toggleShuffle, cycleRepeat,
     showNowPlaying, setShowNowPlaying,
+    openNowPlayingWithLyrics,
     clearPlaybackError,
   } = usePlayerStore();
   const { isFavourite, toggleFavourite } = useLibraryStore();
@@ -199,7 +200,7 @@ const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : 
                   {/* Lyrics / Now Playing */}
                   <button 
                     className="p-2 rounded-full hover:bg-white/5 transition-colors text-white/75 hover:text-white"
-                    onClick={(e) => { e.stopPropagation(); setShowNowPlaying(!showNowPlaying); }}
+                    onClick={(e) => { e.stopPropagation(); openNowPlayingWithLyrics(); }}
                     title="Lyrics"
                   >
                     <Mic2 size={18} />

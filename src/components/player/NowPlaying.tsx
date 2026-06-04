@@ -142,6 +142,15 @@ export default function NowPlaying() {
     setColor2(palette[1]);
   }, [currentTrack?.id]);
 
+  // Auto-enable lyrics when opened via lyrics button in playerbar
+  useEffect(() => {
+    const { openLyricsOnShow } = usePlayerStore.getState();
+    if (openLyricsOnShow) {
+      setShowLyrics(true);
+      usePlayerStore.setState({ openLyricsOnShow: false });
+    }
+  }, [showNowPlaying]);
+
   // Load am-lyrics web component
   useEffect(() => {
     import('@uimaxbai/am-lyrics/am-lyrics.js').catch(console.error);

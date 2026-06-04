@@ -98,8 +98,6 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
       toggleFavourite: (track: Track) => {
         const { favourites } = get();
         const isFav = favourites.includes(track.id);
-        // TEMP-DEBUG: log every toggleFavourite call to find auto-like source
-        console.log('[TEMP-DEBUG] toggleFavourite called:', { trackId: track.id, trackTitle: track.title, wasFav: isFav, stack: new Error().stack?.split('\n').slice(1, 6).join('\n') });
         if (isFav) {
           set({ favourites: favourites.filter((id) => id !== track.id) });
         } else {
@@ -159,6 +157,12 @@ export const useLibraryStore = create<LibraryState & LibraryActions>()(
     }),
     {
       name: 'musik-library',
+      version: 2,
+      migrate: () => ({
+        playlists: [],
+        favourites: [] as string[],
+        recentlyPlayed: [] as Track[],
+      }),
     }
   )
 );

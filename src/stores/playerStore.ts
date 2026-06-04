@@ -46,6 +46,7 @@ interface PlayerState {
   repeatMode: RepeatMode;
   isMuted: boolean;
   showNowPlaying: boolean;
+  openLyricsOnShow: boolean;
   audio: HTMLAudioElement | null;
 }
 
@@ -68,6 +69,7 @@ interface PlayerActions {
   setCurrentTime: (time: number) => void;
   setDuration: (time: number) => void;
   setShowNowPlaying: (show: boolean) => void;
+  openNowPlayingWithLyrics: () => void;
   clearPlaybackError: () => void;
   cleanup: () => void;
 }
@@ -116,6 +118,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       repeatMode: 'off',
       isMuted: false,
       showNowPlaying: false,
+      openLyricsOnShow: false,
       audio: null,
 
       play: (track, queue, index) => {
@@ -472,6 +475,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
       setDuration: (time: number) => set({ duration: time }),
 
       setShowNowPlaying: (show: boolean) => set({ showNowPlaying: show }),
+      openNowPlayingWithLyrics: () => set({ showNowPlaying: true, openLyricsOnShow: true }),
 
       clearPlaybackError: () => set({ playbackError: null }),
 

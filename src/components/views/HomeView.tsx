@@ -1820,12 +1820,12 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-12 px-3 gap-2 bg-white/[0.06] border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-xs font-medium rounded-lg">
                 <Globe size={14} className="text-white/40" />
-                <span className="truncate max-w-[80px] uppercase tracking-wide text-[11px]">
-                  {catalogProvider === 'addon'
-                    ? (activeAddonId
-                        ? (installedAddons?.find(a => a.manifest.id === activeAddonId)?.manifest?.name?.slice(0, 12) || 'Addon')
-                        : (searchAddons[0]?.manifest?.name?.slice(0, 12) || 'Addon'))
-                    : catalogProvider}
+                <span className="truncate max-w-[80px] text-[11px]">
+                  {catalogProvider === 'addon' && activeAddonId
+                    ? (installedAddons?.find(a => a.manifest.id === activeAddonId)?.manifest?.name?.slice(0, 12) || 'Addon')
+                    : searchAddons.length > 0
+                      ? (searchAddons[0]?.manifest?.name?.slice(0, 12) || 'Module')
+                      : <span className="text-white/30">No module</span>}
                 </span>
                 <ChevronDown size={12} className="text-white/30 ml-0.5 shrink-0" />
               </Button>
