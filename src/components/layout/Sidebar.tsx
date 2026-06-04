@@ -150,6 +150,41 @@ export default function Sidebar() {
         })}
       </nav>
 
+      {/* Donate */}
+      {!sidebarCollapsed && (
+        <div className="px-2 mt-1">
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all duration-200">
+                <Heart size={20} className="text-red-400" />
+                <span>Donate</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-zinc-950 border-white/10 text-foreground sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-white text-lg">Support Musik</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  If Musik has been useful to you and you're able to, consider making a donation. 
+                  It helps keep the project alive and supports ongoing development — and you get our eternal gratitude :)
+                </p>
+                <Button
+                  className="w-full rounded-full bg-pink-500 hover:bg-pink-600 text-white font-semibold"
+                  onClick={() => window.open('https://ko-fi.com', '_blank')}
+                >
+                  <Heart size={16} className="mr-2" fill="currentColor" />
+                  Donate on Ko-fi
+                </Button>
+                <p className="text-xs text-zinc-500 text-center leading-relaxed">
+                  If you cannot financially support us, please consider sharing Musik with friends and the community!
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+
       {/* Library section */}
       <div className="flex-1 flex flex-col min-h-0 mt-4">
         {!sidebarCollapsed && (
