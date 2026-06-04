@@ -50,7 +50,7 @@ export default function Sidebar() {
 
   const {
     sidebarHome, sidebarLibrary, sidebarRecent,
-    sidebarSettings,
+    sidebarSettings, sidebarDonate,
   } = useStreamingStore();
 
   const navItems = [
@@ -151,7 +151,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Donate */}
-      {!sidebarCollapsed && (
+      {sidebarDonate && !sidebarCollapsed && (
         <div className="px-2 mt-1">
           <Dialog>
             <DialogTrigger asChild>

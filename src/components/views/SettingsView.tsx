@@ -249,6 +249,7 @@ export default function SettingsView() {
     sidebarLibrary, setSidebarLibrary,
     sidebarRecent, setSidebarRecent,
     sidebarSettings, setSidebarSettings,
+    sidebarDonate, setSidebarDonate,
     sidebarAbout, setSidebarAbout,
     sidebarDiscord, setSidebarDiscord,
     sidebarParties, setSidebarParties,
@@ -714,6 +715,7 @@ export default function SettingsView() {
                       { label: 'Home', value: sidebarHome, setter: setSidebarHome },
                       { label: 'Library', value: sidebarLibrary, setter: setSidebarLibrary },
                       { label: 'Recent', value: sidebarRecent, setter: setSidebarRecent },
+                      { label: 'Donate', value: sidebarDonate, setter: setSidebarDonate },
                     ].map(({ label, value, setter }) => (
                       <div key={label} className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
