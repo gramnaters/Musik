@@ -321,15 +321,18 @@ interface StreamingActions {
 }
 
 const DEFAULT_API_INSTANCES: StreamingInstance[] = [
+  { url: 'https://api.monochrome.tf', version: '2.5', type: 'api' },
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'api' },
 ];
 
 const DEFAULT_STREAMING_INSTANCES: StreamingInstance[] = [
   { url: 'https://hifi.geeked.wtf', version: '2.7', type: 'streaming' },
   { url: 'https://maus.qqdl.site', version: '2.6', type: 'streaming' },
+  { url: 'https://stream.monochrome.tf', version: '2.7', type: 'streaming' },
 ];
 
 const DEFAULT_QOBUZ_INSTANCES: StreamingInstance[] = [
+  { url: 'https://qdl-api.monochrome.tf', version: '1.0', type: 'qobuz' },
   { url: 'https://qobuz.kennyy.com.br', version: '1.0', type: 'qobuz' },
 ];
 
