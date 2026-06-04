@@ -1103,6 +1103,7 @@ const renderHome = () => {
     if (collectionHub) {
       return (
           <div className="relative space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {!collectionHub.isArtist && (
           <div className="relative z-10 flex items-center gap-4">
             <Button
               variant="secondary"
@@ -1116,6 +1117,7 @@ const renderHome = () => {
               <h2 className="text-[1.2rem] font-semibold text-white/50">Album</h2>
             </div>
           </div>
+          )}
 
           {collectionHub.loading ? (
             <div className="relative z-10 flex flex-col items-center justify-center py-32 space-y-4">
@@ -1124,13 +1126,22 @@ const renderHome = () => {
             </div>
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
-            <div className="relative z-10 space-y-10">
-              {/* Artist Header */}
-              <header className="flex items-end gap-8 min-h-[480px] -mx-8 md:-mx-12 -mt-8 md:-mt-[72px] px-8 md:px-12 pt-32 md:pt-[200px] pb-10 relative overflow-hidden rounded-b-none" style={{
+            <div className="relative z-10">
+              {/* Artist Header — covers full screen top */}
+              <header className="flex items-end gap-8 min-h-[520px] -mx-8 -mt-20 px-8 pt-24 pb-10 relative overflow-visible" style={{
+
                 background: !artistBannerVideo && collectionHub.image
                   ? `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
                   : 'linear-gradient(to bottom, #12101a, #0a0a0f)'
               }}>
+                {/* Back button */}
+                <Button
+                  variant="secondary" size="icon"
+                  className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-20 border border-white/10"
+                  onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
+                >
+                  <ChevronLeft size={20} />
+                </Button>
                 {artistBannerVideo && (
                   <video
                     ref={artistVideoRef}
