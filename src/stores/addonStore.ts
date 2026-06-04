@@ -78,7 +78,7 @@ const DEFAULT_SOURCES: AddonSource[] = [
   {
     id: 'ricky-8spine',
     name: 'Ricky 8SPINE',
-    registryUrl: '', // Static catalog — entries injected by fetchAllCatalogs
+    registryUrl: 'https://monochrome.rickyaddons.dpdns.org/8spine-source.json',
     builtIn: true,
   },
 ];

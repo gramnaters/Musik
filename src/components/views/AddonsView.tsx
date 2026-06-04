@@ -9,18 +9,6 @@ import { pickStreamUrlFromEightspineResult } from '@/lib/eightspine-runtime';
 import { usePlayerStore } from '@/stores/playerStore';
 import type { Track } from '@/types/music';
 
-const RICKY_MODULES: StoreAddon[] = [
-  {
-    id: 'ricky-all-in-one',
-    name: 'All-In-One',
-    author: 'Ricky',
-    version: '1.0.7',
-    description: 'HiFi, SoundCloud, Internet Archive, Podcasts, Audiobooks and Radio in one module.',
-    eightspineOnly: true,
-    eightspinePackageUrl: 'https://all-in-one.rickyaddons.dpdns.org/8spine.js',
-    tags: ['High Quality', 'Multi-Source', 'Radio', 'Settings'],
-  },
-];
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -239,15 +227,6 @@ export default function AddonsView() {
 
     await Promise.all(
       visibleSources.map(async (source) => {
-        if (source.id === 'ricky-8spine') {
-          results[source.id] = {
-            addons: RICKY_MODULES,
-            loading: false,
-            error: '',
-          };
-          return;
-        }
-
         const fetchUrl = source.registryUrl?.trim()
           ? `/api/addons/store?url=${encodeURIComponent(source.registryUrl.trim())}`
           : '/api/addons/store';

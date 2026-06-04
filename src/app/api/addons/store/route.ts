@@ -105,6 +105,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Handle category-keyed registries (e.g. { "category:music": [...] })
+    if (!data.addons || !Array.isArray(data.addons)) {
+      const categoryKey = Object.keys(data).find(k => k.startsWith('category:'));
+      if (categoryKey && Array.isArray(data[categoryKey])) {
+        data = { addons: data[categoryKey] as unknown[] } as typeof data;
+      }
+    }
+
     const hasEclipseList = Array.isArray(data.addons) && data.addons.length > 0;
     if (!hasEclipseList && isEightspineRegistryShape(data)) {
       data = { addons: eightspineRegistryToStoreRows(target, data).addons } as typeof data;
