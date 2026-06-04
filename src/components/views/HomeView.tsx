@@ -1126,15 +1126,10 @@ const renderHome = () => {
             </div>
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
-            <>
-              {/* Artist Header — Monochrome layout */}
-              <header className="flex items-end gap-8 relative" style={{
-                marginTop: '-8rem',
-                marginLeft: '-2rem',
-                marginRight: '-2rem',
-                padding: '12rem 3rem 4rem',
-                minHeight: '550px',
-                overflow: 'hidden',
+            <div className="-mx-8 -mt-8">
+              {/* Artist Header — covers full screen top */}
+              <header className="flex items-end gap-8 min-h-[520px] px-8 pt-[140px] pb-10 relative" style={{
+
                 background: !artistBannerVideo && collectionHub.image
                   ? `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
                   : 'linear-gradient(to bottom, #12101a, #0a0a0f)'
@@ -1155,14 +1150,14 @@ const renderHome = () => {
                     style={{ filter: 'brightness(0.5)' }}
                   />
                 )}
-                <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 70%, var(--background) 100%)' }} />
+                <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 30%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.95) 100%)' }} />
                 {collectionHub.image && (
                   <img src={collectionHub.image} alt={collectionHub.title}
                     className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
                 )}
                 <div className="flex-1 min-w-0 z-10">
-                  <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>Artist</p>
-                  <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>{collectionHub.title}</h1>
+                  <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Artist</p>
+                  <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight drop-shadow-lg">{collectionHub.title}</h1>
                   <div className="flex items-center gap-3 mt-4">
                     <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
                       onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
@@ -1242,7 +1237,7 @@ const renderHome = () => {
                   </div>
                 </section>
               )}
-            </>
+            </div>
           ) : (
             <div className="relative z-10 space-y-12">
               {/* Monochrome-style detail header: image + info side by side */}
