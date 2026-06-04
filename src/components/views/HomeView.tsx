@@ -1126,9 +1126,9 @@ const renderHome = () => {
             </div>
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
-            <div className="relative z-10 -mx-8 -mt-8 pt-8">
+            <div className="-mx-8 -mt-8">
               {/* Artist Header — covers full screen top */}
-              <header className="flex items-end gap-8 min-h-[520px] -mt-[108px] px-8 pt-[140px] pb-10 relative" style={{
+              <header className="flex items-end gap-8 min-h-[520px] px-8 pt-[140px] pb-10 relative" style={{
 
                 background: !artistBannerVideo && collectionHub.image
                   ? `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url(${collectionHub.image}) center/cover`
