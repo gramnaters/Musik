@@ -53,20 +53,23 @@ export default function PlayerBar() {
 
 const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
+  // Auto-dismiss playback error after 4s
+  useEffect(() => {
+    if (playbackError) {
+      const t = setTimeout(() => clearPlaybackError(), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [playbackError, clearPlaybackError]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <>
         {playbackError && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-950/95 text-red-100 text-xs border-b border-red-900/60 shrink-0">
-            <span className="flex-1 min-w-0 truncate text-center">{playbackError}</span>
-            <button
-              type="button"
-              onClick={() => clearPlaybackError()}
-              className="shrink-0 p-1 rounded-md hover:bg-red-900/60 text-red-100"
-              aria-label="Dismiss error"
-            >
-              <X size={14} />
-            </button>
+          <div className="fixed bottom-24 right-4 z-[250] flex items-center gap-2 px-4 py-2.5 bg-black/90 backdrop-blur-md text-red-300 text-xs rounded-xl border border-red-900/40 shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300 max-w-sm cursor-pointer"
+            onClick={() => clearPlaybackError()}
+          >
+            <span className="flex-1 min-w-0">{playbackError}</span>
+            <X size={12} className="shrink-0 text-red-400" />
           </div>
         )}
 

@@ -1,5 +1,14 @@
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Musik/1.0';
 
+function parseIsoDuration(iso: string): number {
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
+  if (!match) return 0;
+  const h = parseInt(match[1] || '0', 10);
+  const m = parseInt(match[2] || '0', 10);
+  const s = parseFloat(match[3] || '0');
+  return h * 3600 + m * 60 + Math.round(s);
+}
+
 async function fetchInstances(): Promise<string[]> {
   const primary = 'https://api.monochrome.tf';
   try {
@@ -264,7 +273,9 @@ export function mapMonochromeTrack(item: any): any {
     albumCover,
     albumId: item.album?.id || item.albumId || '',
     artistId: item.artist?.id || item.artistId || '',
-    duration: typeof item.duration === 'number' ? item.duration : (typeof item.durationMs === 'number' ? Math.round(item.durationMs / 1000) : 0),
+    duration: typeof item.duration === 'number' ? item.duration 
+      : (typeof item.durationMs === 'number' ? Math.round(item.durationMs / 1000) 
+        : (typeof item.duration === 'string' ? parseIsoDuration(item.duration) : 0)),
     isrc: item.isrc || '',
     explicit: item.explicit || false,
     quality: (item.audioQuality || item.quality || 'LOW').toLowerCase(),

@@ -62,9 +62,27 @@ export default function AppPage() {
     if (catalogProvider === 'apple') setCatalogProvider('spotify');
   }, []);
 
-  // Check for addon updates on launch
+  // Auto-install Jimmy addon and check updates on launch
   useEffect(() => {
-    useAddonStore.getState().checkForUpdates();
+    const timer = setTimeout(async () => {
+      const store = useAddonStore.getState();
+      // Install Jimmy if not already installed
+      const hasJimmy = store.addons.some(a => a.manifest.id === 'jimmy' || (a.sourceId === 'jimmy-source'));
+      if (!hasJimmy) {
+        try {
+          const res = await fetch('https://jimmy-iota.vercel.app/index.json');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.manifest) {
+              store.addAddon(data.manifest, { sourceId: 'jimmy-source', installSourceUrl: 'https://jimmy-iota.vercel.app/index.json' });
+              console.log('[Init] Installed Jimmy addon');
+            }
+          }
+        } catch {}
+      }
+      store.checkForUpdates().catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   // Keyboard shortcuts

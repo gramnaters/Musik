@@ -267,7 +267,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
               set({
                 isLoadingPlayback: false,
                 isPlaying: false,
-                playbackError: 'No playable stream for this track.',
+                playbackError: 'No audio source to play this track',
               });
               return;
             }
