@@ -60,7 +60,9 @@ export default function AppPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       useAddonStore.getState().checkForUpdates().catch(() => {});
-    }, 2000);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
     return () => clearTimeout(timer);
   }, []);
 

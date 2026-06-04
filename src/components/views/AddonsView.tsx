@@ -918,7 +918,7 @@ export default function AddonsView() {
                 <div>
                   <h2 className="text-[13px] font-semibold tracking-[0.04em] text-[#8A8A8A] px-0.5 uppercase">
                     Installed Modules
-                    {lastUpdateCheck && Object.keys(pendingUpdates).length === 0 && (
+                    {lastUpdateCheck && Object.keys(pendingUpdates).length === 0 && lastUpdateCheck > Date.now() - 5000 && (
                       <span className="ml-2 text-[10px] text-green-400 font-normal normal-case">All up to date</span>
                     )}
                     {Object.keys(pendingUpdates).length > 0 && (
