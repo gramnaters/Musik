@@ -183,7 +183,13 @@ export default function AddonsView() {
   const { addInstance, setSelectedUrl, apiInstances, streamingInstances, qobuzInstances } = useStreamingStore();
 
   const visibleSources = useMemo(
-    () => sources.filter((s) => !hiddenModuleSourceIds.includes(s.id)),
+    () => sources.filter((s) => {
+      if (hiddenModuleSourceIds.includes(s.id)) return false;
+      const url = (s.registryUrl || '').toLowerCase();
+      const name = (s.name || '').toLowerCase();
+      if (url.includes('jsdelivr') || name.includes('jsdelivr') || name.includes('js delivr')) return false;
+      return true;
+    }),
     [sources, hiddenModuleSourceIds]
   );
 
