@@ -155,7 +155,7 @@ export async function search(query: string, limit = 25) {
 
 export async function searchTracks(query: string, limit = 25) {
   const raw = await query<any>(`/search/?s=${encodeURIComponent(query)}&limit=${limit}`);
-  return raw?.data?.tracks || raw?.tracks || raw?.items || [];
+  return raw?.data?.tracks || raw?.data?.items || raw?.tracks || raw?.items || [];
 }
 
 export async function searchAlbums(query: string, limit = 25) {

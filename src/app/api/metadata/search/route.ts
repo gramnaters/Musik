@@ -4,6 +4,15 @@ import { searchAppleProxy, appleArtworkUrl, mapAppleTrack, mapAppleArtist, mapAp
 import { searchQobuzTracks, searchQobuzAlbums, searchQobuzArtists, mapQobuzTrack, mapQobuzArtist, mapQobuzPlaylistFromAlbum, mapQobuzAlbum } from '@/lib/qobuz';
 import { initTidal, TidalClient } from '@/lib/tidal/client';
 
+function parseIsoDurationString(iso: string): number {
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
+  if (!match) return 0;
+  const h = parseInt(match[1] || '0', 10);
+  const m = parseInt(match[2] || '0', 10);
+  const s = parseFloat(match[3] || '0');
+  return Math.round(h * 3600 + m * 60 + s);
+}
+
 const tidalClientId = process.env.TIDAL_CLIENT_ID?.trim() || 'txNoH4kkV41MfH25';
 const tidalClientSecret = process.env.TIDAL_CLIENT_SECRET?.trim() || 'dQjy0MinCEvxi1O4UmxvxWnDjt4cgHBPw8ll6nYBk98=';
 try {
@@ -298,7 +307,7 @@ export async function GET(req: NextRequest) {
     if (provider === 'monochrome') {
       try {
         const data = await searchTracks(q, limit);
-        const tracks = (data.tracks || []).map(mapMonochromeTrack);
+        const tracks = (Array.isArray(data) ? data : (data.tracks || data.items || [])).map(mapMonochromeTrack);
         return NextResponse.json({ tracks, artists: [], playlists: [], provider: 'monochrome' });
       } catch {
         try {
@@ -310,7 +319,7 @@ export async function GET(req: NextRequest) {
             artist: item.artist?.name || item.artists?.map((a: any) => a.name).join(', ') || '',
             album: item.album?.title || '',
             albumCover: item.album?.cover ? `/api/cover?id=${item.album.cover}&size=1920` : '',
-            duration: item.duration || 0,
+            duration: typeof item.duration === 'number' ? item.duration : (typeof item.duration === 'string' ? parseIsoDurationString(item.duration) : 0),
             streamURL: undefined,
             source: 'tidal' as const,
             explicit: item.explicit === true,
