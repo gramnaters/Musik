@@ -727,7 +727,6 @@ export default function HomeView() {
     setSearchLoading(true);
     try {
       const addonStore = useAddonStore.getState();
-      // Use active addon for search if available
       if (catalogProvider === 'addon' && activeAddonId) {
         const results = await addonStore.searchWithAddon(activeAddonId, q);
         const tracks = (results.tracks || []).map((t: any) => mapMetadataSearchTrack(t.addonTrack || t));
@@ -736,35 +735,51 @@ export default function HomeView() {
         const playlists = results.playlists || [];
         setSearchResults({ tracks, albums, artists, playlists });
       } else {
-        // Fallback to Monochrome metadata search
         const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
-        const base = `provider=${provider}&country=${appleStorefront || 'US'}&limit=30&q=${encodeURIComponent(q)}`;
-        const [tracksRes] = await Promise.all([
-          fetch(`/api/metadata/search?${base}`),
-        ]);
-        const tracksData = tracksRes.ok ? await tracksRes.json() : { tracks: [] };
-        const tracks = (tracksData.tracks || []).map(mapMetadataSearchTrack);
+        const res = await fetch(`/api/metadata/search?provider=${provider}&country=${appleStorefront || 'US'}&limit=30&q=${encodeURIComponent(q)}`);
+        const data = res.ok ? await res.json() : { tracks: [] };
+        const rawTracks = data.tracks || [];
+        const tracks = rawTracks.map(mapMetadataSearchTrack);
         
-        // Extract unique artists and albums from track results
         const artistMap = new Map<string, { id: string; name: string; image: string }>();
-        const albumMap = new Map<string, { id: string; title: string; artist: string; cover: string }>();
-        (tracksData.tracks || []).forEach((t: any) => {
-          const artistName = t.artist || t.artistName || '';
-          const artistId = t.artistId || t.artist?.id || '';
+        const albumMap = new Map<string, { id: string; title: string; artist: string; cover: string; year?: string }>();
+        const playlistMap = new Map<string, any>();
+        
+        rawTracks.forEach((t: any) => {
+          const artistName = t.artist || '';
+          const artistId = t.artistId || '';
           if (artistName && !artistMap.has(artistName)) {
             artistMap.set(artistName, { id: artistId || artistName, name: artistName, image: '' });
           }
-          const albumTitle = t.album || t.albumName || t.album?.title || '';
-          const albumId = t.albumId || t.album?.id || '';
-          const albumCover = t.albumCover || t.album?.cover || '';
+          const albumTitle = t.album || '';
+          const albumId = t.albumId || '';
+          const cover = t.albumCover || '';
           if (albumTitle && !albumMap.has(albumTitle)) {
-            albumMap.set(albumTitle, { id: albumId || `alb_${albumTitle}`, title: albumTitle, artist: artistName, cover: albumCover ? (typeof albumCover === 'string' && albumCover.startsWith('http') ? albumCover : `/api/cover?id=${albumCover}&size=640`) : '' });
+            albumMap.set(albumTitle, {
+              id: albumId || `alb_${albumTitle}`, title: albumTitle,
+              artist: artistName,
+              cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
+            });
+          }
+          // Extract as playlists too
+          if (albumTitle && !playlistMap.has(albumTitle)) {
+            playlistMap.set(albumTitle, {
+              id: albumId || `pl_${albumTitle}`,
+              name: albumTitle,
+              description: `${artistName} • Album`,
+              cover: cover.startsWith('http') || cover.startsWith('/') ? cover : (cover ? `/api/cover?id=${cover}&size=640` : ''),
+              trackCount: 0,
+            });
           }
         });
         
-        setSearchResults({ tracks, albums: [...albumMap.values()], artists: [...artistMap.values()], playlists: [] });
+        setSearchResults({
+          tracks,
+          albums: [...albumMap.values()],
+          artists: [...artistMap.values()],
+          playlists: [...playlistMap.values()],
+        });
       }
-    } catch {
       setSearchResults({ tracks: [], albums: [], artists: [], playlists: [] });
     } finally {
       setSearchLoading(false);
