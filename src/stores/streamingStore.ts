@@ -597,6 +597,6 @@ export const useStreamingStore = create<StreamingState & StreamingActions>()(
       setVisualizerSensitivity: (visualizerSensitivity) => set({ visualizerSensitivity }),
       setVisualizerBrightness: (visualizerBrightness) => set({ visualizerBrightness }),
     }),
-    { name: 'musik-streaming' }
+    { name: 'musik-streaming', version: 1, migrate: () => ({ streamingQuality: 'auto', downloadQuality: 'lossless_24', bulkDownloadMethod: 'zip' }) }
   )
 );
