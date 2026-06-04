@@ -63,8 +63,6 @@ export default function AppPage() {
     }, 3000);
     return () => clearTimeout(timer);
   }, []);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Migrate persisted catalog choice away from removed Apple catalog option
   useEffect(() => {

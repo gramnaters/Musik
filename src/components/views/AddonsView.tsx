@@ -697,7 +697,14 @@ export default function AddonsView() {
             a.description?.toLowerCase().includes(storeSearch.toLowerCase()) ||
             a.author?.toLowerCase().includes(storeSearch.toLowerCase())
         )
-      : list;
+      : list.filter((a) => {
+          const n = (a.name || '').toLowerCase();
+          const d = (a.description || '').toLowerCase();
+          // Exclude jsDelivr mirrors from 8SPINE community registry
+          if (n.includes('jsdelivr') || n.includes('js delivr') || n.includes('mirror')) return false;
+          if (d.includes('jsdelivr') || d.includes('js delivr')) return false;
+          return true;
+        });
 
   const enabledAddons = addons.filter((a) => a.enabled);
 
