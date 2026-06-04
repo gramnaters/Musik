@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type ActiveView = 'home' | 'search' | 'library' | 'playlist' | 'connections' | 'settings';
+type ActiveView = 'home' | 'search' | 'library' | 'playlist' | 'connections' | 'settings' | 'recent';
 type RightPanel = 'none' | 'queue' | 'lyrics';
 export type PlayerTheme = 'spotify' | 'tidal' | 'apple';
 

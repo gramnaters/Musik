@@ -56,7 +56,7 @@ export default function Sidebar() {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home', view: 'home' as const, visible: sidebarHome },
     { id: 'library', icon: Library, label: 'Library', view: 'library' as const, visible: sidebarLibrary },
-    { id: 'recent', icon: Clock, label: 'Recent', view: 'home' as const, visible: sidebarRecent },
+    { id: 'recent', icon: Clock, label: 'Recent', view: 'recent' as const, visible: sidebarRecent },
     { id: 'search', icon: Search, label: 'Search', view: 'search' as const, visible: true },
     { id: 'settings', icon: SettingsIcon, label: 'Settings', view: 'settings' as const, visible: true },
   ];
@@ -117,12 +117,13 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="px-2 space-y-1">
         {filteredNavItems.map((item) => {
-          const isActive = activeView === item.view && !selectedPlaylistId && item.id !== 'recent';
+          const isActive = item.id === 'recent' ? false : (activeView === item.view && !selectedPlaylistId);
           return (
             <button
             key={item.label}
               onClick={() => {
-                navigateTo(item.view);
+                const target = item.view === 'recent' ? 'home' : item.view;
+                navigateTo(target);
                 setSelectedPlaylistId(null);
               }}
               className={cn(
