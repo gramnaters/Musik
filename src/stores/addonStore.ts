@@ -64,6 +64,18 @@ const DEFAULT_SOURCES: AddonSource[] = [
     builtIn: true,
   },
   {
+    id: 'monochrome-qobuz',
+    name: 'Monochrome-Qobuz',
+    registryUrl: '',
+    builtIn: true,
+  },
+  {
+    id: 'monochrome-instances',
+    name: 'Monochrome Instances',
+    registryUrl: '',
+    builtIn: true,
+  },
+  {
     id: 'monochrome-instances',
     name: 'Monochrome Instances',
     registryUrl: '', // Static custom catalog handling

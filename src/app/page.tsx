@@ -56,10 +56,22 @@ export default function AppPage() {
   const { cleanup } = usePlayerStore();
   const [showSplash] = useState(false);
 
-  // Initialize default playlists on first load
+  // Auto-install Monochrome-Qobuz addon on first launch
   useEffect(() => {
-    initializeDefaults();
-  }, [initializeDefaults]);
+    const store = useAddonStore.getState();
+    const alreadyInstalled = store.addons.some(a => a.manifest.id === 'monochrome-qobuz');
+    if (!alreadyInstalled) {
+      store.addAddon({
+        id: 'monochrome-qobuz',
+        name: 'Monochrome-Qobuz',
+        version: '1.0.0',
+        description: 'Lossless streaming & downloads via Qobuz multi-instance failover',
+        author: 'Musik',
+        baseURL: '/api/addons/monochrome-qobuz',
+        resources: ['search', 'stream', 'home', 'album'],
+      }, { sourceId: 'monochrome-qobuz', config: { quality: 'LOSSLESS' } });
+    }
+  }, []);
 
   // Auto-check addon updates on start (silent, stores pending updates)
   useEffect(() => {
