@@ -726,33 +726,29 @@ export default function HomeView() {
     if (!q.trim()) { setSearchResults(null); setSearchLoading(false); return; }
     setSearchLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set('provider', catalogProvider);
-      params.set('country', appleStorefront || 'US');
-      params.set('q', q);
-      params.set('limit', '30');
-      params.set('bundle', '1');
-      const res = await fetch(`/api/metadata/search-bundle?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        const tracks = (data.tracks || []).map(mapMetadataSearchTrack);
-        const albums = (data.albums || []).map((a: any) => ({
-          id: a.id,
-          title: a.title || '',
-          artist: a.artist || '',
-          cover: a.cover,
-          year: a.year,
-        }));
-        const artists = (data.artists || []).map((a: any) => ({
-          id: a.id,
-          name: a.name || '',
-          image: a.image || a.cover,
-        }));
-        const playlists = data.playlists || [];
-        setSearchResults({ tracks, albums, artists, playlists });
-      } else {
-        setSearchResults({ tracks: [], albums: [], artists: [], playlists: [] });
-      }
+      const provider = catalogProvider === 'addon' ? 'monochrome' : catalogProvider;
+      const baseParams = `provider=${provider}&country=${appleStorefront || 'US'}&limit=30`;
+      const [tracksRes, albumsRes, artistsRes] = await Promise.all([
+        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}`),
+        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}&entity=album`),
+        fetch(`/api/metadata/search?${baseParams}&q=${encodeURIComponent(q)}&entity=artist`),
+      ]);
+      
+      const [tracksData, albumsData, artistsData] = await Promise.all([
+        tracksRes.ok ? tracksRes.json() : { tracks: [] },
+        albumsRes.ok ? albumsRes.json() : { albums: [] },
+        artistsRes.ok ? artistsRes.json() : { artists: [] },
+      ]);
+
+      const tracks = (tracksData.tracks || []).map(mapMetadataSearchTrack);
+      const albums = (albumsData.albums || []).map((a: any) => ({
+        id: a.id, title: a.title || '', artist: a.artist || '', cover: a.cover, year: a.year,
+      }));
+      const artists = (artistsData.artists || []).map((a: any) => ({
+        id: a.id, name: a.name || '', image: a.image || a.cover,
+      }));
+      
+      setSearchResults({ tracks, albums, artists, playlists: [] });
     } catch {
       setSearchResults({ tracks: [], albums: [], artists: [], playlists: [] });
     } finally {

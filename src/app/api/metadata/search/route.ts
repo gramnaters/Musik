@@ -254,25 +254,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ tracks, artists, playlists, provider: 'apple', country: appleCountry });
     }
     if (entity === 'artist') {
-      if (provider === 'monochrome') {
+      if (provider === 'monochrome' || provider === 'tidal') {
         try {
           const data = await mcSearchArtists(q);
-          const artists = (data.artists || []).map(mapMonochromeArtist);
+          const artists = (Array.isArray(data) ? data : (data.artists || [])).map(mapMonochromeArtist);
           return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'monochrome' });
         } catch {
-          try {
-            const client = TidalClient.getInstance();
-            const tidalData = await client.search(q, limit);
-            const artists = (tidalData.artists?.items || []).map((a: any) => ({
-              id: `tidal_${a.id}`,
-              name: a.name,
-              image: a.picture ? `/api/cover?id=${a.picture}&size=1920` : '',
-            }));
-            return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'monochrome', fallback: 'tidal' });
-          } catch {
-            return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome', fallback: 'tidal' });
-          }
-        }
+        return NextResponse.json({ tracks: [], artists: [], playlists: [], provider: 'monochrome' });
+      }
       }
       const { artists, error, detail } = await searchSpotifyArtists(q, spotifyLimit, market);
       return NextResponse.json({ tracks: [], artists, playlists: [], provider: 'spotify', error, detail });
