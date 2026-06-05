@@ -45,9 +45,3 @@ export async function GET(request: NextRequest) {
 
   return placeholderRedirect(id, size);
 }
-
-    return placeholderRedirect(id, size);
-  } catch {
-    return placeholderRedirect(id, size);
-  }
-}

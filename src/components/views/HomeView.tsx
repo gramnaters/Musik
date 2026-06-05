@@ -312,7 +312,7 @@ export default function HomeView() {
 
   const getImageUrl = (item: any, size = '640') => {
     if (!item) return '';
-    let rawValue = item.squareImage || item.cover || item.image || item.picture || item.albumCover || item.album?.cover || item.artworkURL;
+    let rawValue = item.squareImage || item.picture || item.cover || item.image || item.albumCover || item.album?.cover || item.artworkURL;
     let uuid: string | null = null;
     if (!rawValue) {
       uuid = null;
