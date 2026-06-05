@@ -1182,160 +1182,197 @@ const renderHome = () => {
             </div>
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
-            <div>
-               {/* Artist Header — Monochrome style */}
+            <>
+               {/* Artist Header — full viewport hero */}
                <header style={{
-                 marginTop: '-8rem',
+                 marginTop: '-2rem',
                  marginLeft: '-2rem',
                  marginRight: '-2rem',
-                 padding: '12rem 3rem 4rem',
-                 minHeight: '550px',
+                 height: '100vh',
                  position: 'relative',
                  overflow: 'hidden',
-                 display: 'flex',
-                 alignItems: 'flex-end',
-                 background: '#12101a',
+                 background: '#0a0a0a',
                }}>
-                 {/* Back button */}
-                 <Button
-                   variant="secondary" size="icon"
-                   className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-[2] border border-white/10"
-                   onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
-                 >
-                   <ChevronLeft size={20} />
-                 </Button>
-                 {artistBannerVideo && (
-                   <video
-                     ref={artistVideoRef}
-                     autoPlay muted loop playsInline
-                     style={{
-                       position: 'absolute',
-                       top: 0, left: 0,
-                       width: '100%', height: '100%',
-                       objectFit: 'cover',
-                       filter: 'brightness(0.6)',
-                       zIndex: 0,
-                     }}
-                   />
-                 )}
-                 <div style={{
-                   position: 'absolute',
-                   inset: 0,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 70%, #0a0a0a 100%)',
-                   zIndex: 1,
-                 }} />
-                 {collectionHub.image && (
-                   <img src={collectionHub.image} alt={collectionHub.title}
-                     className="w-[200px] h-[200px] rounded-full object-cover shrink-0 z-[2] relative"
-                     style={{ border: '4px solid #0a0a0a', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }} />
-                 )}
-                 <div className="flex-1 min-w-0 z-[2] relative ml-6">
-                   <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Artist</p>
-                   <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>{collectionHub.title}</h1>
-                   <div className="flex items-center gap-3 mt-4">
-                     <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
-                       onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
-                       disabled={!collectionHub.tracks.length}>
-                       <Play size={16} className="mr-1.5" fill="currentColor" /> Play
-                     </Button>
-                     <Button variant="outline" className="rounded-full border-white/20 hover:bg-white/5"
-                       onClick={() => collectionHub.tracks.forEach(t => addToQueue(t))}
-                       disabled={!collectionHub.tracks.length}>
-                       <ListPlus size={16} className="mr-1.5" /> Queue
-                     </Button>
-                   </div>
-                   {collectionHub.artistPopularity != null && (
-                     <div className="text-white/60 text-sm mt-2">{collectionHub.artistPopularity}% Popularity</div>
-                   )}
-                   {collectionHub.artistBio && (
-                     <div className="text-white/50 text-sm mt-2 leading-relaxed max-w-[600px]">
-                       {showFullBio ? collectionHub.artistBio : collectionHub.artistBio.slice(0, 200)}
-                       {collectionHub.artistBio.length > 200 && !showFullBio && (
-                         <button className="text-cyan-400 underline ml-1 hover:text-cyan-300" onClick={() => setShowFullBio(true)}>Read More</button>
-                       )}
-                       {showFullBio && collectionHub.artistBio.length > 200 && (
-                         <button className="text-cyan-400 underline ml-1 hover:text-cyan-300" onClick={() => setShowFullBio(false)}>Show Less</button>
-                       )}
-                     </div>
-                   )}
-                   {collectionHub.artistSocialLinks && collectionHub.artistSocialLinks.length > 0 && (
-                     <div className="flex gap-3 mt-3">
-                       {collectionHub.artistSocialLinks.map((link, idx) => (
-                         <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white/70">
-                           {link.name === 'website' ? <Globe size={14} /> :
-                            <Globe size={14} />}
-                         </a>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+                  {/* Video banner — full cover */}
+                  {artistBannerVideo && (
+                    <video
+                      ref={artistVideoRef}
+                      autoPlay muted loop playsInline
+                      style={{
+                        position: 'absolute',
+                        top: 0, left: 0,
+                        width: '100%', height: '100%',
+                        objectFit: 'cover',
+                        filter: 'brightness(0.6)',
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  {/* Static fallback image */}
+                  {!artistBannerVideo && collectionHub.image && (
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      backgroundImage: `url(${collectionHub.image})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center 25%',
+                      filter: 'brightness(0.5)',
+                      zIndex: 0,
+                    }} />
+                  )}
+                  {/* Dark gradient overlay — fades to black */}
+                  <div style={{
+                    position: 'absolute', inset: 0, zIndex: 1,
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.85) 85%, rgba(0,0,0,1) 100%)',
+                  }} />
+
+                  {/* Back button */}
+                  <Button
+                    variant="secondary" size="icon"
+                    className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-[3] border border-white/10"
+                    onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
+                  >
+                    <ChevronLeft size={20} />
+                  </Button>
+
+                  {/* Artist Info — bottom left */}
+                  <div style={{
+                    position: 'absolute', bottom: 48, left: 48, right: 48, zIndex: 2,
+                    display: 'flex', alignItems: 'flex-end', gap: 32,
+                  }}>
+                    {collectionHub.image && (
+                      <img src={collectionHub.image} alt={collectionHub.title}
+                        style={{
+                          width: 180, height: 180, borderRadius: '50%', objectFit: 'cover',
+                          border: '4px solid rgba(0,0,0,0.3)',
+                          boxShadow: '0 0 40px rgba(0,0,0,0.6)', flexShrink: 0,
+                        }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>Artist</p>
+                      <h1 style={{
+                        fontSize: 'clamp(2rem, 5vw, 4rem)', fontWeight: 800, color: 'white', lineHeight: 1.1,
+                        textShadow: '0 2px 20px rgba(0,0,0,0.8)', margin: '4px 0 12px',
+                      }}>{collectionHub.title}</h1>
+                      {collectionHub.artistPopularity != null && (
+                        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>{collectionHub.artistPopularity}% Popularity</p>
+                      )}
+                      {collectionHub.artistSocialLinks && collectionHub.artistSocialLinks.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          {collectionHub.artistSocialLinks.slice(0, 7).map((link: any, i: number) => {
+                            const url = link.url || '';
+                            let emoji = '🌐';
+                            if (url.includes('twitter') || url.includes('x.com')) emoji = '𝕏';
+                            else if (url.includes('instagram')) emoji = '📷';
+                            else if (url.includes('facebook')) emoji = 'f';
+                            else if (url.includes('youtube')) emoji = '▶';
+                            else if (url.includes('soundcloud')) emoji = '☁';
+                            else if (url.includes('apple')) emoji = '';
+                            return (
+                              <a key={i} href={url} target="_blank" rel="noopener"
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold transition-colors"
+                                title={link.name || link.type || ''}>{emoji}</a>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {collectionHub.artistBio && (
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 500, lineHeight: 1.5, marginTop: 8 }}>
+                          {collectionHub.artistBio.length > 200 && !showFullBio
+                            ? collectionHub.artistBio.slice(0, 200) + '...'
+                            : collectionHub.artistBio}
+                          {collectionHub.artistBio.length > 200 && (
+                            <button onClick={() => setShowFullBio(!showFullBio)}
+                              style={{ color: '#22d3ee', cursor: 'pointer', background: 'none', border: 'none', fontSize: 13, marginLeft: 4, fontWeight: 600 }}>
+                              {showFullBio ? 'Show Less' : 'Read More'}
+                            </button>
+                          )}
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                        <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
+                          onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
+                          disabled={!collectionHub.tracks.length}>
+                          <Play size={16} className="mr-1.5" fill="currentColor" /> Play
+                        </Button>
+                        <Button variant="outline" className="rounded-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => collectionHub.tracks.forEach(t => addToQueue(t))}
+                          disabled={!collectionHub.tracks.length}>
+                          <ListPlus size={16} className="mr-1.5" /> Queue
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                </header>
 
-              {/* Popular Tracks */}
-              {collectionHub.tracks.length > 0 && (
-                <section>
-                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Popular Tracks</h2>
-                  <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
-                    <TrackList tracks={collectionHub.tracks.slice(0, 20)} showAlbumArt showIndex />
-                  </div>
-                </section>
-              )}
+              {/* Content sections */}
+              <div className="space-y-10 pt-0">
 
-              {/* Albums */}
-              {collectionHub.artistAlbums && collectionHub.artistAlbums.length > 0 && (
-                <section>
-                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Albums</h2>
-                  <Grid minSize="180px">
-                    {collectionHub.artistAlbums.slice(0, 12).map((item: any) => (
-                      <Card key={item.id} title={item.title}
-                        subtitle={item.artist?.name || item.artist || ''}
-                        image={getImageUrl(item, '640')}
-                        onClick={() => loadCollection(item, 'album')}
-                        onMenuPlay={() => handleQuickPlayItem(item)}
-                        onMenuAddToQueue={() => handleAddItemToQueue(item)}
-                        onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
-                        menuPlaylists={myPlaylists} />
-                    ))}
-                  </Grid>
-                </section>
-              )}
+               {/* Popular Tracks */}
+               {collectionHub.tracks.length > 0 && (
+                 <section>
+                   <h2 className="text-[1.75rem] font-bold text-white mb-6">Popular Tracks</h2>
+                   <div className="bg-zinc-900/20 rounded-2xl border border-white/5 p-2">
+                     <TrackList tracks={collectionHub.tracks.slice(0, 20)} showAlbumArt showIndex />
+                   </div>
+                 </section>
+               )}
 
-              {/* EPs & Singles */}
-              {collectionHub.artistEPs && collectionHub.artistEPs.length > 0 && (
-                <section>
-                  <h2 className="text-[1.75rem] font-bold text-white mb-6">EPs &amp; Singles</h2>
-                  <Grid minSize="180px">
-                    {collectionHub.artistEPs.slice(0, 12).map((item: any) => (
-                      <Card key={item.id} title={item.title}
-                        subtitle={item.artist?.name || item.artist || ''}
-                        image={getImageUrl(item, '640')}
-                        onClick={() => loadCollection(item, 'album')}
-                        onMenuPlay={() => handleQuickPlayItem(item)}
-                        onMenuAddToQueue={() => handleAddItemToQueue(item)}
-                        onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
-                        menuPlaylists={myPlaylists} />
-                    ))}
-                  </Grid>
-                </section>
-              )}
+               {/* Albums */}
+               {collectionHub.artistAlbums && collectionHub.artistAlbums.length > 0 && (
+                 <section>
+                   <h2 className="text-[1.75rem] font-bold text-white mb-6">Albums</h2>
+                   <Grid minSize="180px">
+                     {collectionHub.artistAlbums.slice(0, 12).map((item: any) => (
+                       <Card key={item.id} title={item.title}
+                         subtitle={item.artist?.name || item.artist || ''}
+                         image={getImageUrl(item, '640')}
+                         onClick={() => loadCollection(item, 'album')}
+                         onMenuPlay={() => handleQuickPlayItem(item)}
+                         onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                         onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                         menuPlaylists={myPlaylists} />
+                     ))}
+                   </Grid>
+                 </section>
+               )}
 
-              {/* Similar Artists */}
-              {collectionHub.similarArtists && collectionHub.similarArtists.length > 0 && (
-                <section>
-                  <h2 className="text-[1.75rem] font-bold text-white mb-6">Similar Artists</h2>
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-4">
-                    {collectionHub.similarArtists.slice(0, 14).map((item: any) => (
-                      <div key={item.id} className="text-center">
-                        <Card title={item.name}
-                          image={getImageUrl(item, '160')}
-                          onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
-                          type="artist" />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
+               {/* EPs & Singles */}
+               {collectionHub.artistEPs && collectionHub.artistEPs.length > 0 && (
+                 <section>
+                   <h2 className="text-[1.75rem] font-bold text-white mb-6">EPs &amp; Singles</h2>
+                   <Grid minSize="180px">
+                     {collectionHub.artistEPs.slice(0, 12).map((item: any) => (
+                       <Card key={item.id} title={item.title}
+                         subtitle={item.artist?.name || item.artist || ''}
+                         image={getImageUrl(item, '640')}
+                         onClick={() => loadCollection(item, 'album')}
+                         onMenuPlay={() => handleQuickPlayItem(item)}
+                         onMenuAddToQueue={() => handleAddItemToQueue(item)}
+                         onMenuAddToPlaylist={(pid) => handleAddItemToPlaylist(item, pid)}
+                         menuPlaylists={myPlaylists} />
+                     ))}
+                   </Grid>
+                 </section>
+               )}
+
+               {/* Similar Artists */}
+               {collectionHub.similarArtists && collectionHub.similarArtists.length > 0 && (
+                 <section>
+                   <h2 className="text-[1.75rem] font-bold text-white mb-6">Similar Artists</h2>
+                   <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-4">
+                     {collectionHub.similarArtists.slice(0, 14).map((item: any) => (
+                       <div key={item.id} className="text-center">
+                         <Card title={item.name}
+                           image={getImageUrl(item, '160')}
+                           onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
+                           type="artist" />
+                       </div>
+                     ))}
+                   </div>
+                 </section>
+               )}
+              </div>
+            </>
           ) : (
             <div className="relative z-10 space-y-12">
               {/* Monochrome-style detail header: image + info side by side */}
