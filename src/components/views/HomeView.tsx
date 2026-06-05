@@ -481,7 +481,7 @@ export default function HomeView() {
 
       // Fetch artist details (popularity, bio, social) for Monochrome-style header
       if (type === 'artist') {
-        const artistId = (item.id || item.uuid || '').replace(/^(mono_|spotify_artist_|spotify_)/, '');
+        const artistId = String(item.id || item.uuid || '').replace(/^(mono_|spotify_artist_|spotify_)/, '');
         if (artistId) {
           getArtist(artistId).then(data => {
             if (data) {
