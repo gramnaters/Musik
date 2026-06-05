@@ -1138,7 +1138,7 @@ const renderHome = () => {
             </div>
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
-            <div className="-mx-8 -mt-8">
+            <div>
               {/* Artist Header — covers full screen top */}
               <header className="flex items-end gap-8 min-h-[550px] px-12 pt-[12rem] pb-16 relative overflow-hidden" style={{
                 background: !artistBannerVideo && collectionHub.image
