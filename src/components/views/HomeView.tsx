@@ -494,6 +494,29 @@ export default function HomeView() {
           }).catch(() => {});
         }
         setShowFullBio(false);
+        // Fetch social links from MusicBrainz
+        const artistName = item.title || item.name || '';
+        if (artistName) {
+          fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=1`, {
+            headers: { 'User-Agent': 'Musik/1.0' }
+          }).then(r => r.ok ? r.json() : null).then(async data => {
+            if (data?.artists?.length) {
+              const mbid = data.artists[0].id;
+              const relRes = await fetch(`https://musicbrainz.org/ws/2/artist/${mbid}?inc=url-rels&fmt=json`, {
+                headers: { 'User-Agent': 'Musik/1.0' }
+              });
+              if (relRes.ok) {
+                const relData = await relRes.json();
+                const allowedTypes = ['social network', 'streaming', 'official homepage', 'youtube', 'soundcloud', 'bandcamp'];
+                const links = (relData.relations || [])
+                  .filter((r: any) => allowedTypes.includes(r.type))
+                  .map((r: any) => ({ name: r.type, url: r.url?.resource || '' }))
+                  .filter((l: any) => l.url && !l.url.includes('tidal.com'));
+                if (links.length) setCollectionHub(h => h ? { ...h, artistSocialLinks: links } : null);
+              }
+            }
+          }).catch(() => {});
+        }
       }
 
       // Fetch similar albums, artists, and artist's other albums/EPs
@@ -1198,7 +1221,7 @@ const renderHome = () => {
                  <div style={{
                    position: 'absolute',
                    inset: 0,
-                   background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 70%, var(--background) 100%)',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 70%, #0a0a0a 100%)',
                    zIndex: 1,
                  }} />
                  {collectionHub.image && (
@@ -1935,6 +1958,23 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black text-white">
+      {/* Album gradient spill — Monochrome-style blurred background */}
+      {collectionHub && !collectionHub.isArtist && collectionHub.image && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[400px] z-[1] overflow-hidden"
+          style={{
+            backgroundImage: `url('${collectionHub.image}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center 25%',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(50px) brightness(0.4)',
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%)',
+            opacity: 1,
+          }}
+        />
+      )}
       {/* Fixed Header: Tabs + Search */}
       <div className={cn(
         "shrink-0 border-b border-white/5 backdrop-blur-xl z-20 sticky top-0 px-10 pt-8 pb-0 transition-colors duration-500",
@@ -2040,7 +2080,7 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
         </div>
       </div>
 
-      <ScrollArea className="h-full custom-scrollbar">
+      <ScrollArea className="h-full custom-scrollbar" style={collectionHub?.isArtist ? { overflowY: 'visible', overflowX: 'hidden' } : undefined}>
         <div className="p-8 pb-44">
           {searchHub ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
