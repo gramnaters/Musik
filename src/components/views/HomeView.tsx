@@ -1185,7 +1185,6 @@ const renderHome = () => {
             <>
                {/* Artist Header — full viewport hero */}
                <header style={{
-                 marginTop: '-2rem',
                  marginLeft: '-2rem',
                  marginRight: '-2rem',
                  height: '100vh',
@@ -1193,96 +1192,62 @@ const renderHome = () => {
                  overflow: 'hidden',
                  background: '#0a0a0a',
                }}>
-                  {/* Video banner — full cover */}
                   {artistBannerVideo && (
-                    <video
-                      ref={artistVideoRef}
-                      autoPlay muted loop playsInline
-                      style={{
-                        position: 'absolute',
-                        top: 0, left: 0,
-                        width: '100%', height: '100%',
-                        objectFit: 'cover',
-                        filter: 'brightness(0.6)',
-                        zIndex: 0,
-                      }}
-                    />
+                    <video ref={artistVideoRef} autoPlay muted loop playsInline
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6)', zIndex: 0 }} />
                   )}
-                  {/* Static fallback image */}
                   {!artistBannerVideo && collectionHub.image && (
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      backgroundImage: `url(${collectionHub.image})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center 25%',
-                      filter: 'brightness(0.5)',
-                      zIndex: 0,
-                    }} />
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${collectionHub.image})`, backgroundSize: 'cover', backgroundPosition: 'center 25%', filter: 'brightness(0.5)', zIndex: 0 }} />
                   )}
-                  {/* Dark gradient overlay — fades to black */}
-                  <div style={{
-                    position: 'absolute', inset: 0, zIndex: 1,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.85) 85%, rgba(0,0,0,1) 100%)',
-                  }} />
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 1,
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.95) 90%, #000 100%)' }} />
 
-                  {/* Back button */}
-                  <Button
-                    variant="secondary" size="icon"
+                  <Button variant="secondary" size="icon"
                     className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-[3] border border-white/10"
-                    onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
-                  >
+                    onClick={() => { setCollectionHub(null); resetVibrantColor(); }}>
                     <ChevronLeft size={20} />
                   </Button>
 
-                  {/* Artist Info — bottom left */}
-                  <div style={{
-                    position: 'absolute', bottom: 48, left: 48, right: 48, zIndex: 2,
-                    display: 'flex', alignItems: 'flex-end', gap: 32,
-                  }}>
+                  <div style={{ position: 'absolute', bottom: 40, left: 32, zIndex: 2, display: 'flex', alignItems: 'flex-end', gap: 24 }}>
                     {collectionHub.image && (
                       <img src={collectionHub.image} alt={collectionHub.title}
-                        style={{
-                          width: 180, height: 180, borderRadius: '50%', objectFit: 'cover',
-                          border: '4px solid rgba(0,0,0,0.3)',
-                          boxShadow: '0 0 40px rgba(0,0,0,0.6)', flexShrink: 0,
-                        }} />
+                        style={{ width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', border: '4px solid rgba(0,0,0,0.3)', boxShadow: '0 0 40px rgba(0,0,0,0.6)', flexShrink: 0 }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>Artist</p>
-                      <h1 style={{
-                        fontSize: 'clamp(2rem, 5vw, 4rem)', fontWeight: 800, color: 'white', lineHeight: 1.1,
-                        textShadow: '0 2px 20px rgba(0,0,0,0.8)', margin: '4px 0 12px',
-                      }}>{collectionHub.title}</h1>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700, margin: 0 }}>Artist</p>
+                      <h1 style={{ fontSize: 52, fontWeight: 800, color: 'white', lineHeight: 1.1, textShadow: '0 2px 20px rgba(0,0,0,0.8)', margin: '2px 0 8px' }}>{collectionHub.title}</h1>
                       {collectionHub.artistPopularity != null && (
-                        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>{collectionHub.artistPopularity}% Popularity</p>
+                        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{collectionHub.artistPopularity}% Popularity</p>
                       )}
                       {collectionHub.artistSocialLinks && collectionHub.artistSocialLinks.length > 0 && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                           {collectionHub.artistSocialLinks.slice(0, 7).map((link: any, i: number) => {
                             const url = link.url || '';
-                            let emoji = '🌐';
-                            if (url.includes('twitter') || url.includes('x.com')) emoji = '𝕏';
-                            else if (url.includes('instagram')) emoji = '📷';
-                            else if (url.includes('facebook')) emoji = 'f';
-                            else if (url.includes('youtube')) emoji = '▶';
-                            else if (url.includes('soundcloud')) emoji = '☁';
-                            else if (url.includes('apple')) emoji = '';
+                            let label = '🌐';
+                            if (url.includes('twitter') || url.includes('x.com')) label = '𝕏';
+                            else if (url.includes('instagram')) label = '📷';
+                            else if (url.includes('facebook')) label = 'f';
+                            else if (url.includes('youtube')) label = '▶';
+                            else if (url.includes('soundcloud')) label = '☁';
+                            else if (url.includes('apple')) label = '';
                             return (
-                              <a key={i} href={url} target="_blank" rel="noopener"
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold transition-colors"
-                                title={link.name || link.type || ''}>{emoji}</a>
+                              <a key={i} href={url} target="_blank" rel="noopener" title={link.name || link.type || ''}
+                                style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 15, textDecoration: 'none', transition: 'background 0.15s' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}>
+                                {label}
+                              </a>
                             );
                           })}
                         </div>
                       )}
                       {collectionHub.artistBio && (
-                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 500, lineHeight: 1.5, marginTop: 8 }}>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 500, lineHeight: 1.5, marginTop: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: showFullBio ? 'unset' : 3, WebkitBoxOrient: 'vertical' }}>
                           {collectionHub.artistBio.length > 200 && !showFullBio
                             ? collectionHub.artistBio.slice(0, 200) + '...'
                             : collectionHub.artistBio}
                           {collectionHub.artistBio.length > 200 && (
-                            <button onClick={() => setShowFullBio(!showFullBio)}
-                              style={{ color: '#22d3ee', cursor: 'pointer', background: 'none', border: 'none', fontSize: 13, marginLeft: 4, fontWeight: 600 }}>
+                            <button onClick={() => setShowFullBio(!showFullBio)} style={{ color: '#22d3ee', cursor: 'pointer', background: 'none', border: 'none', fontSize: 13, marginLeft: 4, fontWeight: 600 }}>
                               {showFullBio ? 'Show Less' : 'Read More'}
                             </button>
                           )}
@@ -1304,7 +1269,6 @@ const renderHome = () => {
                   </div>
                </header>
 
-              {/* Content sections */}
               <div className="space-y-10 pt-0">
 
                {/* Popular Tracks */}
