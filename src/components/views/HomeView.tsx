@@ -1860,31 +1860,22 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black text-white">
       {/* Album gradient spill — extends behind header */}
       {collectionHub?.image && (
-        <>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[520px] z-[1] overflow-hidden"
-            style={{
-              backgroundImage: `url('${collectionHub.image}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center 25%',
-              backgroundRepeat: 'no-repeat',
-              filter: 'blur(60px) brightness(0.5) saturate(1.7)',
-              WebkitMaskImage:
-                'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
-              maskImage:
-                'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
-              opacity: 0.9,
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[520px] z-[1] overflow-hidden"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,1) 100%)',
-            }}
-          />
-        </>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[520px] z-[1] overflow-hidden"
+          style={{
+            backgroundImage: `url('${collectionHub.image}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center 25%',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(60px) brightness(0.5) saturate(1.7)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
+            maskImage:
+              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
+            opacity: 0.9,
+          }}
+        />
       )}
       {collectionHub && !collectionHub.image && (
         <div
