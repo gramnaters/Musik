@@ -312,11 +312,23 @@ export default function HomeView() {
 
   const getImageUrl = (item: any, size = '640') => {
     if (!item) return '';
-    let uuid = item.squareImage || item.image || item.picture || item.albumCover || item.album?.cover || item.cover || item.artworkURL;
+    let rawValue = item.squareImage || item.cover || item.image || item.picture || item.albumCover || item.album?.cover || item.artworkURL;
+    let uuid: string | null = null;
+    if (!rawValue) {
+      uuid = null;
+    } else if (typeof rawValue === 'string') {
+      uuid = rawValue;
+    } else if (rawValue.uuid) {
+      uuid = rawValue.uuid;
+    } else if (rawValue.id) {
+      uuid = rawValue.id;
+    } else if (rawValue.cover) {
+      uuid = rawValue.cover;
+    }
     if (typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
       return `/api/cover?id=${uuid}&size=${size}`;
     }
-    if (typeof uuid === 'string' && uuid.startsWith('/api/cover') || uuid.includes('cover?id=')) {
+    if (typeof uuid === 'string' && (uuid.startsWith('/api/cover') || uuid.includes('cover?id='))) {
       return uuid;
     }
     
@@ -1017,7 +1029,7 @@ const renderHome = () => {
                 <div key={item.id} className="shrink-0 w-32 text-center">
                   <Card
                     title={item.name}
-                    image={item.picture ? `/api/cover?id=${item.picture}&size=160` : ''}
+                    image={getImageUrl(item, '160')}
                     onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
                     type="artist"
                   />
@@ -1128,10 +1140,13 @@ const renderHome = () => {
             /* ─── ARTIST PAGE ─── */
             <div className="-mx-8 -mt-8">
               {/* Artist Header — covers full screen top */}
-              <header className="flex items-end gap-8 min-h-[520px] px-8 pt-[140px] pb-10 relative" style={{
+              <header className="flex items-end gap-8 min-h-[550px] px-12 pt-[12rem] pb-16 relative overflow-hidden" style={{
                 background: !artistBannerVideo && collectionHub.image
                   ? `url(${collectionHub.image}) center/cover`
-                  : '#12101a'
+                  : '#12101a',
+                marginTop: '-8rem',
+                marginLeft: '-2rem',
+                marginRight: '-2rem',
               }}>
                 {/* Back button */}
                 <Button
@@ -1227,7 +1242,7 @@ const renderHome = () => {
                     {collectionHub.similarArtists.slice(0, 14).map((item: any) => (
                       <div key={item.id} className="text-center">
                         <Card title={item.name}
-                          image={item.picture ? (typeof item.picture === 'string' && item.picture.startsWith('http') ? item.picture : `/api/cover?id=${item.picture}&size=160`) : ''}
+                          image={getImageUrl(item, '160')}
                           onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
                           type="artist" />
                       </div>
@@ -1512,7 +1527,7 @@ const renderHome = () => {
                       <div key={item.id} className="text-center">
                         <Card
                           title={item.name}
-                          image={item.picture ? (typeof item.picture === 'string' && item.picture.startsWith('http') ? item.picture : `/api/cover?id=${item.picture}&size=160`) : ''}
+                          image={getImageUrl(item, '160')}
                           onClick={() => loadCollection({ ...item, id: item.id }, 'artist')}
                           type="artist"
                         />
