@@ -33,6 +33,7 @@ import { resolveAssetUrl, proxiedRemoteUrl } from '@/lib/resolve-asset-url';
 import { mapMetadataSearchTrack } from '@/lib/map-metadata-track';
 import { extractVibrantColor, applyVibrantColor, resetVibrantColor } from '@/lib/vibrant-color';
 import { getArtistBanner } from '@/lib/artist-banner';
+import { getArtist, getArtistBio } from '@/lib/monochrome';
 import Hls from 'hls.js';
 import { formatDuration } from '@/lib/demo-data';
 
@@ -227,6 +228,7 @@ export default function HomeView() {
   const [searchTab, setSearchTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists'>('tracks');
   const [searchHub, setSearchHub] = useState<{ title: string; subtitle?: string; tracks: Track[]; loading: boolean; coverUrl?: string } | null>(null);
   const [artistBannerVideo, setArtistBannerVideo] = useState<string | null>(null);
+  const [showFullBio, setShowFullBio] = useState(false);
   const artistVideoRef = useRef<HTMLVideoElement | null>(null);
   const artistHlsRef = useRef<Hls | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -257,6 +259,8 @@ export default function HomeView() {
     similarArtists?: any[];
     isArtist?: boolean;
     artistBio?: string;
+    artistPopularity?: number;
+    artistSocialLinks?: { name: string; url: string }[];
   } | null>(null);
   
   const { play, addToQueue, currentTrack, isPlaying } = usePlayerStore();
@@ -473,6 +477,23 @@ export default function HomeView() {
         }).catch(() => {});
       } else {
         setArtistBannerVideo(null);
+      }
+
+      // Fetch artist details (popularity, bio, social) for Monochrome-style header
+      if (type === 'artist') {
+        const artistId = (item.id || item.uuid || '').replace(/^(mono_|spotify_artist_|spotify_)/, '');
+        if (artistId) {
+          getArtist(artistId).then(data => {
+            if (data) {
+              const links = data.socialLinks || data.urls || data.links || [];
+              setCollectionHub(h => h ? { ...h, artistPopularity: data.popularity ?? data.followers, artistSocialLinks: Array.isArray(links) ? links : [] } : null);
+            }
+          }).catch(() => {});
+          getArtistBio(artistId).then(bio => {
+            if (bio) setCollectionHub(h => h ? { ...h, artistBio: String(bio) } : null);
+          }).catch(() => {});
+        }
+        setShowFullBio(false);
       }
 
       // Fetch similar albums, artists, and artist's other albums/EPs
@@ -1139,52 +1160,93 @@ const renderHome = () => {
           ) : collectionHub.isArtist ? (
             /* ─── ARTIST PAGE ─── */
             <div>
-              {/* Artist Header — covers full screen top */}
-              <header className="flex items-end gap-8 min-h-[550px] px-12 pt-[12rem] pb-16 relative overflow-hidden" style={{
-                background: !artistBannerVideo && collectionHub.image
-                  ? `url(${collectionHub.image}) center/cover`
-                  : '#12101a',
-                marginTop: '-8rem',
-                marginLeft: '-2rem',
-                marginRight: '-2rem',
-              }}>
-                {/* Back button */}
-                <Button
-                  variant="secondary" size="icon"
-                  className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-20 border border-white/10"
-                  onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
-                >
-                  <ChevronLeft size={20} />
-                </Button>
-                {artistBannerVideo && (
-                  <video
-                    ref={artistVideoRef}
-                    autoPlay muted loop playsInline
-                    className="absolute inset-0 w-full h-full object-cover z-0"
-                    style={{ filter: 'brightness(0.5)' }}
-                  />
-                )}
-                {collectionHub.image && (
-                  <img src={collectionHub.image} alt={collectionHub.title}
-                    className="w-[180px] h-[180px] rounded-full border-4 border-black/40 shadow-2xl object-cover shrink-0 z-10" />
-                )}
-                <div className="flex-1 min-w-0 z-10">
-                  <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Artist</p>
-                  <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight drop-shadow-lg">{collectionHub.title}</h1>
-                  <div className="flex items-center gap-3 mt-4">
-                    <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
-                      onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
-                      disabled={!collectionHub.tracks.length}>
-                      <Play size={16} className="mr-1.5" fill="currentColor" /> Play
-                    </Button>
-                    <Button variant="outline" className="rounded-full border-white/20 hover:bg-white/5"
-                      onClick={() => collectionHub.tracks.forEach(t => addToQueue(t))}
-                      disabled={!collectionHub.tracks.length}>
-                      <ListPlus size={16} className="mr-1.5" /> Queue
-                    </Button>
-                  </div>
-                </div>
-              </header>
+               {/* Artist Header — Monochrome style */}
+               <header style={{
+                 marginTop: '-8rem',
+                 marginLeft: '-2rem',
+                 marginRight: '-2rem',
+                 padding: '12rem 3rem 4rem',
+                 minHeight: '550px',
+                 position: 'relative',
+                 overflow: 'hidden',
+                 display: 'flex',
+                 alignItems: 'flex-end',
+                 background: '#12101a',
+               }}>
+                 {/* Back button */}
+                 <Button
+                   variant="secondary" size="icon"
+                   className="absolute top-4 left-4 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm z-[2] border border-white/10"
+                   onClick={() => { setCollectionHub(null); resetVibrantColor(); }}
+                 >
+                   <ChevronLeft size={20} />
+                 </Button>
+                 {artistBannerVideo && (
+                   <video
+                     ref={artistVideoRef}
+                     autoPlay muted loop playsInline
+                     style={{
+                       position: 'absolute',
+                       top: 0, left: 0,
+                       width: '100%', height: '100%',
+                       objectFit: 'cover',
+                       filter: 'brightness(0.6)',
+                       zIndex: 0,
+                     }}
+                   />
+                 )}
+                 <div style={{
+                   position: 'absolute',
+                   inset: 0,
+                   background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 70%, var(--background) 100%)',
+                   zIndex: 1,
+                 }} />
+                 {collectionHub.image && (
+                   <img src={collectionHub.image} alt={collectionHub.title}
+                     className="w-[200px] h-[200px] rounded-full object-cover shrink-0 z-[2] relative"
+                     style={{ border: '4px solid #0a0a0a', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }} />
+                 )}
+                 <div className="flex-1 min-w-0 z-[2] relative ml-6">
+                   <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Artist</p>
+                   <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>{collectionHub.title}</h1>
+                   <div className="flex items-center gap-3 mt-4">
+                     <Button className="bg-white text-black rounded-full font-bold px-6 hover:bg-white/90"
+                       onClick={() => { play(collectionHub.tracks[0], collectionHub.tracks, 0); collectionHub.tracks.forEach(t => addRecentlyPlayed(t)); }}
+                       disabled={!collectionHub.tracks.length}>
+                       <Play size={16} className="mr-1.5" fill="currentColor" /> Play
+                     </Button>
+                     <Button variant="outline" className="rounded-full border-white/20 hover:bg-white/5"
+                       onClick={() => collectionHub.tracks.forEach(t => addToQueue(t))}
+                       disabled={!collectionHub.tracks.length}>
+                       <ListPlus size={16} className="mr-1.5" /> Queue
+                     </Button>
+                   </div>
+                   {collectionHub.artistPopularity != null && (
+                     <div className="text-white/60 text-sm mt-2">{collectionHub.artistPopularity}% Popularity</div>
+                   )}
+                   {collectionHub.artistBio && (
+                     <div className="text-white/50 text-sm mt-2 leading-relaxed max-w-[600px]">
+                       {showFullBio ? collectionHub.artistBio : collectionHub.artistBio.slice(0, 200)}
+                       {collectionHub.artistBio.length > 200 && !showFullBio && (
+                         <button className="text-cyan-400 underline ml-1 hover:text-cyan-300" onClick={() => setShowFullBio(true)}>Read More</button>
+                       )}
+                       {showFullBio && collectionHub.artistBio.length > 200 && (
+                         <button className="text-cyan-400 underline ml-1 hover:text-cyan-300" onClick={() => setShowFullBio(false)}>Show Less</button>
+                       )}
+                     </div>
+                   )}
+                   {collectionHub.artistSocialLinks && collectionHub.artistSocialLinks.length > 0 && (
+                     <div className="flex gap-3 mt-3">
+                       {collectionHub.artistSocialLinks.map((link, idx) => (
+                         <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white/70">
+                           {link.name === 'website' ? <Globe size={14} /> :
+                            <Globe size={14} />}
+                         </a>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+               </header>
 
               {/* Popular Tracks */}
               {collectionHub.tracks.length > 0 && (
@@ -1873,36 +1935,6 @@ menuPlaylists={section.type === 'PLAYLIST_LIST' || section.type === 'ALBUM_LIST'
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black text-white">
-      {/* Album gradient spill — extends behind header */}
-      {collectionHub?.image && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[520px] z-[1] overflow-hidden"
-          style={{
-            backgroundImage: `url('${collectionHub.image}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center 25%',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(60px) brightness(0.5) saturate(1.7)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
-            maskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0) 100%)',
-            opacity: 0.9,
-          }}
-        />
-      )}
-      {collectionHub && !collectionHub.image && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] min-h-[520px] z-[1] overflow-hidden"
-          style={{
-            background: 'linear-gradient(to bottom, var(--primary) 0%, transparent 100%)',
-            opacity: 0.3,
-          }}
-        />
-      )}
-
       {/* Fixed Header: Tabs + Search */}
       <div className={cn(
         "shrink-0 border-b border-white/5 backdrop-blur-xl z-20 sticky top-0 px-10 pt-8 pb-0 transition-colors duration-500",
